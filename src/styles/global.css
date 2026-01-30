@@ -81,4 +81,61 @@ input, textarea {
   .safe-bottom {
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
+  
+  .safe-top {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+
+/* Mobile-first enhancements */
+html {
+  /* Prevent zoom on input focus */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent pull-to-refresh on mobile */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Better touch targets for mobile */
+button, a, input[type="checkbox"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Smooth scrolling on iOS */
+.main-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text selection on UI elements */
+.tab-bar, .tab-item, button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Active states for mobile touch feedback */
+@media (hover: none) {
+  .tab-item:active .tab-icon-wrapper {
+    transform: scale(0.95);
+  }
+  
+  button:active {
+    opacity: 0.8;
+  }
+}
+
+/* Center modal on mobile */
+@media (max-width: 480px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .modal-content {
+    border-radius: 20px;
+    max-height: 80vh;
+  }
 }

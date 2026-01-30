@@ -35,6 +35,7 @@ function LoadingScreen({ onFinish }: { onFinish: () => void }) {
 function TabBar() {
   const location = useLocation();
   const { logout, user } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const tabs = [
     { path: '/', label: 'Reminders', iconActive: IoCheckbox, iconInactive: IoCheckboxOutline },
@@ -42,27 +43,51 @@ function TabBar() {
     { path: '/workout', label: 'Workout', iconActive: IoFitness, iconInactive: IoFitnessOutline },
   ];
 
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    logout();
+  };
+
   return (
-    <nav className="tab-bar safe-bottom">
-      {tabs.map((tab) => {
-        const isActive = location.pathname === tab.path;
-        const Icon = isActive ? tab.iconActive : tab.iconInactive;
-        return (
-          <NavLink key={tab.path} to={tab.path} className={`tab-item ${isActive ? 'active' : ''}`}>
-            <div className={`tab-icon-wrapper ${isActive ? 'active' : ''}`}>
-              <Icon size={24} color={isActive ? colors.accent : colors.textMuted} />
+    <>
+      <nav className="tab-bar safe-bottom">
+        {tabs.map((tab) => {
+          const isActive = location.pathname === tab.path;
+          const Icon = isActive ? tab.iconActive : tab.iconInactive;
+          return (
+            <NavLink key={tab.path} to={tab.path} className={`tab-item ${isActive ? 'active' : ''}`}>
+              <div className={`tab-icon-wrapper ${isActive ? 'active' : ''}`}>
+                <Icon size={24} color={isActive ? colors.accent : colors.textMuted} />
+              </div>
+              <span className="tab-label">{tab.label}</span>
+            </NavLink>
+          );
+        })}
+        <button className="tab-item logout-button" onClick={handleLogoutClick} title={`Logout ${user?.name || ''}`}>
+          <div className="tab-icon-wrapper">
+            <IoLogOutOutline size={24} color={colors.textMuted} />
+          </div>
+          <span className="tab-label">Logout</span>
+        </button>
+      </nav>
+
+      {showLogoutConfirm && (
+        <div className="modal-overlay" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="logout-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Logout?</h3>
+            <p>Are you sure you want to sign out{user?.name ? `, ${user.name}` : ''}?</p>
+            <div className="logout-confirm-buttons">
+              <button className="cancel-btn" onClick={() => setShowLogoutConfirm(false)}>Cancel</button>
+              <button className="confirm-btn" onClick={confirmLogout}>Logout</button>
             </div>
-            <span className="tab-label">{tab.label}</span>
-          </NavLink>
-        );
-      })}
-      <button className="tab-item logout-button" onClick={logout} title={`Logout ${user?.name || ''}`}>
-        <div className="tab-icon-wrapper">
-          <IoLogOutOutline size={24} color={colors.textMuted} />
+          </div>
         </div>
-        <span className="tab-label">Logout</span>
-      </button>
-    </nav>
+      )}
+    </>
   );
 }
 

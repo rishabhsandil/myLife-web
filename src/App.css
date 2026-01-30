@@ -121,3 +121,74 @@
 .logout-button:hover .tab-label {
   color: #EF4444;
 }
+
+/* Logout Confirmation Modal */
+.logout-confirm-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin: 20px;
+  max-width: 320px;
+  text-align: center;
+  animation: scaleIn 0.2s ease;
+}
+
+.logout-confirm-modal h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 8px;
+}
+
+.logout-confirm-modal p {
+  color: #64748B;
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+
+.logout-confirm-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.logout-confirm-buttons button {
+  flex: 1;
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.logout-confirm-buttons .cancel-btn {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.logout-confirm-buttons .cancel-btn:hover {
+  background: #E2E8F0;
+}
+
+.logout-confirm-buttons .confirm-btn {
+  background: #EF4444;
+  color: white;
+}
+
+.logout-confirm-buttons .confirm-btn:hover {
+  background: #DC2626;
+}
+
+/* Mobile Enhancements */
+@media (max-width: 480px) {
+  .tab-item {
+    padding: 8px 10px;
+  }
+  
+  .tab-label {
+    font-size: 11px;
+  }
+  
+  .tab-icon-wrapper {
+    padding: 5px 10px;
+  }
+}
