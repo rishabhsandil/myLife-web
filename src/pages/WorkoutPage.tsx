@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
-  IoAdd, IoClose, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings
+  IoAdd, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings
 } from 'react-icons/io5';
 import { Exercise, BodyPart } from '../types';
 import { 
   getExercises, saveExercise, updateExercise, deleteExercise as apiDeleteExercise,
   getBodyParts, saveBodyPart, updateBodyPart, deleteBodyPart as apiDeleteBodyPart
-} from '../utils/api';
+} from '../utils/api.ts';
+import { Modal, ModalFooter, FormGroup, FormRow, NumberControl, ColorPicker, FAB, EmptyState } from '../components';
+import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './WorkoutPage.css';
 
@@ -19,9 +21,9 @@ export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>('');
-  const [showModal, setShowModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  
+  const exerciseModal = useModal<Exercise>();
+  const settingsModal = useModal();
 
   // Exercise form state
   const [exerciseName, setExerciseName] = useState('');
@@ -53,31 +55,33 @@ export default function WorkoutPage() {
   const currentBodyPart = bodyParts.find(bp => bp.id === selectedBodyPart);
   const filteredExercises = exercises.filter(e => e.bodyPart === selectedBodyPart);
 
-  const openAddModal = () => {
-    setEditingExercise(null);
+  const resetExerciseForm = () => {
     setExerciseName('');
     setFormSets(3);
     setFormReps(10);
     setFormWeight(0);
-    setShowModal(true);
+  };
+
+  const openAddModal = () => {
+    resetExerciseForm();
+    exerciseModal.open();
   };
 
   const openEditModal = (exercise: Exercise) => {
-    setEditingExercise(exercise);
     setExerciseName(exercise.name);
     setFormSets(exercise.sets);
     setFormReps(exercise.reps);
     setFormWeight(exercise.weight);
-    setShowModal(true);
+    exerciseModal.open(exercise);
   };
 
   const handleSave = async () => {
     if (!exerciseName.trim()) return;
 
-    if (editingExercise) {
+    if (exerciseModal.data) {
       // Update existing
       const updated: Exercise = {
-        ...editingExercise,
+        ...exerciseModal.data,
         name: exerciseName.trim(),
         sets: formSets,
         reps: formReps,
@@ -99,8 +103,7 @@ export default function WorkoutPage() {
       setExercises([...exercises, newExercise]);
     }
 
-    setShowModal(false);
-    setEditingExercise(null);
+    exerciseModal.close();
   };
 
   const handleDeleteExercise = async (id: string) => {
@@ -117,6 +120,12 @@ export default function WorkoutPage() {
     setEditingBodyPart(bp);
     setBpName(bp.name);
     setBpColor(bp.color);
+  };
+
+  const resetBodyPartForm = () => {
+    setEditingBodyPart(null);
+    setBpName('');
+    setBpColor(COLOR_OPTIONS[0]);
   };
 
   const handleSaveBodyPart = async () => {
@@ -139,17 +148,13 @@ export default function WorkoutPage() {
       }
     }
 
-    setEditingBodyPart(null);
-    setBpName('');
-    setBpColor(COLOR_OPTIONS[0]);
+    resetBodyPartForm();
   };
 
   const handleDeleteBodyPart = async (id: string) => {
     await apiDeleteBodyPart(id);
     setBodyParts(bodyParts.filter(bp => bp.id !== id));
-    // Also remove exercises for this body part
     setExercises(exercises.filter(e => e.bodyPart !== id));
-    // Select another body part if current is deleted
     if (selectedBodyPart === id) {
       const remaining = bodyParts.filter(bp => bp.id !== id);
       setSelectedBodyPart(remaining.length > 0 ? remaining[0].id : '');
@@ -168,7 +173,7 @@ export default function WorkoutPage() {
           <h1 className="header-title">Workout Plan</h1>
           <p className="header-subtitle">Your exercises & PRs 💪</p>
         </div>
-        <button className="settings-btn" onClick={() => setShowSettingsModal(true)}>
+        <button className="settings-btn" onClick={() => settingsModal.open()}>
           <IoSettings size={22} />
         </button>
       </header>
@@ -183,9 +188,6 @@ export default function WorkoutPage() {
             onClick={() => setSelectedBodyPart(part.id)}
           >
             {part.name}
-            <span className="body-part-count">
-              {exercises.filter(e => e.bodyPart === part.id).length}
-            </span>
           </button>
         ))}
       </div>
@@ -202,21 +204,17 @@ export default function WorkoutPage() {
       {/* Exercises List */}
       <div className="exercises-container">
         {bodyParts.length === 0 ? (
-          <div className="empty-state">
-            <IoSettings size={48} color={colors.textMuted} />
-            <p>No workout splits configured</p>
-            <button className="add-exercise-btn" onClick={() => setShowSettingsModal(true)}>
-              <IoSettings size={20} /> Configure Splits
-            </button>
-          </div>
+          <EmptyState
+            icon={IoSettings}
+            message="No workout splits configured"
+            action={{ label: 'Configure Splits', icon: IoSettings, onClick: () => settingsModal.open() }}
+          />
         ) : filteredExercises.length === 0 ? (
-          <div className="empty-state">
-            <IoBarbell size={48} color={colors.textMuted} />
-            <p>No exercises for {currentBodyPart?.name || 'this split'}</p>
-            <button className="add-exercise-btn" onClick={openAddModal}>
-              <IoAdd size={20} /> Add Exercise
-            </button>
-          </div>
+          <EmptyState
+            icon={IoBarbell}
+            message={`No exercises for ${currentBodyPart?.name || 'this split'}`}
+            action={{ label: 'Add Exercise', icon: IoAdd, onClick: openAddModal }}
+          />
         ) : (
           <div className="exercises-list">
             {filteredExercises.map(exercise => (
@@ -253,172 +251,118 @@ export default function WorkoutPage() {
       </div>
 
       {/* FAB */}
-      {bodyParts.length > 0 && (
-        <button className="fab" onClick={openAddModal}>
-          <IoAdd size={28} />
-        </button>
-      )}
+      {bodyParts.length > 0 && <FAB onClick={openAddModal} />}
 
       {/* Add/Edit Exercise Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingExercise ? 'Edit Exercise' : 'Add Exercise'}</h2>
-              <button onClick={() => setShowModal(false)}>
-                <IoClose size={24} color={colors.textSecondary} />
-              </button>
-            </div>
+      <Modal
+        isOpen={exerciseModal.isOpen}
+        onClose={exerciseModal.close}
+        title={exerciseModal.data ? 'Edit Exercise' : 'Add Exercise'}
+        footer={
+          <ModalFooter
+            onCancel={exerciseModal.close}
+            onSubmit={handleSave}
+            submitText={exerciseModal.data ? 'Save Changes' : 'Add Exercise'}
+            submitDisabled={!exerciseName.trim()}
+          />
+        }
+      >
+        <FormGroup label="Exercise Name">
+          <input
+            type="text"
+            value={exerciseName}
+            onChange={e => setExerciseName(e.target.value)}
+            placeholder="e.g., Bench Press"
+            autoFocus
+          />
+        </FormGroup>
 
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Exercise Name</label>
-                <input
-                  type="text"
-                  value={exerciseName}
-                  onChange={e => setExerciseName(e.target.value)}
-                  placeholder="e.g., Bench Press"
-                  autoFocus
-                />
-              </div>
+        <FormRow>
+          <FormGroup label="Sets">
+            <NumberControl value={formSets} onChange={setFormSets} min={1} />
+          </FormGroup>
+          <FormGroup label="Reps">
+            <NumberControl value={formReps} onChange={setFormReps} min={1} />
+          </FormGroup>
+        </FormRow>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Sets</label>
-                  <div className="number-control">
-                    <button onClick={() => setFormSets(Math.max(1, formSets - 1))}>-</button>
-                    <span>{formSets}</span>
-                    <button onClick={() => setFormSets(formSets + 1)}>+</button>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Reps</label>
-                  <div className="number-control">
-                    <button onClick={() => setFormReps(Math.max(1, formReps - 1))}>-</button>
-                    <span>{formReps}</span>
-                    <button onClick={() => setFormReps(formReps + 1)}>+</button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>PR Weight (kg)</label>
-                <input
-                  type="number"
-                  value={formWeight}
-                  onChange={e => setFormWeight(Number(e.target.value))}
-                  placeholder="0"
-                  min="0"
-                  step="2.5"
-                />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="btn secondary" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn primary" onClick={handleSave} disabled={!exerciseName.trim()}>
-                {editingExercise ? 'Save Changes' : 'Add Exercise'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        <FormGroup label="PR Weight (kg)">
+          <input
+            type="number"
+            value={formWeight}
+            onChange={e => setFormWeight(Number(e.target.value))}
+            placeholder="0"
+            min="0"
+            step="2.5"
+          />
+        </FormGroup>
+      </Modal>
 
       {/* Settings Modal - Manage Body Parts */}
-      {showSettingsModal && (
-        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
-          <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Workout Splits</h2>
-              <button onClick={() => setShowSettingsModal(false)}>
-                <IoClose size={24} color={colors.textSecondary} />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {/* Existing body parts */}
-              <div className="body-parts-list">
-                {bodyParts.map(bp => (
-                  <div key={bp.id} className="body-part-item">
-                    <div className="body-part-color" style={{ background: bp.color }} />
-                    {editingBodyPart?.id === bp.id ? (
-                      <>
-                        <input
-                          type="text"
-                          value={bpName}
-                          onChange={e => setBpName(e.target.value)}
-                          className="body-part-input"
-                          autoFocus
-                        />
-                        <div className="color-picker">
-                          {COLOR_OPTIONS.map(c => (
-                            <button
-                              key={c}
-                              className={`color-option ${bpColor === c ? 'active' : ''}`}
-                              style={{ background: c }}
-                              onClick={() => setBpColor(c)}
-                            />
-                          ))}
-                        </div>
-                        <button className="save-bp-btn" onClick={handleSaveBodyPart}>Save</button>
-                        <button className="cancel-bp-btn" onClick={() => setEditingBodyPart(null)}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="body-part-name">{bp.name}</span>
-                        <span className="body-part-exercise-count">
-                          {exercises.filter(e => e.bodyPart === bp.id).length} exercises
-                        </span>
-                        <button className="edit-bp-btn" onClick={() => openEditBodyPart(bp)}>
-                          <IoPencil size={16} />
-                        </button>
-                        <button className="delete-bp-btn" onClick={() => handleDeleteBodyPart(bp.id)}>
-                          <IoTrash size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Add new body part */}
-              {!editingBodyPart && (
-                <div className="add-body-part">
+      <Modal
+        isOpen={settingsModal.isOpen}
+        onClose={settingsModal.close}
+        title="Workout Splits"
+        className="settings-modal"
+        footer={<button className="btn secondary" onClick={settingsModal.close}>Done</button>}
+      >
+        {/* Existing body parts */}
+        <div className="body-parts-list">
+          {bodyParts.map(bp => (
+            <div key={bp.id} className="body-part-item">
+              <div className="body-part-color" style={{ background: bp.color }} />
+              {editingBodyPart?.id === bp.id ? (
+                <>
                   <input
                     type="text"
                     value={bpName}
                     onChange={e => setBpName(e.target.value)}
-                    placeholder="New split name (e.g., Push)"
                     className="body-part-input"
+                    autoFocus
                   />
-                  <div className="color-picker">
-                    {COLOR_OPTIONS.map(c => (
-                      <button
-                        key={c}
-                        className={`color-option ${bpColor === c ? 'active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setBpColor(c)}
-                      />
-                    ))}
-                  </div>
-                  <button 
-                    className="btn primary add-bp-btn" 
-                    onClick={handleSaveBodyPart}
-                    disabled={!bpName.trim()}
-                  >
-                    <IoAdd size={18} /> Add Split
+                  <ColorPicker colors={COLOR_OPTIONS} value={bpColor} onChange={setBpColor} />
+                  <button className="save-bp-btn" onClick={handleSaveBodyPart}>Save</button>
+                  <button className="cancel-bp-btn" onClick={resetBodyPartForm}>✕</button>
+                </>
+              ) : (
+                <>
+                  <span className="body-part-name">{bp.name}</span>
+                  <span className="body-part-exercise-count">
+                    {exercises.filter(e => e.bodyPart === bp.id).length} exercises
+                  </span>
+                  <button className="edit-bp-btn" onClick={() => openEditBodyPart(bp)}>
+                    <IoPencil size={16} />
                   </button>
-                </div>
+                  <button className="delete-bp-btn" onClick={() => handleDeleteBodyPart(bp.id)}>
+                    <IoTrash size={16} />
+                  </button>
+                </>
               )}
             </div>
-
-            <div className="modal-footer">
-              <button className="btn secondary" onClick={() => setShowSettingsModal(false)}>Done</button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+
+        {/* Add new body part */}
+        {!editingBodyPart && (
+          <div className="add-body-part">
+            <input
+              type="text"
+              value={bpName}
+              onChange={e => setBpName(e.target.value)}
+              placeholder="New split name (e.g., Push)"
+              className="body-part-input"
+            />
+            <ColorPicker colors={COLOR_OPTIONS} value={bpColor} onChange={setBpColor} />
+            <button 
+              className="btn primary add-bp-btn" 
+              onClick={handleSaveBodyPart}
+              disabled={!bpName.trim()}
+            >
+              <IoAdd size={18} /> Add Split
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

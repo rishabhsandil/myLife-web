@@ -1,0 +1,30 @@
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: #94A3B8;
+}
+
+.empty-state p {
+  margin: 16px 0;
+  font-size: 15px;
+}
+
+.empty-state-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #6366F1;
+  color: white;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.empty-state-btn:hover {
+  background: #4F46E5;
+}

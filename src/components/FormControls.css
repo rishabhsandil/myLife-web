@@ -1,0 +1,172 @@
+/* Form Group */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="date"],
+.form-group input[type="time"],
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #6366F1;
+}
+
+/* Form Row */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Number Control */
+.number-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.number-control button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #F1F5F9;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.number-control button:hover:not(:disabled) {
+  background: #E2E8F0;
+}
+
+.number-control button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.number-control span {
+  min-width: 40px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+/* Quantity Control (Shopping specific) */
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quantity-control button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #F1F5F9;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-control button:hover {
+  background: #E2E8F0;
+}
+
+.quantity-control span {
+  min-width: 40px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+/* Option Pills */
+.option-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #F1F5F9;
+  color: #64748B;
+  transition: all 0.2s;
+}
+
+.pill:hover {
+  background: #E2E8F0;
+}
+
+.pill.active {
+  background: var(--pill-color, #6366F1);
+  color: white;
+}
+
+/* Color Picker */
+.color-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.color-option.active {
+  border-color: white;
+  box-shadow: 0 0 0 2px currentColor;
+}
+
+/* Checkbox Label */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #6366F1;
+}
+
+.checkbox-label span {
+  font-size: 14px;
+  color: #64748B;
+}

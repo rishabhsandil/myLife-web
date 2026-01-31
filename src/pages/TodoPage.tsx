@@ -6,7 +6,9 @@ import {
   IoStar
 } from 'react-icons/io5';
 import { TodoItem, Priority, RecurrenceType } from '../types';
-import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, exportBackup, importBackup } from '../utils/api';
+import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, exportBackup, importBackup } from '../utils/api.ts';
+import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, FAB, EmptyState } from '../components';
+import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import logo from '../assets/logo.png';
 import './TodoPage.css';
@@ -28,14 +30,20 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
   { key: 'high', label: 'High', color: colors.error },
 ];
 
+// Date helper functions
+const formatDateInput = (date: Date): string => date.toISOString().split('T')[0];
+const formatDateKey = (date: Date): string => date.toISOString().split('T')[0];
+const formatDate = (date: Date): string => `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(new Date());
+
 export default function TodoPage() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showBackupModal, setShowBackupModal] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null);
+  
+  const taskModal = useModal<TodoItem>();
+  const backupModal = useModal();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -55,30 +63,12 @@ export default function TodoPage() {
     setTodos(data);
   }
 
-  function formatDateInput(date: Date): string {
-    return date.toISOString().split('T')[0];
-  }
-
-  function formatDate(date: Date): string {
-    return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-  }
-
-  function formatDateKey(date: Date): string {
-    return date.toISOString().split('T')[0];
-  }
-
-  function isToday(date: Date): boolean {
-    const today = new Date();
-    return formatDateKey(date) === formatDateKey(today);
-  }
-
   const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
     const dateKey = formatDateKey(date);
     const todoDate = new Date(todo.date);
     const todoDateKey = formatDateKey(todoDate);
 
     if (todo.excludedDates?.includes(dateKey)) return false;
-
     if (todo.recurrence === 'none') return todoDateKey === dateKey;
     if (new Date(dateKey) < new Date(todoDateKey)) return false;
 
@@ -102,37 +92,6 @@ export default function TodoPage() {
     return todos.filter(todo => shouldShowOnDate(todo, selectedDate));
   }, [todos, selectedDate]);
 
-  const handleSave = async () => {
-    if (!title.trim()) return;
-
-    const todoData: TodoItem = {
-      id: editingTodo?.id || Date.now().toString(),
-      title: title.trim(),
-      description: description.trim() || undefined,
-      completed: false,
-      date: taskDate,
-      time: time || undefined,
-      priority,
-      recurrence,
-      isEvent,
-      completedDates: editingTodo?.completedDates || [],
-      excludedDates: editingTodo?.excludedDates || [],
-      createdAt: editingTodo?.createdAt || new Date().toISOString(),
-    };
-
-    if (editingTodo) {
-      await updateTodo(todoData);
-      setTodos(todos.map(t => t.id === editingTodo.id ? todoData : t));
-    } else {
-      await saveTodo(todoData);
-      setTodos([...todos, todoData]);
-    }
-
-    resetForm();
-    setShowAddModal(false);
-    setEditingTodo(null);
-  };
-
   const resetForm = () => {
     setTitle('');
     setDescription('');
@@ -141,6 +100,51 @@ export default function TodoPage() {
     setPriority('medium');
     setRecurrence('none');
     setIsEvent(false);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    taskModal.open();
+  };
+
+  const openEditModal = (todo: TodoItem) => {
+    setTitle(todo.title);
+    setDescription(todo.description || '');
+    setTaskDate(todo.date);
+    setTime(todo.time || '');
+    setPriority(todo.priority);
+    setRecurrence(todo.recurrence);
+    setIsEvent(todo.isEvent || false);
+    taskModal.open(todo);
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) return;
+
+    const todoData: TodoItem = {
+      id: taskModal.data?.id || Date.now().toString(),
+      title: title.trim(),
+      description: description.trim() || undefined,
+      completed: false,
+      date: taskDate,
+      time: time || undefined,
+      priority,
+      recurrence,
+      isEvent,
+      completedDates: taskModal.data?.completedDates || [],
+      excludedDates: taskModal.data?.excludedDates || [],
+      createdAt: taskModal.data?.createdAt || new Date().toISOString(),
+    };
+
+    if (taskModal.data) {
+      await updateTodo(todoData);
+      setTodos(todos.map(t => t.id === taskModal.data!.id ? todoData : t));
+    } else {
+      await saveTodo(todoData);
+      setTodos([...todos, todoData]);
+    }
+
+    taskModal.close();
   };
 
   const toggleComplete = async (todo: TodoItem) => {
@@ -181,18 +185,6 @@ export default function TodoPage() {
     }
   };
 
-  const editTodo = (todo: TodoItem) => {
-    setEditingTodo(todo);
-    setTitle(todo.title);
-    setDescription(todo.description || '');
-    setTaskDate(todo.date);
-    setTime(todo.time || '');
-    setPriority(todo.priority);
-    setRecurrence(todo.recurrence);
-    setIsEvent(todo.isEvent || false);
-    setShowAddModal(true);
-  };
-
   const goToToday = () => {
     const today = new Date();
     setSelectedDate(today);
@@ -207,12 +199,8 @@ export default function TodoPage() {
     const lastDay = new Date(year, month + 1, 0);
     const days: (Date | null)[] = [];
 
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      days.push(null);
-    }
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push(new Date(year, month, i));
-    }
+    for (let i = 0; i < firstDay.getDay(); i++) days.push(null);
+    for (let i = 1; i <= lastDay.getDate(); i++) days.push(new Date(year, month, i));
     return days;
   };
 
@@ -220,7 +208,6 @@ export default function TodoPage() {
     return todos.some(todo => shouldShowOnDate(todo, date));
   };
 
-  // Date strip (week view)
   const getWeekDates = () => {
     const dates: Date[] = [];
     const start = new Date(selectedDate);
@@ -239,7 +226,7 @@ export default function TodoPage() {
       const success = await importBackup(file);
       if (success) {
         setTodos(await getTodos());
-        setShowBackupModal(false);
+        backupModal.close();
         alert('Backup restored successfully!');
       } else {
         alert('Invalid backup file');
@@ -265,7 +252,7 @@ export default function TodoPage() {
           <button className="header-btn icon" onClick={() => setShowCalendar(!showCalendar)}>
             {showCalendar ? <IoClose size={20} /> : <IoCalendar size={20} />}
           </button>
-          <button className="header-btn icon" onClick={() => setShowBackupModal(true)}>
+          <button className="header-btn icon" onClick={() => backupModal.open()}>
             <IoCloudUpload size={20} />
           </button>
         </div>
@@ -320,13 +307,11 @@ export default function TodoPage() {
       {/* Tasks List */}
       <div className="tasks-container">
         {todaysTasks.length === 0 ? (
-          <div className="empty-state">
-            <IoCalendarOutline size={48} color={colors.textMuted} />
-            <p>No tasks for this day</p>
-            <button className="add-task-btn" onClick={() => { resetForm(); setShowAddModal(true); }}>
-              <IoAdd size={20} /> Add Task
-            </button>
-          </div>
+          <EmptyState
+            icon={IoCalendarOutline}
+            message="No tasks for this day"
+            action={{ label: 'Add Task', icon: IoAdd, onClick: openAddModal }}
+          />
         ) : (
           <div className="tasks-list">
             {todaysTasks.map((todo) => {
@@ -346,7 +331,7 @@ export default function TodoPage() {
                       <IoEllipseOutline size={24} color={colors.textMuted} />
                     )}
                   </button>
-                  <div className="task-content" onClick={() => editTodo(todo)}>
+                  <div className="task-content" onClick={() => openEditModal(todo)}>
                     <div className="task-title-row">
                       <span className="task-title">{todo.title}</span>
                       <div className="task-badges">
@@ -384,153 +369,105 @@ export default function TodoPage() {
       </div>
 
       {/* FAB */}
-      <button className="fab" onClick={() => { resetForm(); setShowAddModal(true); }}>
-        <IoAdd size={28} />
-      </button>
+      <FAB onClick={openAddModal} />
 
-      {/* Add/Edit Modal */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={() => { setShowAddModal(false); setEditingTodo(null); }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingTodo ? 'Edit Task' : 'New Task'}</h2>
-              <button onClick={() => { setShowAddModal(false); setEditingTodo(null); }}>
-                <IoClose size={24} color={colors.textSecondary} />
-              </button>
-            </div>
+      {/* Add/Edit Task Modal */}
+      <Modal
+        isOpen={taskModal.isOpen}
+        onClose={taskModal.close}
+        title={taskModal.data ? 'Edit Task' : 'New Task'}
+        footer={
+          <ModalFooter
+            onCancel={taskModal.close}
+            onSubmit={handleSave}
+            submitText={taskModal.data ? 'Save Changes' : 'Add Task'}
+            submitDisabled={!title.trim()}
+          />
+        }
+      >
+        <FormGroup label="Title">
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="What needs to be done?"
+            autoFocus
+          />
+        </FormGroup>
 
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="What needs to be done?"
-                  autoFocus
-                />
-              </div>
+        <FormGroup label="Description (optional)">
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Add more details..."
+            rows={2}
+          />
+        </FormGroup>
 
-              <div className="form-group">
-                <label>Description (optional)</label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Add more details..."
-                  rows={2}
-                />
-              </div>
+        <FormRow>
+          <FormGroup label="Date">
+            <input
+              type="date"
+              value={taskDate}
+              onChange={e => setTaskDate(e.target.value)}
+            />
+          </FormGroup>
+          <FormGroup label="Time (optional)">
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+            />
+          </FormGroup>
+        </FormRow>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    value={taskDate}
-                    onChange={e => setTaskDate(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Time (optional)</label>
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={e => setTime(e.target.value)}
-                  />
-                </div>
-              </div>
+        <FormGroup label="Priority">
+          <OptionPills options={PRIORITY_OPTIONS} value={priority} onChange={setPriority} />
+        </FormGroup>
 
-              <div className="form-group">
-                <label>Priority</label>
-                <div className="option-pills">
-                  {PRIORITY_OPTIONS.map(opt => (
-                    <button
-                      key={opt.key}
-                      className={`pill ${priority === opt.key ? 'active' : ''}`}
-                      style={{ '--pill-color': opt.color } as React.CSSProperties}
-                      onClick={() => setPriority(opt.key)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <FormGroup label="Repeat">
+          <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+        </FormGroup>
 
-              <div className="form-group">
-                <label>Repeat</label>
-                <div className="option-pills">
-                  {RECURRENCE_OPTIONS.map(opt => (
-                    <button
-                      key={opt.key}
-                      className={`pill ${recurrence === opt.key ? 'active' : ''}`}
-                      onClick={() => setRecurrence(opt.key)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={isEvent}
-                    onChange={e => setIsEvent(e.target.checked)}
-                  />
-                  <span>Event (no completion needed, e.g., birthdays)</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="btn secondary" onClick={() => { setShowAddModal(false); setEditingTodo(null); }}>
-                Cancel
-              </button>
-              <button className="btn primary" onClick={handleSave} disabled={!title.trim()}>
-                {editingTodo ? 'Save Changes' : 'Add Task'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        <FormGroup label="">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={isEvent}
+              onChange={e => setIsEvent(e.target.checked)}
+            />
+            <span>Event (no completion needed, e.g., birthdays)</span>
+          </label>
+        </FormGroup>
+      </Modal>
 
       {/* Backup Modal */}
-      {showBackupModal && (
-        <div className="modal-overlay" onClick={() => setShowBackupModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Backup & Restore</h2>
-              <button onClick={() => setShowBackupModal(false)}>
-                <IoClose size={24} color={colors.textSecondary} />
-              </button>
-            </div>
+      <Modal
+        isOpen={backupModal.isOpen}
+        onClose={backupModal.close}
+        title="Backup & Restore"
+      >
+        <p className="backup-info">
+          Your data is saved locally in your browser. Use backup to transfer data or keep a copy safe.
+        </p>
 
-            <div className="modal-body">
-              <p className="backup-info">
-                Your data is saved locally in your browser. Use backup to transfer data or keep a copy safe.
-              </p>
-
-              <button className="backup-btn" onClick={() => { exportBackup(); setShowBackupModal(false); }}>
-                <IoCloudDownload size={24} />
-                <div>
-                  <span className="backup-btn-title">Export Backup</span>
-                  <span className="backup-btn-sub">Download your data as a file</span>
-                </div>
-              </button>
-
-              <label className="backup-btn">
-                <IoCloudUpload size={24} />
-                <div>
-                  <span className="backup-btn-title">Restore from Backup</span>
-                  <span className="backup-btn-sub">Import a backup file</span>
-                </div>
-                <input type="file" accept=".json" onChange={handleImport} hidden />
-              </label>
-            </div>
+        <button className="backup-btn" onClick={() => { exportBackup(); backupModal.close(); }}>
+          <IoCloudDownload size={24} />
+          <div>
+            <span className="backup-btn-title">Export Backup</span>
+            <span className="backup-btn-sub">Download your data as a file</span>
           </div>
-        </div>
-      )}
+        </button>
+
+        <label className="backup-btn">
+          <IoCloudUpload size={24} />
+          <div>
+            <span className="backup-btn-title">Restore from Backup</span>
+            <span className="backup-btn-sub">Import a backup file</span>
+          </div>
+          <input type="file" accept=".json" onChange={handleImport} hidden />
+        </label>
+      </Modal>
     </div>
   );
 }

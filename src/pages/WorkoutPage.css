@@ -38,43 +38,11 @@
   justify-content: center;
 }
 
-/* Stats */
-.stats-row {
-  display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-}
-
-.stat-card {
-  flex: 1;
-  background: white;
-  padding: 14px;
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1E293B;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: #94A3B8;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-/* Body Parts */
+/* Body Parts Tabs */
 .body-parts {
   display: flex;
   gap: 8px;
-  padding: 0 20px;
+  padding: 16px 20px;
   overflow-x: auto;
 }
 
@@ -87,9 +55,6 @@
   color: #64748B;
   white-space: nowrap;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .body-part-btn.active {
@@ -97,23 +62,12 @@
   color: white;
 }
 
-.body-part-count {
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.1);
-  padding: 2px 6px;
-  border-radius: 10px;
-}
-
-.body-part-btn.active .body-part-count {
-  background: rgba(255, 255, 255, 0.3);
-}
-
 /* Summary */
 .workout-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 0 20px 12px;
   font-size: 13px;
   color: #64748B;
 }
@@ -122,7 +76,7 @@
 .exercises-container {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px 100px;
+  padding: 0 20px 100px;
 }
 
 .exercises-list {
@@ -196,221 +150,18 @@
   border-left: 1px solid #F1F5F9;
 }
 
-/* Empty State */
-.workout-page .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  color: #94A3B8;
-  gap: 12px;
-}
-
-.add-exercise-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  background: #14B8A6;
-  color: white;
-  border-radius: 10px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-/* FAB */
+/* Page-specific FAB color */
 .workout-page .fab {
   background: linear-gradient(135deg, #14B8A6 0%, #0D9488 100%);
   box-shadow: 0 4px 20px rgba(20, 184, 166, 0.4);
 }
 
-/* Modal */
-.workout-page .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #E2E8F0;
-}
-
-.workout-page .modal-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1E293B;
-}
-
-.workout-page .modal-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.workout-page .modal-footer {
-  display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #E2E8F0;
-}
-
-.workout-page .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.workout-page .form-group label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748B;
-}
-
-.workout-page .form-group input[type="text"],
-.workout-page .form-group input[type="number"] {
-  padding: 12px;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #F8FAFC;
-}
-
-.body-part-label {
-  font-weight: 600;
-  font-size: 15px;
-  text-transform: capitalize;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.number-control {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.number-control button {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #F1F5F9;
-  font-size: 20px;
-  font-weight: 600;
-  color: #64748B;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.number-control span {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1E293B;
-  min-width: 30px;
-  text-align: center;
-}
-
-.workout-page .btn {
-  flex: 1;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
+/* Page-specific button color */
 .workout-page .btn.primary {
   background: #14B8A6;
-  color: white;
 }
 
-.workout-page .btn.primary:disabled {
-  opacity: 0.5;
-}
-
-.workout-page .btn.secondary {
-  background: #F1F5F9;
-  color: #64748B;
-}
-
-/* Workout Modal */
-.workout-modal .pr-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: #FEF3C7;
-  color: #F59E0B;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sets-header {
-  display: grid;
-  grid-template-columns: 40px 1fr 1fr 32px;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #94A3B8;
-  text-transform: uppercase;
-  padding: 0 4px;
-}
-
-.set-row {
-  display: grid;
-  grid-template-columns: 40px 1fr 1fr 32px;
-  gap: 10px;
-  align-items: center;
-}
-
-.set-num {
-  width: 32px;
-  height: 32px;
-  background: #F1F5F9;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: #64748B;
-}
-
-.set-row input {
-  padding: 10px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 15px;
-  text-align: center;
-  background: #F8FAFC;
-}
-
-.remove-set {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  color: #94A3B8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.add-set-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  background: #F1F5F9;
-  border-radius: 10px;
-  color: #64748B;
-  font-weight: 600;
-}
-
-/* Settings Modal */
+/* Settings Modal - Body Parts Management */
 .settings-modal .modal-body {
   max-height: 60vh;
   overflow-y: auto;
@@ -430,6 +181,7 @@
   padding: 12px;
   background: #F8FAFC;
   border-radius: 10px;
+  flex-wrap: wrap;
 }
 
 .body-part-color {
@@ -443,6 +195,7 @@
   flex: 1;
   font-weight: 500;
   color: #1E293B;
+  min-width: 100px;
 }
 
 .body-part-exercise-count {
@@ -457,6 +210,7 @@
   border-radius: 8px;
   font-size: 14px;
   background: white;
+  min-width: 120px;
 }
 
 .edit-bp-btn,
@@ -482,25 +236,6 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-}
-
-.color-picker {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.color-option {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-.color-option.active {
-  border-color: #1E293B;
-  box-shadow: 0 0 0 2px white inset;
 }
 
 .add-body-part {

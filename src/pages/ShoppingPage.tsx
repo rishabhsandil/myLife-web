@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  IoAdd, IoClose, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
+  IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoBasket, IoEllipsisHorizontal, IoRemove
 } from 'react-icons/io5';
 import { ShoppingItem, ShoppingCategory } from '../types';
-import { getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems } from '../utils/api';
+import { getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems } from '../utils/api.ts';
+import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
+import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './ShoppingPage.css';
 
@@ -17,8 +19,8 @@ const CATEGORIES: { key: ShoppingCategory; label: string; icon: typeof IoCart }[
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [filter, setFilter] = useState<ShoppingCategory | 'all'>('all');
+  const modal = useModal();
 
   // Form state
   const [name, setName] = useState('');
@@ -42,6 +44,17 @@ export default function ShoppingPage() {
   const completedCount = items.filter(i => i.completed).length;
   const progress = items.length > 0 ? (completedCount / items.length) * 100 : 0;
 
+  const resetForm = () => {
+    setName('');
+    setQuantity(1);
+    setCategory('freshco');
+  };
+
+  const openModal = () => {
+    resetForm();
+    modal.open();
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
 
@@ -56,14 +69,7 @@ export default function ShoppingPage() {
 
     await saveShoppingItem(newItem);
     setItems([...items, newItem]);
-    resetForm();
-    setShowAddModal(false);
-  };
-
-  const resetForm = () => {
-    setName('');
-    setQuantity(1);
-    setCategory('freshco');
+    modal.close();
   };
 
   const toggleComplete = async (item: ShoppingItem) => {
@@ -83,8 +89,7 @@ export default function ShoppingPage() {
   };
 
   const getCategoryIcon = (cat: ShoppingCategory) => {
-    const found = CATEGORIES.find(c => c.key === cat);
-    return found?.icon || IoCart;
+    return CATEGORIES.find(c => c.key === cat)?.icon || IoCart;
   };
 
   return (
@@ -96,9 +101,7 @@ export default function ShoppingPage() {
           <p className="header-subtitle">{items.length} items • {completedCount} done</p>
         </div>
         {completedCount > 0 && (
-          <button className="clear-btn" onClick={clearCompleted}>
-            Clear Done
-          </button>
+          <button className="clear-btn" onClick={clearCompleted}>Clear Done</button>
         )}
       </header>
 
@@ -132,13 +135,11 @@ export default function ShoppingPage() {
       {/* Items List */}
       <div className="items-container">
         {filteredItems.length === 0 ? (
-          <div className="empty-state">
-            <IoCart size={48} color={colors.textMuted} />
-            <p>No items yet</p>
-            <button className="add-item-btn" onClick={() => setShowAddModal(true)}>
-              <IoAdd size={20} /> Add Item
-            </button>
-          </div>
+          <EmptyState
+            icon={IoCart}
+            message="No items yet"
+            action={{ label: 'Add Item', icon: IoAdd, onClick: openModal }}
+          />
         ) : (
           <div className="items-list">
             {filteredItems.map(item => {
@@ -172,77 +173,62 @@ export default function ShoppingPage() {
       </div>
 
       {/* FAB */}
-      <button className="fab" onClick={() => { resetForm(); setShowAddModal(true); }}>
-        <IoAdd size={28} />
-      </button>
+      <FAB onClick={openModal} />
 
       {/* Add Modal */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Add Item</h2>
-              <button onClick={() => setShowAddModal(false)}>
-                <IoClose size={24} color={colors.textSecondary} />
-              </button>
-            </div>
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={modal.close}
+        title="Add Item"
+        footer={
+          <ModalFooter
+            onCancel={modal.close}
+            onSubmit={handleSave}
+            submitText="Add Item"
+            submitDisabled={!name.trim()}
+          />
+        }
+      >
+        <FormGroup label="Item Name">
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="What do you need?"
+            autoFocus
+          />
+        </FormGroup>
 
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Item Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="What do you need?"
-                  autoFocus
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Quantity</label>
-                <div className="quantity-control">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>
-                    <IoRemove size={20} />
-                  </button>
-                  <span>{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)}>
-                    <IoAdd size={20} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Category</label>
-                <div className="category-grid">
-                  {CATEGORIES.map(cat => {
-                    const Icon = cat.icon;
-                    return (
-                      <button
-                        key={cat.key}
-                        className={`category-btn ${category === cat.key ? 'active' : ''}`}
-                        onClick={() => setCategory(cat.key)}
-                      >
-                        <Icon size={24} />
-                        <span>{cat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="btn secondary" onClick={() => setShowAddModal(false)}>
-                Cancel
-              </button>
-              <button className="btn primary" onClick={handleSave} disabled={!name.trim()}>
-                Add Item
-              </button>
-            </div>
+        <FormGroup label="Quantity">
+          <div className="quantity-control">
+            <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+              <IoRemove size={20} />
+            </button>
+            <span>{quantity}</span>
+            <button onClick={() => setQuantity(quantity + 1)}>
+              <IoAdd size={20} />
+            </button>
           </div>
-        </div>
-      )}
+        </FormGroup>
+
+        <FormGroup label="Category">
+          <div className="category-grid">
+            {CATEGORIES.map(cat => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.key}
+                  className={`category-btn ${category === cat.key ? 'active' : ''}`}
+                  onClick={() => setCategory(cat.key)}
+                >
+                  <Icon size={24} />
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </FormGroup>
+      </Modal>
     </div>
   );
 }

@@ -8,7 +8,13 @@ import WorkoutPage from './pages/WorkoutPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
 import logo from './assets/logo.png';
+// Global styles - shared components use these
 import './App.css';
+import './components/Modal.css';
+import './components/FormControls.css';
+import './components/EmptyState.css';
+import './components/FAB.css';
+
 
 function LoadingScreen({ onFinish }: { onFinish: () => void }) {
   const [fadeOut, setFadeOut] = useState(false);

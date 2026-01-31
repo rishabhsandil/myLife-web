@@ -8,7 +8,7 @@ function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
 }
 
-// Helper for API calls
+// Generic API helper
 async function api<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/${endpoint}`, {
@@ -23,96 +23,79 @@ async function api<T>(endpoint: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// Generic CRUD factory for entities
+interface Entity { id: string }
+
+function createCrudApi<T extends Entity>(
+  endpoint: string,
+  localStorageKey: string
+) {
+  return {
+    async getAll(): Promise<T[]> {
+      try {
+        return await api<T[]>(endpoint);
+      } catch (error) {
+        console.error(`Failed to fetch ${endpoint}:`, error);
+        const data = localStorage.getItem(localStorageKey);
+        return data ? JSON.parse(data) : [];
+      }
+    },
+
+    async create(item: T): Promise<void> {
+      try {
+        await api(endpoint, {
+          method: 'POST',
+          body: JSON.stringify(item),
+        });
+      } catch (error) {
+        console.error(`Failed to create ${endpoint}:`, error);
+      }
+    },
+
+    async update(item: T): Promise<void> {
+      try {
+        await api(endpoint, {
+          method: 'PUT',
+          body: JSON.stringify(item),
+        });
+      } catch (error) {
+        console.error(`Failed to update ${endpoint}:`, error);
+      }
+    },
+
+    async delete(id: string): Promise<void> {
+      try {
+        await api(`${endpoint}?id=${id}`, { method: 'DELETE' });
+      } catch (error) {
+        console.error(`Failed to delete ${endpoint}:`, error);
+      }
+    },
+
+    saveToLocalStorage(items: T[]): void {
+      localStorage.setItem(localStorageKey, JSON.stringify(items));
+    },
+  };
+}
+
+// Create CRUD APIs for each entity
+const todosApi = createCrudApi<TodoItem>('todos', 'mylife_todos');
+const shoppingApi = createCrudApi<ShoppingItem>('shopping', 'mylife_shopping');
+const exercisesApi = createCrudApi<Exercise>('exercises', 'mylife_exercises');
+const bodyPartsApi = createCrudApi<BodyPart>('bodyparts', 'mylife_bodyparts');
+
 // ============ TODOS ============
-
-export async function getTodos(): Promise<TodoItem[]> {
-  try {
-    return await api<TodoItem[]>('todos');
-  } catch (error) {
-    console.error('Failed to fetch todos:', error);
-    // Fallback to localStorage
-    const data = localStorage.getItem('mylife_todos');
-    return data ? JSON.parse(data) : [];
-  }
-}
-
-export async function saveTodo(todo: TodoItem): Promise<void> {
-  try {
-    await api('todos', {
-      method: 'POST',
-      body: JSON.stringify(todo),
-    });
-  } catch (error) {
-    console.error('Failed to save todo:', error);
-  }
-}
-
-export async function updateTodo(todo: TodoItem): Promise<void> {
-  try {
-    await api('todos', {
-      method: 'PUT',
-      body: JSON.stringify(todo),
-    });
-  } catch (error) {
-    console.error('Failed to update todo:', error);
-  }
-}
-
-export async function deleteTodo(id: string): Promise<void> {
-  try {
-    await api(`todos?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete todo:', error);
-  }
-}
-
-// Batch save (for compatibility)
-export async function saveTodos(todos: TodoItem[]): Promise<void> {
-  // For now, save to localStorage as backup
-  localStorage.setItem('mylife_todos', JSON.stringify(todos));
-}
+export const getTodos = todosApi.getAll;
+export const saveTodo = todosApi.create;
+export const updateTodo = todosApi.update;
+export const deleteTodo = todosApi.delete;
+export const saveTodos = todosApi.saveToLocalStorage;
 
 // ============ SHOPPING ============
-
-export async function getShoppingItems(): Promise<ShoppingItem[]> {
-  try {
-    return await api<ShoppingItem[]>('shopping');
-  } catch (error) {
-    console.error('Failed to fetch shopping items:', error);
-    const data = localStorage.getItem('mylife_shopping');
-    return data ? JSON.parse(data) : [];
-  }
-}
-
-export async function saveShoppingItem(item: ShoppingItem): Promise<void> {
-  try {
-    await api('shopping', {
-      method: 'POST',
-      body: JSON.stringify(item),
-    });
-  } catch (error) {
-    console.error('Failed to save shopping item:', error);
-  }
-}
-
-export async function updateShoppingItem(item: ShoppingItem): Promise<void> {
-  try {
-    await api('shopping', {
-      method: 'PUT',
-      body: JSON.stringify(item),
-    });
-  } catch (error) {
-    console.error('Failed to update shopping item:', error);
-  }
-}
-
-export async function deleteShoppingItem(id: string): Promise<void> {
-  try {
-    await api(`shopping?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete shopping item:', error);
-  }
-}
+export const getShoppingItems = shoppingApi.getAll;
+export const saveShoppingItem = shoppingApi.create;
+export const updateShoppingItem = shoppingApi.update;
+export const deleteShoppingItem = shoppingApi.delete;
+export const saveShoppingItems = shoppingApi.saveToLocalStorage;
 
 export async function clearCompletedItems(): Promise<void> {
   try {
@@ -122,100 +105,20 @@ export async function clearCompletedItems(): Promise<void> {
   }
 }
 
-export async function saveShoppingItems(items: ShoppingItem[]): Promise<void> {
-  localStorage.setItem('mylife_shopping', JSON.stringify(items));
-}
-
 // ============ EXERCISES ============
-
-export async function getExercises(): Promise<Exercise[]> {
-  try {
-    return await api<Exercise[]>('exercises');
-  } catch (error) {
-    console.error('Failed to fetch exercises:', error);
-    const data = localStorage.getItem('mylife_exercises');
-    return data ? JSON.parse(data) : [];
-  }
-}
-
-export async function saveExercise(exercise: Exercise): Promise<void> {
-  try {
-    await api('exercises', {
-      method: 'POST',
-      body: JSON.stringify(exercise),
-    });
-  } catch (error) {
-    console.error('Failed to save exercise:', error);
-  }
-}
-
-export async function updateExercise(exercise: Exercise): Promise<void> {
-  try {
-    await api('exercises', {
-      method: 'PUT',
-      body: JSON.stringify(exercise),
-    });
-  } catch (error) {
-    console.error('Failed to update exercise:', error);
-  }
-}
-
-export async function deleteExercise(id: string): Promise<void> {
-  try {
-    await api(`exercises?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete exercise:', error);
-  }
-}
-
-export async function saveExercises(exercises: Exercise[]): Promise<void> {
-  localStorage.setItem('mylife_exercises', JSON.stringify(exercises));
-}
+export const getExercises = exercisesApi.getAll;
+export const saveExercise = exercisesApi.create;
+export const updateExercise = exercisesApi.update;
+export const deleteExercise = exercisesApi.delete;
+export const saveExercises = exercisesApi.saveToLocalStorage;
 
 // ============ BODY PARTS ============
-
-export async function getBodyParts(): Promise<BodyPart[]> {
-  try {
-    return await api<BodyPart[]>('bodyparts');
-  } catch (error) {
-    console.error('Failed to fetch body parts:', error);
-    const data = localStorage.getItem('mylife_bodyparts');
-    return data ? JSON.parse(data) : [];
-  }
-}
-
-export async function saveBodyPart(bodyPart: BodyPart): Promise<void> {
-  try {
-    await api('bodyparts', {
-      method: 'POST',
-      body: JSON.stringify(bodyPart),
-    });
-  } catch (error) {
-    console.error('Failed to save body part:', error);
-  }
-}
-
-export async function updateBodyPart(bodyPart: BodyPart): Promise<void> {
-  try {
-    await api('bodyparts', {
-      method: 'PUT',
-      body: JSON.stringify(bodyPart),
-    });
-  } catch (error) {
-    console.error('Failed to update body part:', error);
-  }
-}
-
-export async function deleteBodyPart(id: string): Promise<void> {
-  try {
-    await api(`bodyparts?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete body part:', error);
-  }
-}
+export const getBodyParts = bodyPartsApi.getAll;
+export const saveBodyPart = bodyPartsApi.create;
+export const updateBodyPart = bodyPartsApi.update;
+export const deleteBodyPart = bodyPartsApi.delete;
 
 // ============ BACKUP ============
-
 export const exportBackup = async (): Promise<void> => {
   const [todos, shopping, exercises] = await Promise.all([
     getTodos(),
@@ -247,14 +150,9 @@ export const importBackup = (file: File): Promise<boolean> => {
       try {
         const data = JSON.parse(e.target?.result as string);
         if (data.version && data.data) {
-          // Save to localStorage as backup
           localStorage.setItem('mylife_todos', JSON.stringify(data.data.todos || []));
           localStorage.setItem('mylife_shopping', JSON.stringify(data.data.shopping || []));
           localStorage.setItem('mylife_exercises', JSON.stringify(data.data.exercises || []));
-          
-          // TODO: Sync to database
-          // For now, page refresh will load from localStorage if API fails
-          
           resolve(true);
         } else {
           resolve(false);

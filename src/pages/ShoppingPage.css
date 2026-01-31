@@ -70,7 +70,7 @@
 .filter-container {
   display: flex;
   gap: 8px;
-  padding: 0 20px;
+  padding: 2px 20px;
   overflow-x: auto;
 }
 
@@ -183,109 +183,18 @@
   padding: 4px;
 }
 
-/* Empty State */
-.shopping-page .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  color: #94A3B8;
-  gap: 12px;
-}
-
-.add-item-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  background: #EC4899;
-  color: white;
-  border-radius: 10px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-/* FAB */
+/* Page-specific FAB color */
 .shopping-page .fab {
   background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%);
   box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
 }
 
-/* Modal */
-.shopping-page .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #E2E8F0;
+/* Page-specific button color */
+.shopping-page .btn.primary {
+  background: #EC4899;
 }
 
-.shopping-page .modal-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1E293B;
-}
-
-.shopping-page .modal-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.shopping-page .modal-footer {
-  display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #E2E8F0;
-}
-
-.shopping-page .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.shopping-page .form-group label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748B;
-}
-
-.shopping-page .form-group input[type="text"] {
-  padding: 12px;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #F8FAFC;
-}
-
-.quantity-control {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.quantity-control button {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #F1F5F9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748B;
-}
-
-.quantity-control span {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1E293B;
-  min-width: 40px;
-  text-align: center;
-}
-
+/* Category Grid */
 .category-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -311,26 +220,4 @@
 .category-btn span {
   font-size: 13px;
   font-weight: 500;
-}
-
-.shopping-page .btn {
-  flex: 1;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.shopping-page .btn.primary {
-  background: #EC4899;
-  color: white;
-}
-
-.shopping-page .btn.primary:disabled {
-  opacity: 0.5;
-}
-
-.shopping-page .btn.secondary {
-  background: #F1F5F9;
-  color: #64748B;
 }
