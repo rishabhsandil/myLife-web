@@ -1,42 +1,56 @@
 import { useState, useEffect } from 'react';
 import {
-  IoAdd, IoClose, IoBarbell, IoTrophy, IoTrash, IoPencil
+  IoAdd, IoClose, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings
 } from 'react-icons/io5';
 import { Exercise, BodyPart } from '../types';
-import { getExercises, saveExercise, updateExercise, deleteExercise as apiDeleteExercise } from '../utils/api';
+import { 
+  getExercises, saveExercise, updateExercise, deleteExercise as apiDeleteExercise,
+  getBodyParts, saveBodyPart, updateBodyPart, deleteBodyPart as apiDeleteBodyPart
+} from '../utils/api';
 import { colors } from '../utils/theme';
 import './WorkoutPage.css';
 
-const BODY_PARTS: { key: BodyPart; label: string; color: string }[] = [
-  { key: 'chest', label: 'Chest', color: '#EF4444' },
-  { key: 'back', label: 'Back', color: '#6366F1' },
-  { key: 'shoulders', label: 'Shoulders', color: '#F59E0B' },
-  { key: 'arms', label: 'Arms', color: '#22C55E' },
-  { key: 'legs', label: 'Legs', color: '#EC4899' },
-  { key: 'core', label: 'Core', color: '#14B8A6' },
+const COLOR_OPTIONS = [
+  '#EF4444', '#F59E0B', '#22C55E', '#14B8A6', 
+  '#6366F1', '#EC4899', '#8B5CF6', '#64748B'
 ];
 
 export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [selectedBodyPart, setSelectedBodyPart] = useState<BodyPart>('chest');
+  const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
+  const [selectedBodyPart, setSelectedBodyPart] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
-  // Form state
+  // Exercise form state
   const [exerciseName, setExerciseName] = useState('');
   const [formSets, setFormSets] = useState(3);
   const [formReps, setFormReps] = useState(10);
   const [formWeight, setFormWeight] = useState(0);
+
+  // Body part form state
+  const [editingBodyPart, setEditingBodyPart] = useState<BodyPart | null>(null);
+  const [bpName, setBpName] = useState('');
+  const [bpColor, setBpColor] = useState(COLOR_OPTIONS[0]);
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    const exerciseData = await getExercises();
+    const [exerciseData, bodyPartData] = await Promise.all([
+      getExercises(),
+      getBodyParts()
+    ]);
     setExercises(exerciseData);
+    setBodyParts(bodyPartData);
+    if (bodyPartData.length > 0 && !selectedBodyPart) {
+      setSelectedBodyPart(bodyPartData[0].id);
+    }
   }
 
+  const currentBodyPart = bodyParts.find(bp => bp.id === selectedBodyPart);
   const filteredExercises = exercises.filter(e => e.bodyPart === selectedBodyPart);
 
   const openAddModal = () => {
@@ -94,8 +108,52 @@ export default function WorkoutPage() {
     setExercises(exercises.filter(e => e.id !== id));
   };
 
-  const getBodyPartColor = (part: BodyPart) => {
-    return BODY_PARTS.find(b => b.key === part)?.color || colors.primary;
+  const getBodyPartColor = (partId: string) => {
+    return bodyParts.find(b => b.id === partId)?.color || colors.primary;
+  };
+
+  // Body part management
+  const openEditBodyPart = (bp: BodyPart) => {
+    setEditingBodyPart(bp);
+    setBpName(bp.name);
+    setBpColor(bp.color);
+  };
+
+  const handleSaveBodyPart = async () => {
+    if (!bpName.trim()) return;
+
+    if (editingBodyPart) {
+      const updated: BodyPart = { ...editingBodyPart, name: bpName.trim(), color: bpColor };
+      await updateBodyPart(updated);
+      setBodyParts(bodyParts.map(bp => bp.id === updated.id ? updated : bp));
+    } else {
+      const newBp: BodyPart = {
+        id: `bp_${Date.now()}`,
+        name: bpName.trim(),
+        color: bpColor,
+      };
+      await saveBodyPart(newBp);
+      setBodyParts([...bodyParts, newBp]);
+      if (!selectedBodyPart) {
+        setSelectedBodyPart(newBp.id);
+      }
+    }
+
+    setEditingBodyPart(null);
+    setBpName('');
+    setBpColor(COLOR_OPTIONS[0]);
+  };
+
+  const handleDeleteBodyPart = async (id: string) => {
+    await apiDeleteBodyPart(id);
+    setBodyParts(bodyParts.filter(bp => bp.id !== id));
+    // Also remove exercises for this body part
+    setExercises(exercises.filter(e => e.bodyPart !== id));
+    // Select another body part if current is deleted
+    if (selectedBodyPart === id) {
+      const remaining = bodyParts.filter(bp => bp.id !== id);
+      setSelectedBodyPart(remaining.length > 0 ? remaining[0].id : '');
+    }
   };
 
   const getTotalVolume = () => {
@@ -110,20 +168,23 @@ export default function WorkoutPage() {
           <h1 className="header-title">Workout Plan</h1>
           <p className="header-subtitle">Your exercises & PRs 💪</p>
         </div>
+        <button className="settings-btn" onClick={() => setShowSettingsModal(true)}>
+          <IoSettings size={22} />
+        </button>
       </header>
 
       {/* Body Part Tabs */}
       <div className="body-parts">
-        {BODY_PARTS.map(part => (
+        {bodyParts.map(part => (
           <button
-            key={part.key}
-            className={`body-part-btn ${selectedBodyPart === part.key ? 'active' : ''}`}
+            key={part.id}
+            className={`body-part-btn ${selectedBodyPart === part.id ? 'active' : ''}`}
             style={{ '--part-color': part.color } as React.CSSProperties}
-            onClick={() => setSelectedBodyPart(part.key)}
+            onClick={() => setSelectedBodyPart(part.id)}
           >
-            {part.label}
+            {part.name}
             <span className="body-part-count">
-              {exercises.filter(e => e.bodyPart === part.key).length}
+              {exercises.filter(e => e.bodyPart === part.id).length}
             </span>
           </button>
         ))}
@@ -140,10 +201,18 @@ export default function WorkoutPage() {
 
       {/* Exercises List */}
       <div className="exercises-container">
-        {filteredExercises.length === 0 ? (
+        {bodyParts.length === 0 ? (
+          <div className="empty-state">
+            <IoSettings size={48} color={colors.textMuted} />
+            <p>No workout splits configured</p>
+            <button className="add-exercise-btn" onClick={() => setShowSettingsModal(true)}>
+              <IoSettings size={20} /> Configure Splits
+            </button>
+          </div>
+        ) : filteredExercises.length === 0 ? (
           <div className="empty-state">
             <IoBarbell size={48} color={colors.textMuted} />
-            <p>No exercises for {selectedBodyPart}</p>
+            <p>No exercises for {currentBodyPart?.name || 'this split'}</p>
             <button className="add-exercise-btn" onClick={openAddModal}>
               <IoAdd size={20} /> Add Exercise
             </button>
@@ -184,9 +253,11 @@ export default function WorkoutPage() {
       </div>
 
       {/* FAB */}
-      <button className="fab" onClick={openAddModal}>
-        <IoAdd size={28} />
-      </button>
+      {bodyParts.length > 0 && (
+        <button className="fab" onClick={openAddModal}>
+          <IoAdd size={28} />
+        </button>
+      )}
 
       {/* Add/Edit Exercise Modal */}
       {showModal && (
@@ -209,13 +280,6 @@ export default function WorkoutPage() {
                   placeholder="e.g., Bench Press"
                   autoFocus
                 />
-              </div>
-
-              <div className="form-group">
-                <label>Body Part</label>
-                <span className="body-part-label" style={{ color: getBodyPartColor(selectedBodyPart) }}>
-                  {BODY_PARTS.find(b => b.key === selectedBodyPart)?.label}
-                </span>
               </div>
 
               <div className="form-row">
@@ -256,6 +320,101 @@ export default function WorkoutPage() {
               <button className="btn primary" onClick={handleSave} disabled={!exerciseName.trim()}>
                 {editingExercise ? 'Save Changes' : 'Add Exercise'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal - Manage Body Parts */}
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Workout Splits</h2>
+              <button onClick={() => setShowSettingsModal(false)}>
+                <IoClose size={24} color={colors.textSecondary} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Existing body parts */}
+              <div className="body-parts-list">
+                {bodyParts.map(bp => (
+                  <div key={bp.id} className="body-part-item">
+                    <div className="body-part-color" style={{ background: bp.color }} />
+                    {editingBodyPart?.id === bp.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={bpName}
+                          onChange={e => setBpName(e.target.value)}
+                          className="body-part-input"
+                          autoFocus
+                        />
+                        <div className="color-picker">
+                          {COLOR_OPTIONS.map(c => (
+                            <button
+                              key={c}
+                              className={`color-option ${bpColor === c ? 'active' : ''}`}
+                              style={{ background: c }}
+                              onClick={() => setBpColor(c)}
+                            />
+                          ))}
+                        </div>
+                        <button className="save-bp-btn" onClick={handleSaveBodyPart}>Save</button>
+                        <button className="cancel-bp-btn" onClick={() => setEditingBodyPart(null)}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="body-part-name">{bp.name}</span>
+                        <span className="body-part-exercise-count">
+                          {exercises.filter(e => e.bodyPart === bp.id).length} exercises
+                        </span>
+                        <button className="edit-bp-btn" onClick={() => openEditBodyPart(bp)}>
+                          <IoPencil size={16} />
+                        </button>
+                        <button className="delete-bp-btn" onClick={() => handleDeleteBodyPart(bp.id)}>
+                          <IoTrash size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Add new body part */}
+              {!editingBodyPart && (
+                <div className="add-body-part">
+                  <input
+                    type="text"
+                    value={bpName}
+                    onChange={e => setBpName(e.target.value)}
+                    placeholder="New split name (e.g., Push)"
+                    className="body-part-input"
+                  />
+                  <div className="color-picker">
+                    {COLOR_OPTIONS.map(c => (
+                      <button
+                        key={c}
+                        className={`color-option ${bpColor === c ? 'active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setBpColor(c)}
+                      />
+                    ))}
+                  </div>
+                  <button 
+                    className="btn primary add-bp-btn" 
+                    onClick={handleSaveBodyPart}
+                    disabled={!bpName.trim()}
+                  >
+                    <IoAdd size={18} /> Add Split
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn secondary" onClick={() => setShowSettingsModal(false)}>Done</button>
             </div>
           </div>
         </div>

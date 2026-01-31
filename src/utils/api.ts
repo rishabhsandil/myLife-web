@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise } from '../types';
+import { TodoItem, ShoppingItem, Exercise, BodyPart } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -170,6 +170,48 @@ export async function deleteExercise(id: string): Promise<void> {
 
 export async function saveExercises(exercises: Exercise[]): Promise<void> {
   localStorage.setItem('mylife_exercises', JSON.stringify(exercises));
+}
+
+// ============ BODY PARTS ============
+
+export async function getBodyParts(): Promise<BodyPart[]> {
+  try {
+    return await api<BodyPart[]>('bodyparts');
+  } catch (error) {
+    console.error('Failed to fetch body parts:', error);
+    const data = localStorage.getItem('mylife_bodyparts');
+    return data ? JSON.parse(data) : [];
+  }
+}
+
+export async function saveBodyPart(bodyPart: BodyPart): Promise<void> {
+  try {
+    await api('bodyparts', {
+      method: 'POST',
+      body: JSON.stringify(bodyPart),
+    });
+  } catch (error) {
+    console.error('Failed to save body part:', error);
+  }
+}
+
+export async function updateBodyPart(bodyPart: BodyPart): Promise<void> {
+  try {
+    await api('bodyparts', {
+      method: 'PUT',
+      body: JSON.stringify(bodyPart),
+    });
+  } catch (error) {
+    console.error('Failed to update body part:', error);
+  }
+}
+
+export async function deleteBodyPart(id: string): Promise<void> {
+  try {
+    await api(`bodyparts?id=${id}`, { method: 'DELETE' });
+  } catch (error) {
+    console.error('Failed to delete body part:', error);
+  }
 }
 
 // ============ BACKUP ============

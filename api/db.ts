@@ -64,11 +64,12 @@ export async function initDb() {
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS workout_sessions (
+    CREATE TABLE IF NOT EXISTS body_parts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      date TEXT NOT NULL,
-      exercises JSONB DEFAULT '[]',
+      name TEXT NOT NULL,
+      color TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `;
@@ -77,7 +78,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_workouts_user ON workout_sessions(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_bodyparts_user ON body_parts(user_id)`;
 }
 
 // Helper to verify JWT and get user ID from request

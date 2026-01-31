@@ -30,10 +30,14 @@ export type ShoppingCategory = 'freshco' | 'costco' | 'amazon' | 'other';
 export interface Exercise {
   id: string;
   name: string;
-  bodyPart: BodyPart;
+  bodyPart: string; // User-configurable body part ID
   sets: number;
   reps: number;
   weight: number; // PR weight
 }
 
-export type BodyPart = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core';
+export interface BodyPart {
+  id: string;
+  name: string;
+  color: string;
+}

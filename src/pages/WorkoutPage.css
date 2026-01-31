@@ -7,6 +7,9 @@
 
 /* Header */
 .workout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   padding: 48px 20px 20px;
   background: linear-gradient(135deg, #14B8A6 0%, #0D9488 100%);
   border-radius: 0 0 20px 20px;
@@ -22,6 +25,17 @@
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
   margin-top: 2px;
+}
+
+.settings-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Stats */
@@ -394,4 +408,113 @@
   border-radius: 10px;
   color: #64748B;
   font-weight: 600;
+}
+
+/* Settings Modal */
+.settings-modal .modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.body-parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.body-part-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 10px;
+}
+
+.body-part-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.body-part-name {
+  flex: 1;
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.body-part-exercise-count {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.body-part-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+}
+
+.edit-bp-btn,
+.delete-bp-btn,
+.cancel-bp-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+}
+
+.delete-bp-btn {
+  color: #EF4444;
+}
+
+.save-bp-btn {
+  padding: 6px 12px;
+  background: #14B8A6;
+  color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.color-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.color-option.active {
+  border-color: #1E293B;
+  box-shadow: 0 0 0 2px white inset;
+}
+
+.add-body-part {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #F1F5F9;
+  border-radius: 12px;
+}
+
+.add-bp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
