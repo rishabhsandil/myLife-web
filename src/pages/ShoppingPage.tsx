@@ -9,9 +9,9 @@ import { colors } from '../utils/theme';
 import './ShoppingPage.css';
 
 const CATEGORIES: { key: ShoppingCategory; label: string; icon: typeof IoCart }[] = [
-  { key: 'groceries', label: 'Groceries', icon: IoCart },
-  { key: 'household', label: 'Household', icon: IoBasket },
-  { key: 'personal', label: 'Personal', icon: IoPerson },
+  { key: 'freshco', label: 'FreshCo', icon: IoCart },
+  { key: 'costco', label: 'Costco', icon: IoBasket },
+  { key: 'amazon', label: 'Amazon', icon: IoCart },
   { key: 'other', label: 'Other', icon: IoEllipsisHorizontal },
 ];
 
@@ -23,7 +23,7 @@ export default function ShoppingPage() {
   // Form state
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [category, setCategory] = useState<ShoppingCategory>('groceries');
+  const [category, setCategory] = useState<ShoppingCategory>('freshco');
 
   useEffect(() => {
     loadItems();
@@ -63,7 +63,7 @@ export default function ShoppingPage() {
   const resetForm = () => {
     setName('');
     setQuantity(1);
-    setCategory('groceries');
+    setCategory('freshco');
   };
 
   const toggleComplete = async (item: ShoppingItem) => {

@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { id, name, quantity, category, completed } = req.body;
         await sql`
           INSERT INTO shopping_items (id, user_id, name, quantity, category, completed)
-          VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${category || 'groceries'}, ${completed || false})
+          VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${category || 'freshco'}, ${completed || false})
         `;
         return res.status(201).json({ success: true });
       }

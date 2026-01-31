@@ -34,4 +34,12 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://mylife-kappa-lyart.vercel.app',
+        changeOrigin: true,
+      }
+    }
+  }
 })

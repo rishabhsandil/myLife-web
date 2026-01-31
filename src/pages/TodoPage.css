@@ -335,7 +335,7 @@
 /* FAB */
 .fab {
   position: fixed;
-  bottom: 90px;
+  bottom: 100px;
   right: 20px;
   width: 56px;
   height: 56px;
@@ -361,13 +361,26 @@
   font-size: 18px;
   font-weight: 600;
   color: #1E293B;
+  margin: 0;
+}
+
+.modal-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #F1F5F9;
 }
 
 .modal-body {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .modal-footer {
@@ -380,37 +393,55 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .form-group label {
   font-size: 13px;
   font-weight: 600;
   color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-group input[type="text"],
 .form-group input[type="date"],
 .form-group input[type="time"],
 .form-group textarea {
-  padding: 12px;
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 15px;
+  padding: 14px 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  font-size: 16px;
   background: #F8FAFC;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group input[type="checkbox"] {
+  width: auto;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: #6366F1;
+  background: white;
+  outline: none;
 }
 
 .form-group textarea {
   resize: none;
+  min-height: 60px;
 }
 
 .form-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
 .form-row .form-group {
-  flex: 1;
+  min-width: 0;
 }
 
 .option-pills {
@@ -420,12 +451,18 @@
 }
 
 .pill {
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: 20px;
   background: #F1F5F9;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #64748B;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.pill:active {
+  transform: scale(0.95);
 }
 
 .pill.active {
@@ -435,25 +472,40 @@
 
 .checkbox-label {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: 14px;
-  color: #64748B;
+  color: #1E293B;
   cursor: pointer;
+  padding: 0;
 }
 
 .checkbox-label input {
   width: 18px;
   height: 18px;
   accent-color: #6366F1;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+  margin-top: 2px;
+}
+
+.checkbox-label span {
+  display: inline-block;
+  line-height: 1.4;
 }
 
 .btn {
   flex: 1;
-  padding: 14px;
+  padding: 16px;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn.primary {
@@ -461,13 +513,22 @@
   color: white;
 }
 
+.btn.primary:hover:not(:disabled) {
+  background: #4F46E5;
+}
+
 .btn.primary:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn.secondary {
   background: #F1F5F9;
   color: #64748B;
+}
+
+.btn.secondary:hover {
+  background: #E2E8F0;
 }
 
 /* Backup Modal */

@@ -44,7 +44,7 @@ export async function initDb() {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       quantity INTEGER DEFAULT 1,
-      category TEXT DEFAULT 'groceries',
+      category TEXT DEFAULT 'freshco',
       completed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW()
     )

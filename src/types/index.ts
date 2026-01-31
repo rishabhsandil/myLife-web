@@ -25,7 +25,7 @@ export interface ShoppingItem {
   createdAt: string;
 }
 
-export type ShoppingCategory = 'groceries' | 'household' | 'personal' | 'other';
+export type ShoppingCategory = 'freshco' | 'costco' | 'amazon' | 'other';
 
 export interface Exercise {
   id: string;

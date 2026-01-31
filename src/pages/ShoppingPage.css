@@ -75,7 +75,7 @@
 }
 
 .filter-chip {
-  padding: 8px 16px;
+  padding: 8px 12px;
   background: white;
   border-radius: 20px;
   font-size: 13px;
@@ -158,17 +158,17 @@
   text-transform: capitalize;
 }
 
-.item-category.groceries {
+.item-category.freshco {
   background: #DCFCE7;
   color: #22C55E;
 }
 
-.item-category.household {
+.item-category.costco {
   background: #E0E7FF;
   color: #6366F1;
 }
 
-.item-category.personal {
+.item-category.amazon {
   background: #FCE7F3;
   color: #EC4899;
 }
