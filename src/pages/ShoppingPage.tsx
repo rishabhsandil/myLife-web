@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
-  IoCart, IoBasket, IoEllipsisHorizontal, IoRemove
+  IoCart, IoBasket, IoEllipsisHorizontal, IoRemove,
+  IoShareSocial, IoPersonAdd, IoClose
 } from 'react-icons/io5';
-import { ShoppingItem, ShoppingCategory } from '../types';
-import { getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems } from '../utils/api.ts';
+import { ShoppingItem, ShoppingCategory, ShoppingShareStatus } from '../types';
+import { 
+  getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
+  getShoppingShareStatus, unshareShoppingList
+} from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
@@ -20,7 +24,12 @@ const CATEGORIES: { key: ShoppingCategory; label: string; icon: typeof IoCart }[
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<ShoppingCategory | 'all'>('all');
+  const [shareStatus, setShareStatus] = useState<ShoppingShareStatus>({ sharedWith: [], sharedBy: [] });
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareError, setShareError] = useState('');
+  
   const modal = useModal();
+  const shareModal = useModal();
 
   // Form state
   const [name, setName] = useState('');
@@ -29,11 +38,17 @@ export default function ShoppingPage() {
 
   useEffect(() => {
     loadItems();
+    loadShareStatus();
   }, []);
 
   async function loadItems() {
     const data = await getShoppingItems();
     setItems(data);
+  }
+
+  async function loadShareStatus() {
+    const status = await getShoppingShareStatus();
+    setShareStatus(status);
   }
 
   const filteredItems = useMemo(() => {
@@ -55,6 +70,12 @@ export default function ShoppingPage() {
     modal.open();
   };
 
+  const openShareModal = () => {
+    setShareEmail('');
+    setShareError('');
+    shareModal.open();
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
 
@@ -65,6 +86,7 @@ export default function ShoppingPage() {
       category,
       completed: false,
       createdAt: new Date().toISOString(),
+      isOwn: true,
     };
 
     await saveShoppingItem(newItem);
@@ -88,9 +110,50 @@ export default function ShoppingPage() {
     setItems(items.filter(i => !i.completed));
   };
 
+  const handleShare = async () => {
+    if (!shareEmail.trim()) return;
+    
+    setShareError('');
+    try {
+      const response = await fetch(`/api/shopping-share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({ email: shareEmail.trim().toLowerCase() }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setShareError(data.error || 'Failed to share');
+        return;
+      }
+      
+      setShareStatus(prev => ({
+        ...prev,
+        sharedWith: [...prev.sharedWith, data.sharedWith],
+      }));
+      setShareEmail('');
+    } catch {
+      setShareError('Failed to share list');
+    }
+  };
+
+  const handleUnshare = async (userId: string) => {
+    await unshareShoppingList(userId);
+    setShareStatus(prev => ({
+      ...prev,
+      sharedWith: prev.sharedWith.filter(u => u.id !== userId),
+    }));
+  };
+
   const getCategoryIcon = (cat: ShoppingCategory) => {
     return CATEGORIES.find(c => c.key === cat)?.icon || IoCart;
   };
+
+  const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
   return (
     <div className="shopping-page">
@@ -98,11 +161,19 @@ export default function ShoppingPage() {
       <header className="shopping-header">
         <div>
           <h1 className="header-title">Shopping List</h1>
-          <p className="header-subtitle">{items.length} items • {completedCount} done</p>
+          <p className="header-subtitle">
+            {items.length} items • {completedCount} done
+            {isSharing && ' • Shared'}
+          </p>
         </div>
-        {completedCount > 0 && (
-          <button className="clear-btn" onClick={clearCompleted}>Clear Done</button>
-        )}
+        <div className="header-actions">
+          <button className="share-btn" onClick={openShareModal} title="Share list">
+            <IoShareSocial size={20} />
+          </button>
+          {completedCount > 0 && (
+            <button className="clear-btn" onClick={clearCompleted}>Clear Done</button>
+          )}
+        </div>
       </header>
 
       {/* Progress */}
@@ -144,8 +215,9 @@ export default function ShoppingPage() {
           <div className="items-list">
             {filteredItems.map(item => {
               const Icon = getCategoryIcon(item.category);
+              const isSharedItem = item.isOwn === false;
               return (
-                <div key={item.id} className={`item-card ${item.completed ? 'completed' : ''}`}>
+                <div key={item.id} className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}>
                   <button className="item-checkbox" onClick={() => toggleComplete(item)}>
                     {item.completed ? (
                       <IoCheckmarkCircle size={24} color={colors.success} />
@@ -154,7 +226,12 @@ export default function ShoppingPage() {
                     )}
                   </button>
                   <div className="item-content">
-                    <div className="item-name">{item.name}</div>
+                    <div className="item-name">
+                      {item.name}
+                      {isSharedItem && (
+                        <span className="item-owner">({item.ownerName})</span>
+                      )}
+                    </div>
                     <div className="item-meta">
                       <span className="item-qty">×{item.quantity}</span>
                       <span className={`item-category ${item.category}`}>
@@ -228,6 +305,70 @@ export default function ShoppingPage() {
             })}
           </div>
         </FormGroup>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal
+        isOpen={shareModal.isOpen}
+        onClose={shareModal.close}
+        title="Share Shopping List"
+        footer={<button className="btn secondary" onClick={shareModal.close}>Done</button>}
+      >
+        <p className="share-info">
+          Share your shopping list with another user. They'll see your items and can mark them as done.
+        </p>
+
+        {/* Add new share */}
+        <div className="share-add">
+          <input
+            type="email"
+            value={shareEmail}
+            onChange={e => setShareEmail(e.target.value)}
+            placeholder="Enter email address"
+            onKeyDown={e => e.key === 'Enter' && handleShare()}
+          />
+          <button className="share-add-btn" onClick={handleShare} disabled={!shareEmail.trim()}>
+            <IoPersonAdd size={20} />
+          </button>
+        </div>
+        {shareError && <p className="share-error">{shareError}</p>}
+
+        {/* People I share with */}
+        {shareStatus.sharedWith.length > 0 && (
+          <div className="share-section">
+            <h4>Shared with</h4>
+            <div className="share-list">
+              {shareStatus.sharedWith.map(user => (
+                <div key={user.id} className="share-item">
+                  <div className="share-user">
+                    <span className="share-name">{user.name}</span>
+                    <span className="share-email">{user.email}</span>
+                  </div>
+                  <button className="share-remove" onClick={() => handleUnshare(user.id)}>
+                    <IoClose size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* People who share with me */}
+        {shareStatus.sharedBy.length > 0 && (
+          <div className="share-section">
+            <h4>Shared by others</h4>
+            <div className="share-list">
+              {shareStatus.sharedBy.map(user => (
+                <div key={user.id} className="share-item">
+                  <div className="share-user">
+                    <span className="share-name">{user.name}</span>
+                    <span className="share-email">{user.email}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

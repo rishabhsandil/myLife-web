@@ -74,6 +74,17 @@ export async function initDb() {
     )
   `;
 
+  // Shopping list sharing - tracks who shares their list with whom
+  await sql`
+    CREATE TABLE IF NOT EXISTS shopping_shares (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      shared_with_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(owner_id, shared_with_id)
+    )
+  `;
+
   // Create indexes for user_id lookups
   await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;

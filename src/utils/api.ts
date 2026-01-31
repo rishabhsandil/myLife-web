@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, BodyPart } from '../types';
+import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -102,6 +102,37 @@ export async function clearCompletedItems(): Promise<void> {
     await api('shopping?clearCompleted=true', { method: 'DELETE' });
   } catch (error) {
     console.error('Failed to clear completed items:', error);
+  }
+}
+
+// ============ SHOPPING SHARING ============
+export async function getShoppingShareStatus(): Promise<ShoppingShareStatus> {
+  try {
+    return await api<ShoppingShareStatus>('shopping-share');
+  } catch (error) {
+    console.error('Failed to get share status:', error);
+    return { sharedWith: [], sharedBy: [] };
+  }
+}
+
+export async function shareShoppingList(email: string): Promise<{ success: boolean; error?: string; sharedWith?: ShoppingShareUser }> {
+  try {
+    const result = await api<{ success: boolean; sharedWith: ShoppingShareUser }>('shopping-share', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return result;
+  } catch (error) {
+    console.error('Failed to share list:', error);
+    return { success: false, error: 'Failed to share list' };
+  }
+}
+
+export async function unshareShoppingList(userId: string): Promise<void> {
+  try {
+    await api(`shopping-share?userId=${userId}`, { method: 'DELETE' });
+  } catch (error) {
+    console.error('Failed to unshare list:', error);
   }
 }
 

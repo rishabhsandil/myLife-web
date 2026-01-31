@@ -18,11 +18,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     switch (req.method) {
       case 'GET': {
+        // Get my items + items from people who share with me
         const rows = await sql`
-          SELECT id, name, quantity, category, completed, created_at as "createdAt"
-          FROM shopping_items 
-          WHERE user_id = ${userId}
-          ORDER BY completed ASC, created_at DESC
+          SELECT 
+            si.id, si.name, si.quantity, si.category, si.completed, 
+            si.created_at as "createdAt", si.user_id as "ownerId",
+            u.name as "ownerName",
+            CASE WHEN si.user_id = ${userId} THEN true ELSE false END as "isOwn"
+          FROM shopping_items si
+          JOIN users u ON si.user_id = u.id
+          WHERE si.user_id = ${userId}
+             OR si.user_id IN (
+               SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+             )
+          ORDER BY si.completed ASC, si.created_at DESC
         `;
         return res.status(200).json(rows);
       }
@@ -38,10 +47,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       case 'PUT': {
         const { id, name, quantity, category, completed } = req.body;
+        // Can update own items OR items shared with me
         await sql`
           UPDATE shopping_items 
           SET name = ${name}, quantity = ${quantity}, category = ${category}, completed = ${completed}
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} 
+            AND (user_id = ${userId} OR user_id IN (
+              SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+            ))
         `;
         return res.status(200).json({ success: true });
       }
@@ -49,9 +62,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'DELETE': {
         const { id, clearCompleted } = req.query;
         if (clearCompleted === 'true') {
-          await sql`DELETE FROM shopping_items WHERE completed = true AND user_id = ${userId}`;
+          // Clear my completed items + completed items from shared lists
+          await sql`
+            DELETE FROM shopping_items 
+            WHERE completed = true 
+              AND (user_id = ${userId} OR user_id IN (
+                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+              ))
+          `;
         } else if (id) {
-          await sql`DELETE FROM shopping_items WHERE id = ${id as string} AND user_id = ${userId}`;
+          // Can delete own items OR items from shared lists
+          await sql`
+            DELETE FROM shopping_items 
+            WHERE id = ${id as string}
+              AND (user_id = ${userId} OR user_id IN (
+                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+              ))
+          `;
         }
         return res.status(200).json({ success: true });
       }

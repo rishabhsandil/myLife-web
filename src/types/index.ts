@@ -23,9 +23,24 @@ export interface ShoppingItem {
   category: ShoppingCategory;
   completed: boolean;
   createdAt: string;
+  ownerId?: string;
+  ownerName?: string;
+  isOwn?: boolean;
 }
 
 export type ShoppingCategory = 'freshco' | 'costco' | 'amazon' | 'other';
+
+export interface ShoppingShareUser {
+  id: string;
+  email: string;
+  name: string;
+  sharedAt?: string;
+}
+
+export interface ShoppingShareStatus {
+  sharedWith: ShoppingShareUser[];
+  sharedBy: ShoppingShareUser[];
+}
 
 export interface Exercise {
   id: string;

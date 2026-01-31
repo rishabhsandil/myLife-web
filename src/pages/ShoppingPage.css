@@ -27,6 +27,23 @@
   margin-top: 2px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.share-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .clear-btn {
   padding: 8px 14px;
   background: rgba(255, 255, 255, 0.2);
@@ -220,4 +237,120 @@
 .category-btn span {
   font-size: 13px;
   font-weight: 500;
+}
+
+/* Shared items styling */
+.item-card.shared {
+  border-left: 3px solid #EC4899;
+}
+
+.item-owner {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* Share Modal */
+.share-info {
+  color: #64748B;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.share-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.share-add input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.share-add input:focus {
+  outline: none;
+  border-color: #EC4899;
+}
+
+.share-add-btn {
+  width: 48px;
+  height: 48px;
+  background: #EC4899;
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-add-btn:disabled {
+  opacity: 0.5;
+}
+
+.share-error {
+  color: #EF4444;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.share-section {
+  margin-top: 20px;
+}
+
+.share-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.share-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 10px;
+}
+
+.share-user {
+  display: flex;
+  flex-direction: column;
+}
+
+.share-name {
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.share-email {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.share-remove {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #EF4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-remove:hover {
+  background: #FEE2E2;
 }
