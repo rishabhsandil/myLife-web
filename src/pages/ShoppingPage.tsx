@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoBasket, IoEllipsisHorizontal, IoRemove,
@@ -36,15 +36,39 @@ export default function ShoppingPage() {
   const [quantity, setQuantity] = useState(1);
   const [category, setCategory] = useState<ShoppingCategory>('freshco');
 
+  // Track mutations to pause sync
+  const isMutating = useRef(false);
+  const lastSyncTime = useRef(0);
+
+  const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
+
+  const loadItems = useCallback(async () => {
+    // Skip sync if a mutation is in progress
+    if (isMutating.current) return;
+    
+    const data = await getShoppingItems();
+    // Double-check mutation didn't start during fetch
+    if (!isMutating.current) {
+      setItems(data);
+      lastSyncTime.current = Date.now();
+    }
+  }, []);
+
   useEffect(() => {
     loadItems();
     loadShareStatus();
-  }, []);
+  }, [loadItems]);
 
-  async function loadItems() {
-    const data = await getShoppingItems();
-    setItems(data);
-  }
+  // Auto-sync when list is shared
+  useEffect(() => {
+    if (!isSharing) return;
+    
+    const interval = setInterval(() => {
+      loadItems();
+    }, 5000); // Sync every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [isSharing, loadItems]);
 
   async function loadShareStatus() {
     const status = await getShoppingShareStatus();
@@ -89,25 +113,53 @@ export default function ShoppingPage() {
       isOwn: true,
     };
 
-    await saveShoppingItem(newItem);
-    setItems([...items, newItem]);
+    isMutating.current = true;
+    try {
+      await saveShoppingItem(newItem);
+      // Fetch fresh data from server to get authoritative state
+      const data = await getShoppingItems();
+      setItems(data);
+    } finally {
+      isMutating.current = false;
+    }
     modal.close();
   };
 
   const toggleComplete = async (item: ShoppingItem) => {
     const updatedItem = { ...item, completed: !item.completed };
-    await updateShoppingItem(updatedItem);
+    // Optimistic update
     setItems(items.map(i => i.id === item.id ? updatedItem : i));
+    
+    isMutating.current = true;
+    try {
+      await updateShoppingItem(updatedItem);
+    } finally {
+      isMutating.current = false;
+    }
   };
 
   const deleteItem = async (id: string) => {
-    await deleteShoppingItem(id);
+    // Optimistic update
     setItems(items.filter(i => i.id !== id));
+    
+    isMutating.current = true;
+    try {
+      await deleteShoppingItem(id);
+    } finally {
+      isMutating.current = false;
+    }
   };
 
   const clearCompleted = async () => {
-    await clearCompletedItems();
+    // Optimistic update
     setItems(items.filter(i => !i.completed));
+    
+    isMutating.current = true;
+    try {
+      await clearCompletedItems();
+    } finally {
+      isMutating.current = false;
+    }
   };
 
   const handleShare = async () => {
@@ -153,7 +205,12 @@ export default function ShoppingPage() {
     return CATEGORIES.find(c => c.key === cat)?.icon || IoCart;
   };
 
-  const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  // Get all share partners (people I share with + people who share with me)
+  const sharePartners = [...shareStatus.sharedWith, ...shareStatus.sharedBy];
 
   return (
     <div className="shopping-page">
@@ -167,6 +224,22 @@ export default function ShoppingPage() {
           </p>
         </div>
         <div className="header-actions">
+          {sharePartners.length > 0 && (
+            <div className="share-partners">
+              {sharePartners.slice(0, 2).map(partner => (
+                <span 
+                  key={partner.id} 
+                  className="partner-badge" 
+                  title={`Shared with ${partner.name}`}
+                >
+                  {getInitials(partner.name)}
+                </span>
+              ))}
+              {sharePartners.length > 2 && (
+                <span className="partner-badge more">+{sharePartners.length - 2}</span>
+              )}
+            </div>
+          )}
           <button className="share-btn" onClick={openShareModal} title="Share list">
             <IoShareSocial size={20} />
           </button>

@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     switch (req.method) {
       case 'GET': {
-        // Get my items + items from people who share with me
+        // Get my items + items from people I share with (bidirectional)
         const rows = await sql`
           SELECT 
             si.id, si.name, si.quantity, si.category, si.completed, 
@@ -29,7 +29,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           JOIN users u ON si.user_id = u.id
           WHERE si.user_id = ${userId}
              OR si.user_id IN (
+               -- People who shared with me
                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+               UNION
+               -- People I shared with
+               SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
              )
           ORDER BY si.completed ASC, si.created_at DESC
         `;
@@ -47,13 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       case 'PUT': {
         const { id, name, quantity, category, completed } = req.body;
-        // Can update own items OR items shared with me
+        // Can update own items OR items from share partners (bidirectional)
         await sql`
           UPDATE shopping_items 
           SET name = ${name}, quantity = ${quantity}, category = ${category}, completed = ${completed}
           WHERE id = ${id} 
             AND (user_id = ${userId} OR user_id IN (
               SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+              UNION
+              SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
             ))
         `;
         return res.status(200).json({ success: true });
@@ -62,21 +68,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'DELETE': {
         const { id, clearCompleted } = req.query;
         if (clearCompleted === 'true') {
-          // Clear my completed items + completed items from shared lists
+          // Clear completed items from my list + share partners (bidirectional)
           await sql`
             DELETE FROM shopping_items 
             WHERE completed = true 
               AND (user_id = ${userId} OR user_id IN (
                 SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+                UNION
+                SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
               ))
           `;
         } else if (id) {
-          // Can delete own items OR items from shared lists
+          // Can delete own items OR items from share partners (bidirectional)
           await sql`
             DELETE FROM shopping_items 
             WHERE id = ${id as string}
               AND (user_id = ${userId} OR user_id IN (
                 SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+                UNION
+                SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
               ))
           `;
         }
