@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoBasket, IoEllipsisHorizontal, IoRemove,
-  IoShareSocial, IoPersonAdd, IoClose
+  IoShareSocial, IoPersonAdd, IoClose, IoTime
 } from 'react-icons/io5';
-import { ShoppingItem, ShoppingCategory, ShoppingShareStatus } from '../types';
+import { ShoppingItem, ShoppingCategory, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import { 
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
-  getShoppingShareStatus, unshareShoppingList
+  getShoppingShareStatus, unshareShoppingList, getShoppingAudit
 } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
@@ -27,9 +27,11 @@ export default function ShoppingPage() {
   const [shareStatus, setShareStatus] = useState<ShoppingShareStatus>({ sharedWith: [], sharedBy: [] });
   const [shareEmail, setShareEmail] = useState('');
   const [shareError, setShareError] = useState('');
+  const [auditHistory, setAuditHistory] = useState<ShoppingAuditEntry[]>([]);
   
   const modal = useModal();
   const shareModal = useModal();
+  const historyModal = useModal();
 
   // Form state
   const [name, setName] = useState('');
@@ -98,6 +100,12 @@ export default function ShoppingPage() {
     setShareEmail('');
     setShareError('');
     shareModal.open();
+  };
+
+  const openHistoryModal = async () => {
+    const history = await getShoppingAudit();
+    setAuditHistory(history);
+    historyModal.open();
   };
 
   const handleSave = async () => {
@@ -240,6 +248,9 @@ export default function ShoppingPage() {
               )}
             </div>
           )}
+          <button className="history-btn" onClick={openHistoryModal} title="View history">
+            <IoTime size={20} />
+          </button>
           <button className="share-btn" onClick={openShareModal} title="Share list">
             <IoShareSocial size={20} />
           </button>
@@ -442,6 +453,41 @@ export default function ShoppingPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* History Modal */}
+      <Modal isOpen={historyModal.isOpen} onClose={historyModal.close} title="Activity History">
+        <div className="history-list">
+          {auditHistory.length === 0 ? (
+            <p className="history-empty">No activity yet</p>
+          ) : (
+            auditHistory.map(entry => (
+              <div key={entry.id} className="history-item">
+                <div className="history-content">
+                  <span className={`history-action ${entry.action}`}>
+                    {entry.action === 'added' && '➕'}
+                    {entry.action === 'completed' && '✅'}
+                    {entry.action === 'uncompleted' && '⬜'}
+                    {entry.action === 'deleted' && '🗑️'}
+                    {entry.action === 'cleared' && '🧹'}
+                  </span>
+                  <div className="history-details">
+                    <span className="history-user">{entry.userName}</span>
+                    <span className="history-text">
+                      {entry.action} <strong>{entry.itemName}</strong>
+                    </span>
+                    {entry.details && <span className="history-meta">{entry.details}</span>}
+                  </div>
+                </div>
+                <span className="history-time">
+                  {new Date(entry.createdAt).toLocaleDateString(undefined, { 
+                    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' 
+                  })}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </Modal>
     </div>
   );

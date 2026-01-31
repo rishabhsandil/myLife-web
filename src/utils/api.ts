@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser } from '../types';
+import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -133,6 +133,16 @@ export async function unshareShoppingList(userId: string): Promise<void> {
     await api(`shopping-share?userId=${userId}`, { method: 'DELETE' });
   } catch (error) {
     console.error('Failed to unshare list:', error);
+  }
+}
+
+// ============ SHOPPING AUDIT ============
+export async function getShoppingAudit(): Promise<ShoppingAuditEntry[]> {
+  try {
+    return await api<ShoppingAuditEntry[]>('shopping-audit');
+  } catch (error) {
+    console.error('Failed to get audit history:', error);
+    return [];
   }
 }
 

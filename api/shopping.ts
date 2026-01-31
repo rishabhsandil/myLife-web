@@ -46,11 +46,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           INSERT INTO shopping_items (id, user_id, name, quantity, category, completed)
           VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${category || 'freshco'}, ${completed || false})
         `;
+        // Log audit
+        await sql`
+          INSERT INTO shopping_audit (id, user_id, action, item_name, details)
+          VALUES (${Date.now().toString()}, ${userId}, 'added', ${name}, ${`Qty: ${quantity || 1}, Store: ${category || 'freshco'}`})
+        `;
         return res.status(201).json({ success: true });
       }
 
       case 'PUT': {
         const { id, name, quantity, category, completed } = req.body;
+        // Get current item state for audit
+        const [currentItem] = await sql`SELECT name, completed FROM shopping_items WHERE id = ${id}`;
+        
         // Can update own items OR items from share partners (bidirectional)
         await sql`
           UPDATE shopping_items 
@@ -62,12 +70,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
             ))
         `;
+        
+        // Log audit - track completed status changes
+        if (currentItem && currentItem.completed !== completed) {
+          await sql`
+            INSERT INTO shopping_audit (id, user_id, action, item_name, details)
+            VALUES (${Date.now().toString()}, ${userId}, ${completed ? 'completed' : 'uncompleted'}, ${name}, NULL)
+          `;
+        }
         return res.status(200).json({ success: true });
       }
 
       case 'DELETE': {
         const { id, clearCompleted } = req.query;
         if (clearCompleted === 'true') {
+          // Get items being cleared for audit
+          const itemsToDelete = await sql`
+            SELECT name FROM shopping_items 
+            WHERE completed = true 
+              AND (user_id = ${userId} OR user_id IN (
+                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
+                UNION
+                SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+              ))
+          `;
+          
           // Clear completed items from my list + share partners (bidirectional)
           await sql`
             DELETE FROM shopping_items 
@@ -78,7 +105,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
               ))
           `;
+          
+          // Log audit
+          if (itemsToDelete.length > 0) {
+            await sql`
+              INSERT INTO shopping_audit (id, user_id, action, item_name, details)
+              VALUES (${Date.now().toString()}, ${userId}, 'cleared', ${`${itemsToDelete.length} items`}, 'Cleared completed items')
+            `;
+          }
         } else if (id) {
+          // Get item name for audit
+          const [item] = await sql`SELECT name FROM shopping_items WHERE id = ${id as string}`;
+          
           // Can delete own items OR items from share partners (bidirectional)
           await sql`
             DELETE FROM shopping_items 
@@ -89,6 +127,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
               ))
           `;
+          
+          // Log audit
+          if (item) {
+            await sql`
+              INSERT INTO shopping_audit (id, user_id, action, item_name, details)
+              VALUES (${Date.now().toString()}, ${userId}, 'deleted', ${item.name}, NULL)
+            `;
+          }
         }
         return res.status(200).json({ success: true });
       }

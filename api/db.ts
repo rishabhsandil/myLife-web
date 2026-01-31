@@ -85,6 +85,19 @@ export async function initDb() {
     )
   `;
 
+  // Shopping audit history - tracks all changes
+  await sql`
+    CREATE TABLE IF NOT EXISTS shopping_audit (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      details TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id)`;
+
   // Create indexes for user_id lookups
   await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;

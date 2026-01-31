@@ -42,6 +42,15 @@ export interface ShoppingShareStatus {
   sharedBy: ShoppingShareUser[];
 }
 
+export interface ShoppingAuditEntry {
+  id: string;
+  action: 'added' | 'completed' | 'uncompleted' | 'deleted' | 'cleared';
+  itemName: string;
+  details?: string;
+  userName: string;
+  createdAt: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
