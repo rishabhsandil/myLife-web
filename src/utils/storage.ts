@@ -1,10 +1,9 @@
-import { TodoItem, ShoppingItem, Exercise, WorkoutSession } from '../types';
+import { TodoItem, ShoppingItem, Exercise } from '../types';
 
 const STORAGE_KEYS = {
   TODOS: 'mylife_todos',
   SHOPPING: 'mylife_shopping',
   EXERCISES: 'mylife_exercises',
-  WORKOUTS: 'mylife_workouts',
   LAST_BACKUP: 'mylife_last_backup',
 };
 
@@ -38,16 +37,6 @@ export const saveExercises = (exercises: Exercise[]): void => {
   localStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(exercises));
 };
 
-// Workout Sessions
-export const getWorkoutSessions = (): WorkoutSession[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.WORKOUTS);
-  return data ? JSON.parse(data) : [];
-};
-
-export const saveWorkoutSessions = (sessions: WorkoutSession[]): void => {
-  localStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(sessions));
-};
-
 // Backup functions
 export const exportBackup = (): void => {
   const backupData = {
@@ -57,7 +46,6 @@ export const exportBackup = (): void => {
       todos: getTodos(),
       shopping: getShoppingItems(),
       exercises: getExercises(),
-      workouts: getWorkoutSessions(),
     },
   };
   
@@ -82,7 +70,6 @@ export const importBackup = (file: File): Promise<boolean> => {
           saveTodos(data.data.todos || []);
           saveShoppingItems(data.data.shopping || []);
           saveExercises(data.data.exercises || []);
-          saveWorkoutSessions(data.data.workouts || []);
           resolve(true);
         } else {
           resolve(false);

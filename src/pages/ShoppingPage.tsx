@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoClose, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
-  IoCart, IoBasket, IoPerson, IoEllipsisHorizontal, IoRemove
+  IoCart, IoBasket, IoEllipsisHorizontal, IoRemove
 } from 'react-icons/io5';
 import { ShoppingItem, ShoppingCategory } from '../types';
 import { getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems } from '../utils/api';

@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (req.method) {
       case 'GET': {
         const rows = await sql`
-          SELECT id, name, body_part as "bodyPart", personal_record as "personalRecord"
+          SELECT id, name, body_part as "bodyPart", sets, reps, weight
           FROM exercises 
           WHERE user_id = ${userId}
           ORDER BY body_part, name
@@ -28,19 +28,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       case 'POST': {
-        const { id, name, bodyPart, personalRecord } = req.body;
+        const { id, name, bodyPart, sets, reps, weight } = req.body;
         await sql`
-          INSERT INTO exercises (id, user_id, name, body_part, personal_record)
-          VALUES (${id}, ${userId}, ${name}, ${bodyPart}, ${personalRecord || null})
+          INSERT INTO exercises (id, user_id, name, body_part, sets, reps, weight)
+          VALUES (${id}, ${userId}, ${name}, ${bodyPart}, ${sets || 3}, ${reps || 10}, ${weight || 0})
         `;
         return res.status(201).json({ success: true });
       }
 
       case 'PUT': {
-        const { id, name, bodyPart, personalRecord } = req.body;
+        const { id, name, bodyPart, sets, reps, weight } = req.body;
         await sql`
           UPDATE exercises 
-          SET name = ${name}, body_part = ${bodyPart}, personal_record = ${personalRecord || null}
+          SET name = ${name}, body_part = ${bodyPart}, sets = ${sets}, reps = ${reps}, weight = ${weight}
           WHERE id = ${id} AND user_id = ${userId}
         `;
         return res.status(200).json({ success: true });

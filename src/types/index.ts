@@ -31,23 +31,9 @@ export interface Exercise {
   id: string;
   name: string;
   bodyPart: BodyPart;
-  personalRecord?: number;
+  sets: number;
+  reps: number;
+  weight: number; // PR weight
 }
 
 export type BodyPart = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core';
-
-export interface WorkoutSession {
-  id: string;
-  date: string;
-  exercises: WorkoutExercise[];
-}
-
-export interface WorkoutExercise {
-  exerciseId: string;
-  sets: WorkoutSet[];
-}
-
-export interface WorkoutSet {
-  reps: number;
-  weight: number;
-}

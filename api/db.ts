@@ -56,7 +56,9 @@ export async function initDb() {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       body_part TEXT NOT NULL,
-      personal_record REAL,
+      sets INTEGER DEFAULT 3,
+      reps INTEGER DEFAULT 10,
+      weight REAL DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `;

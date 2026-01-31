@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, WorkoutSession } from '../types';
+import { TodoItem, ShoppingItem, Exercise } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -172,47 +172,19 @@ export async function saveExercises(exercises: Exercise[]): Promise<void> {
   localStorage.setItem('mylife_exercises', JSON.stringify(exercises));
 }
 
-// ============ WORKOUTS ============
-
-export async function getWorkoutSessions(): Promise<WorkoutSession[]> {
-  try {
-    return await api<WorkoutSession[]>('workouts');
-  } catch (error) {
-    console.error('Failed to fetch workouts:', error);
-    const data = localStorage.getItem('mylife_workouts');
-    return data ? JSON.parse(data) : [];
-  }
-}
-
-export async function saveWorkoutSession(session: WorkoutSession): Promise<void> {
-  try {
-    await api('workouts', {
-      method: 'POST',
-      body: JSON.stringify(session),
-    });
-  } catch (error) {
-    console.error('Failed to save workout:', error);
-  }
-}
-
-export async function saveWorkoutSessions(sessions: WorkoutSession[]): Promise<void> {
-  localStorage.setItem('mylife_workouts', JSON.stringify(sessions));
-}
-
 // ============ BACKUP ============
 
 export const exportBackup = async (): Promise<void> => {
-  const [todos, shopping, exercises, workouts] = await Promise.all([
+  const [todos, shopping, exercises] = await Promise.all([
     getTodos(),
     getShoppingItems(),
     getExercises(),
-    getWorkoutSessions(),
   ]);
 
   const backupData = {
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    data: { todos, shopping, exercises, workouts },
+    data: { todos, shopping, exercises },
   };
 
   const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -237,7 +209,6 @@ export const importBackup = (file: File): Promise<boolean> => {
           localStorage.setItem('mylife_todos', JSON.stringify(data.data.todos || []));
           localStorage.setItem('mylife_shopping', JSON.stringify(data.data.shopping || []));
           localStorage.setItem('mylife_exercises', JSON.stringify(data.data.exercises || []));
-          localStorage.setItem('mylife_workouts', JSON.stringify(data.data.workouts || []));
           
           // TODO: Sync to database
           // For now, page refresh will load from localStorage if API fails
