@@ -6,6 +6,7 @@ export interface TodoItem {
   date: string;
   time?: string;
   priority: Priority;
+  category?: string;
   recurrence: RecurrenceType;
   completedDates?: string[];
   excludedDates?: string[];

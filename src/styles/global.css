@@ -63,7 +63,6 @@ input, textarea {
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
-  overflow: hidden;
   animation: slideUp 0.3s ease;
   display: flex;
   flex-direction: column;

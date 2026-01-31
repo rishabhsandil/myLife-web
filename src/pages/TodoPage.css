@@ -296,6 +296,16 @@
   margin-top: 4px;
 }
 
+.task-category {
+  display: inline-block;
+  font-size: 12px;
+  color: #6366F1;
+  background: #EEF2FF;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
 .task-time {
   display: inline-flex;
   align-items: center;
@@ -343,4 +353,31 @@
   color: #94A3B8;
   font-size: 13px;
   margin-top: 2px;
+}
+
+/* Category Chips */
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-chip {
+  padding: 8px 12px;
+  background: #F1F5F9;
+  border: 2px solid transparent;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-chip:hover {
+  background: #E2E8F0;
+}
+
+.category-chip.active {
+  background: #EEF2FF;
+  border-color: #6366F1;
+  color: #6366F1;
 }

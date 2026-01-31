@@ -30,6 +30,8 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
   { key: 'high', label: 'High', color: colors.error },
 ];
 
+const QUICK_CATEGORIES = ['🎂 Birthday', '💊 Medicine', '💪 Workout', '📞 Call', '💼 Work', '🏠 Home'];
+
 // Date helper functions
 const formatDateInput = (date: Date): string => date.toISOString().split('T')[0];
 const formatDateKey = (date: Date): string => date.toISOString().split('T')[0];
@@ -51,6 +53,7 @@ export default function TodoPage() {
   const [taskDate, setTaskDate] = useState(formatDateInput(new Date()));
   const [time, setTime] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
+  const [category, setCategory] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
   const [isEvent, setIsEvent] = useState(false);
 
@@ -98,6 +101,7 @@ export default function TodoPage() {
     setTaskDate(formatDateInput(selectedDate));
     setTime('');
     setPriority('medium');
+    setCategory('');
     setRecurrence('none');
     setIsEvent(false);
   };
@@ -113,6 +117,7 @@ export default function TodoPage() {
     setTaskDate(todo.date);
     setTime(todo.time || '');
     setPriority(todo.priority);
+    setCategory(todo.category || '');
     setRecurrence(todo.recurrence);
     setIsEvent(todo.isEvent || false);
     taskModal.open(todo);
@@ -129,6 +134,7 @@ export default function TodoPage() {
       date: taskDate,
       time: time || undefined,
       priority,
+      category: category || undefined,
       recurrence,
       isEvent,
       completedDates: taskModal.data?.completedDates || [],
@@ -343,6 +349,7 @@ export default function TodoPage() {
                         </span>
                       </div>
                     </div>
+                    {todo.category && <span className="task-category">{todo.category}</span>}
                     {todo.description && <p className="task-desc">{todo.description}</p>}
                     {todo.time && (
                       <span className="task-time"><IoTime size={12} /> {todo.time}</span>
@@ -420,6 +427,21 @@ export default function TodoPage() {
             />
           </FormGroup>
         </FormRow>
+
+        <FormGroup label="Category (optional)">
+          <div className="category-chips">
+            {QUICK_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                className={`category-chip ${category === cat ? 'active' : ''}`}
+                onClick={() => setCategory(category === cat ? '' : cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </FormGroup>
 
         <FormGroup label="Priority">
           <OptionPills options={PRIORITY_OPTIONS} value={priority} onChange={setPriority} />
