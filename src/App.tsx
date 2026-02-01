@@ -97,7 +97,7 @@ function AppContent() {
     // Show splash screen for minimum time
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 2500);
+    }, 3500);
     return () => clearTimeout(timer);
   }, []);
 

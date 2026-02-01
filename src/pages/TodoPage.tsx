@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoFlag, IoRepeat, IoTrash,
-  IoCloudUpload, IoCloudDownload, IoTime, IoCalendarOutline,
-  IoStar
+  IoCloudUpload, IoCloudDownload, IoTime, IoCalendarOutline
 } from 'react-icons/io5';
 import { TodoItem, Priority, RecurrenceType } from '../types';
 import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, exportBackup, importBackup } from '../utils/api.ts';
@@ -51,13 +50,11 @@ export default function TodoPage() {
 
   // Form state
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [taskDate, setTaskDate] = useState(formatDateInput(new Date()));
   const [time, setTime] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
-  const [isEvent, setIsEvent] = useState(false);
 
   useEffect(() => {
     loadTodos();
@@ -103,13 +100,11 @@ export default function TodoPage() {
 
   const resetForm = () => {
     setTitle('');
-    setDescription('');
     setTaskDate(formatDateInput(selectedDate));
     setTime('');
     setPriority('medium');
     setCategory('');
     setRecurrence('none');
-    setIsEvent(false);
   };
 
   const openAddModal = () => {
@@ -119,13 +114,11 @@ export default function TodoPage() {
 
   const openEditModal = (todo: TodoItem) => {
     setTitle(todo.title);
-    setDescription(todo.description || '');
     setTaskDate(todo.date);
     setTime(todo.time || '');
     setPriority(todo.priority);
     setCategory(todo.category || '');
     setRecurrence(todo.recurrence);
-    setIsEvent(todo.isEvent || false);
     taskModal.open(todo);
   };
 
@@ -135,14 +128,12 @@ export default function TodoPage() {
     const todoData: TodoItem = {
       id: taskModal.data?.id || Date.now().toString(),
       title: title.trim(),
-      description: description.trim() || undefined,
       completed: false,
       date: taskDate,
       time: time || undefined,
       priority,
       category: category || undefined,
       recurrence,
-      isEvent,
       completedDates: taskModal.data?.completedDates || [],
       excludedDates: taskModal.data?.excludedDates || [],
       createdAt: taskModal.data?.createdAt || new Date().toISOString(),
@@ -160,8 +151,6 @@ export default function TodoPage() {
   };
 
   const toggleComplete = async (todo: TodoItem) => {
-    if (todo.isEvent) return;
-
     const dateKey = formatDateKey(selectedDate);
     let updatedTodoData: TodoItem;
 
@@ -347,11 +336,8 @@ export default function TodoPage() {
                   <button
                     className="task-checkbox"
                     onClick={() => toggleComplete(todo)}
-                    disabled={todo.isEvent}
                   >
-                    {todo.isEvent ? (
-                      <IoStar size={24} color={colors.warning} />
-                    ) : completed ? (
+                    {completed ? (
                       <IoCheckmarkCircle size={24} color={colors.success} />
                     ) : (
                       <IoEllipseOutline size={24} color={colors.textMuted} />
@@ -370,7 +356,6 @@ export default function TodoPage() {
                       </div>
                     </div>
                     {todo.category && <span className="task-category">{todo.category}</span>}
-                    {todo.description && <p className="task-desc">{todo.description}</p>}
                     {todo.time && (
                       <span className="task-time"><IoTime size={12} /> {todo.time}</span>
                     )}
@@ -412,15 +397,6 @@ export default function TodoPage() {
           />
         </FormGroup>
 
-        <FormGroup label="Description (optional)">
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Add more details..."
-            rows={2}
-          />
-        </FormGroup>
-
         <FormRow>
           <FormGroup label="Date">
             <input
@@ -459,17 +435,6 @@ export default function TodoPage() {
 
         <FormGroup label="Repeat">
           <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
-        </FormGroup>
-
-        <FormGroup label="">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={isEvent}
-              onChange={e => setIsEvent(e.target.checked)}
-            />
-            <span>Event (no completion needed, e.g., birthdays)</span>
-          </label>
         </FormGroup>
       </Modal>
 

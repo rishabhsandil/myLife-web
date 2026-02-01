@@ -34,6 +34,7 @@ export async function initDb() {
       date TEXT NOT NULL,
       time TEXT,
       priority TEXT DEFAULT 'medium',
+      category TEXT,
       recurrence TEXT DEFAULT 'none',
       completed_dates TEXT[] DEFAULT '{}',
       excluded_dates TEXT[] DEFAULT '{}',

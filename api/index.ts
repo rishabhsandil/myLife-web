@@ -204,28 +204,28 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
   switch (req.method) {
     case 'GET': {
       const rows = await sql`
-        SELECT id, title, description, completed, date, time, priority, recurrence,
+        SELECT id, title, completed, date, time, priority, recurrence,
           completed_dates as "completedDates", excluded_dates as "excludedDates", 
-          is_event as "isEvent", created_at as "createdAt"
+          created_at as "createdAt", category
         FROM todos WHERE user_id = ${userId}
         ORDER BY date ASC, time ASC
       `;
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, title, description, completed, date, time, priority, recurrence, completedDates, excludedDates, isEvent } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category } = req.body;
       await sql`
-        INSERT INTO todos (id, user_id, title, description, completed, date, time, priority, recurrence, completed_dates, excluded_dates, is_event)
-        VALUES (${id}, ${userId}, ${title}, ${description || null}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${isEvent || false})
+        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category)
+        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, title, description, completed, date, time, priority, recurrence, completedDates, excludedDates, isEvent } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category } = req.body;
       await sql`
-        UPDATE todos SET title = ${title}, description = ${description || null}, completed = ${completed}, 
+        UPDATE todos SET title = ${title}, completed = ${completed}, 
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
-          completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, is_event = ${isEvent || false}
+          completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null}
         WHERE id = ${id} AND user_id = ${userId}
       `;
       return res.status(200).json({ success: true });
