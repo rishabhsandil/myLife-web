@@ -340,14 +340,6 @@ export default function ShoppingPage() {
         </div>
       </header>
 
-      {/* Progress */}
-      <div className="progress-container">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-        <span className="progress-text">{Math.round(progress)}%</span>
-      </div>
-
       {/* Store Tabs */}
       <div className="store-tabs">
         {stores.map(store => (
