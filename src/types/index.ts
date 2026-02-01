@@ -79,3 +79,16 @@ export interface PeriodSettings {
   averagePeriodLength: number; // days, default 5
   notifyDaysBefore: number; // days before predicted period, default 2
 }
+
+export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period';
+
+export interface ModuleConfig {
+  id: ModuleType;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface UserSettings {
+  enabledModules: ModuleType[];
+}

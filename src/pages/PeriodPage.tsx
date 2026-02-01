@@ -8,6 +8,7 @@ import { getPeriods, savePeriod, updatePeriod, deletePeriod, getPeriodSettings, 
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
+import logo from '../assets/logo.png';
 import './PeriodPage.css';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -170,25 +171,28 @@ export default function PeriodPage() {
     <div className="period-page">
       {/* Header */}
       <header className="period-header">
-        <div>
-          <h1 className="header-title">Period Tracker</h1>
-          <p className="header-subtitle">
-            {currentPeriod ? (
-              <>🔴 Day {Math.ceil((new Date().getTime() - new Date(currentPeriod.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} of your period</>
-            ) : daysUntilPeriod !== null ? (
-              daysUntilPeriod > 0 ? (
-                daysUntilPeriod <= settings.notifyDaysBefore ? (
-                  <>⚠️ Period expected in {daysUntilPeriod} day{daysUntilPeriod > 1 ? 's' : ''}</>
+        <div className="header-left">
+          <img src={logo} alt="MyLife" className="header-logo" />
+          <div>
+            <h1 className="header-title">Period Tracker</h1>
+            <p className="header-subtitle">
+              {currentPeriod ? (
+                <>Day {Math.ceil((new Date().getTime() - new Date(currentPeriod.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} of your period</>
+              ) : daysUntilPeriod !== null ? (
+                daysUntilPeriod > 0 ? (
+                  daysUntilPeriod <= settings.notifyDaysBefore ? (
+                    <>Period expected in {daysUntilPeriod} day{daysUntilPeriod > 1 ? 's' : ''}</>
+                  ) : (
+                    <>{daysUntilPeriod} days until predicted period</>
+                  )
                 ) : (
-                  <>📅 {daysUntilPeriod} days until predicted period</>
+                  <>Period expected today</>
                 )
               ) : (
-                <>⏰ Period expected today</>
-              )
-            ) : (
-              <>Track your menstrual health</>
-            )}
-          </p>
+                <>Track your menstrual health</>
+              )}
+            </p>
+          </div>
         </div>
         <button className="settings-btn" onClick={() => settingsModal.open()}>
           <IoSettings size={22} />

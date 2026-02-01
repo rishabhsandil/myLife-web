@@ -5,34 +5,47 @@
   background: #F8FAFC;
 }
 
-/* Header */
+/* Header - matches other pages */
 .period-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  background: white;
-  border-bottom: 1px solid #E2E8F0;
+  padding: 48px 20px 20px;
+  background: linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%);
+  border-radius: 0 0 20px 20px;
+}
+
+.period-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.period-header .header-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
 }
 
 .period-header .header-title {
   font-size: 24px;
   font-weight: 700;
-  color: #1E293B;
-  margin-bottom: 4px;
+  color: white;
+  margin: 0;
 }
 
 .period-header .header-subtitle {
-  font-size: 14px;
-  color: #64748B;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
 }
 
 .period-header .settings-btn {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: #F1F5F9;
-  color: #64748B;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,26 +53,26 @@
 }
 
 .period-header .settings-btn:hover {
-  background: #E2E8F0;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Prediction Card */
 .prediction-card {
   margin: 16px 20px;
   padding: 16px;
-  background: linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%);
+  background: white;
   border-radius: 16px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 2px solid #FEF2F2;
 }
 
 .prediction-icon {
   width: 48px;
   height: 48px;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -79,14 +92,14 @@
 
 .prediction-label {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: #64748B;
   font-weight: 500;
 }
 
 .prediction-date {
   font-size: 18px;
   font-weight: 700;
-  color: white;
+  color: #1E293B;
 }
 
 /* Calendar */
@@ -95,7 +108,7 @@
   margin: 0 20px 16px;
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .calendar-header {
@@ -234,7 +247,7 @@
   padding: 16px;
   display: flex;
   gap: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: all 0.2s;
   border: 2px solid transparent;
 }

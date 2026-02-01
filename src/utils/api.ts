@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings } from '../types';
+import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -238,5 +238,30 @@ export async function savePeriodSettings(settings: PeriodSettings): Promise<void
     localStorage.setItem('mylife_period_settings', JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to save period settings:', error);
+  }
+}
+
+// ============ USER SETTINGS (Module Configuration) ============
+const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'period'];
+
+export async function getUserSettings(): Promise<UserSettings> {
+  try {
+    return await api<UserSettings>('settings');
+  } catch (error) {
+    console.error('Failed to fetch user settings:', error);
+    const stored = localStorage.getItem('mylife_user_settings');
+    return stored ? JSON.parse(stored) : { enabledModules: DEFAULT_ENABLED_MODULES };
+  }
+}
+
+export async function saveUserSettings(settings: UserSettings): Promise<void> {
+  try {
+    await api('settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+    localStorage.setItem('mylife_user_settings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('Failed to save user settings:', error);
   }
 }

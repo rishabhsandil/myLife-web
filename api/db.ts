@@ -119,6 +119,15 @@ export async function initDb() {
     )
   `;
 
+  // User settings table (module configuration)
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'period'],
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Create indexes for user_id lookups
   await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;
