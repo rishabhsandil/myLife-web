@@ -95,8 +95,10 @@ export default function ShoppingPage() {
 
   const currentStore = stores.find(s => s.id === selectedStore);
   const filteredItems = useMemo(() => {
-    return items.filter(item => item.storeId === selectedStore);
-  }, [items, selectedStore]);
+    // Filter by store name to handle shared lists where users have different store IDs for the same store name
+    const storeName = currentStore?.name;
+    return items.filter(item => item.storeName === storeName);
+  }, [items, selectedStore, currentStore]);
 
   const completedCount = filteredItems.filter(i => i.completed).length;
   const totalCount = filteredItems.length;
@@ -193,13 +195,14 @@ export default function ShoppingPage() {
   };
 
   const clearCompleted = async () => {
-    if (!selectedStore) return;
-    // Optimistic update
-    setItems(items.filter(i => !i.completed || i.storeId !== selectedStore));
+    if (!currentStore) return;
+    const storeName = currentStore.name;
+    // Optimistic update - filter by store name
+    setItems(items.filter(i => !i.completed || i.storeName !== storeName));
     
     isMutating.current = true;
     try {
-      await clearCompletedItems(selectedStore);
+      await clearCompletedItems(storeName);
     } finally {
       isMutating.current = false;
     }

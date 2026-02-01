@@ -260,10 +260,11 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       const rows = await sql`
         SELECT si.id, si.name, si.quantity, si.store_id as "storeId", si.completed, 
           si.created_at as "createdAt", si.user_id as "ownerId",
-          u.name as "ownerName",
+          u.name as "ownerName", ss.name as "storeName",
           CASE WHEN si.user_id = ${userId} THEN true ELSE false END as "isOwn"
         FROM shopping_items si
         JOIN users u ON si.user_id = u.id
+        LEFT JOIN shopping_stores ss ON si.store_id = ss.id
         WHERE si.user_id = ${userId}
            OR si.user_id IN (
              SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
@@ -308,13 +309,15 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       return res.status(200).json({ success: true });
     }
     case 'DELETE': {
-      const { id, clearCompleted, storeId } = req.query;
+      const { id, clearCompleted, storeName } = req.query;
       if (clearCompleted === 'true') {
-        const storeFilter = storeId ? storeId as string : null;
-        const itemsToDelete = storeFilter 
+        const storeNameFilter = storeName ? storeName as string : null;
+        const itemsToDelete = storeNameFilter 
           ? await sql`
-              SELECT name FROM shopping_items WHERE completed = true AND store_id = ${storeFilter}
-                AND (user_id = ${userId} OR user_id IN (
+              SELECT si.name FROM shopping_items si
+              JOIN shopping_stores ss ON si.store_id = ss.id
+              WHERE si.completed = true AND ss.name = ${storeNameFilter}
+                AND (si.user_id = ${userId} OR si.user_id IN (
                   SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
                   UNION
                   SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
@@ -328,10 +331,12 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
                   SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
                 ))
             `;
-        if (storeFilter) {
+        if (storeNameFilter) {
           await sql`
-            DELETE FROM shopping_items WHERE completed = true AND store_id = ${storeFilter}
-              AND (user_id = ${userId} OR user_id IN (
+            DELETE FROM shopping_items si
+            USING shopping_stores ss
+            WHERE si.store_id = ss.id AND si.completed = true AND ss.name = ${storeNameFilter}
+              AND (si.user_id = ${userId} OR si.user_id IN (
                 SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
                 UNION
                 SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
@@ -399,9 +404,9 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
           FROM shopping_stores WHERE user_id = ${userId} ORDER BY sort_order, created_at
         `;
       }
-      // Also get stores from shared users
+      // Also get stores from shared users, deduplicated by name
       const rows = await sql`
-        SELECT DISTINCT ss.id, ss.name, ss.color, ss.sort_order as "sortOrder"
+        SELECT DISTINCT ON (ss.name) ss.id, ss.name, ss.color, ss.sort_order as "sortOrder"
         FROM shopping_stores ss
         WHERE ss.user_id = ${userId}
            OR ss.user_id IN (
@@ -409,7 +414,7 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
              UNION
              SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
            )
-        ORDER BY ss.sort_order, ss.name
+        ORDER BY ss.name, ss.sort_order
       `;
       return res.status(200).json(rows);
     }

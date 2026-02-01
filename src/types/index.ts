@@ -24,6 +24,7 @@ export interface ShoppingItem {
   name: string;
   quantity: number;
   storeId: string; // Reference to ShoppingStore
+  storeName?: string; // Store name for filtering when sharing
   completed: boolean;
   createdAt: string;
   ownerId?: string;

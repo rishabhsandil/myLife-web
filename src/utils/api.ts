@@ -104,10 +104,10 @@ export const saveShoppingStore = shoppingStoresApi.create;
 export const updateShoppingStore = shoppingStoresApi.update;
 export const deleteShoppingStore = shoppingStoresApi.delete;
 
-export async function clearCompletedItems(storeId?: string): Promise<void> {
+export async function clearCompletedItems(storeName?: string): Promise<void> {
   try {
-    const url = storeId 
-      ? `shopping?clearCompleted=true&storeId=${storeId}` 
+    const url = storeName 
+      ? `shopping?clearCompleted=true&storeName=${encodeURIComponent(storeName)}` 
       : 'shopping?clearCompleted=true';
     await api(url, { method: 'DELETE' });
   } catch (error) {
