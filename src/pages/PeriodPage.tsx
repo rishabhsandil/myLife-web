@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoSettings,
-  IoChevronBack, IoChevronForward, IoTrash
+  IoChevronBack, IoChevronForward, IoTrash, IoPencil
 } from 'react-icons/io5';
 import { PeriodCycle, PeriodSettings } from '../types';
 import { getPeriods, savePeriod, updatePeriod, deletePeriod, getPeriodSettings, savePeriodSettings } from '../utils/api';
@@ -289,7 +289,7 @@ export default function PeriodPage() {
               
               return (
                 <div key={cycle.id} className={`cycle-card ${!cycle.endDate ? 'active' : ''}`}>
-                  <div className="cycle-content" onClick={() => openEditModal(cycle)}>
+                  <div className="cycle-content">
                     <div className="cycle-header">
                       <span className="cycle-date">{formatDate(start)}</span>
                       {end && (
@@ -300,6 +300,9 @@ export default function PeriodPage() {
                       )}
                     </div>
                   </div>
+                  <button className="cycle-edit" onClick={() => openEditModal(cycle)}>
+                    <IoPencil size={18} color={colors.primary} />
+                  </button>
                   <button className="cycle-delete" onClick={() => handleDelete(cycle.id)}>
                     <IoTrash size={18} color={colors.error} />
                   </button>

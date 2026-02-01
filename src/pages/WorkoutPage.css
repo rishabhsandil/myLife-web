@@ -118,6 +118,7 @@
 
 .exercise-name {
   display: block;
+  font-size: 14px;
   font-weight: 600;
   color: #3D4A3E;
 }
@@ -130,7 +131,7 @@
 }
 
 .exercise-stats {
-  font-size: 13px;
+  font-size: 12px;
   color: #6B7C6D;
 }
 

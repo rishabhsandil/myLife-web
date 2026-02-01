@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoFlag, IoRepeat, IoTrash,
-  IoCloudUpload, IoCloudDownload, IoTime, IoCalendarOutline
+  IoCloudUpload, IoCloudDownload, IoTime, IoCalendarOutline, IoPencil
 } from 'react-icons/io5';
 import { TodoItem, Priority, RecurrenceType } from '../types';
 import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, exportBackup, importBackup } from '../utils/api.ts';
@@ -385,7 +385,7 @@ export default function TodoPage() {
                       <IoEllipseOutline size={24} color={colors.textMuted} />
                     )}
                   </button>
-                  <div className="task-content" onClick={() => openEditModal(todo)}>
+                  <div className="task-content">
                     <div className="task-title-row">
                       <span className="task-title">{todo.title}</span>
                       <div className="task-badges">
@@ -407,6 +407,9 @@ export default function TodoPage() {
                       <span className="task-time"><IoTime size={12} /> {todo.time}</span>
                     )}
                   </div>
+                  <button className="task-edit" onClick={() => openEditModal(todo)}>
+                    <IoPencil size={18} color={colors.primary} />
+                  </button>
                   <button className="task-delete" onClick={() => deleteModal.open(todo)}>
                     <IoTrash size={18} color={colors.error} />
                   </button>
