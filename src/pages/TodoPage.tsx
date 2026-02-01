@@ -375,13 +375,7 @@ export default function TodoPage() {
                       <span className="task-time"><IoTime size={12} /> {todo.time}</span>
                     )}
                   </div>
-                  <button className="task-delete" onClick={() => {
-                    if (todo.recurrence !== 'none') {
-                      deleteModal.open(todo);
-                    } else {
-                      handleDeleteTodo(todo, true);
-                    }
-                  }}>
+                  <button className="task-delete" onClick={() => deleteModal.open(todo)}>
                     <IoTrash size={18} color={colors.error} />
                   </button>
                 </div>
@@ -483,56 +477,95 @@ export default function TodoPage() {
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={deleteModal.close}
-        title="Delete Recurring Task"
+        title={deleteModal.data?.recurrence !== 'none' ? 'Delete Recurring Task' : 'Delete Task'}
       >
-        <p style={{ marginBottom: '1.5rem', color: colors.textSecondary }}>
-          This is a recurring task. How would you like to delete it?
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button
-            className="backup-btn"
-            style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
-            onClick={() => {
-              if (deleteModal.data) {
-                handleDeleteTodo(deleteModal.data, false);
-                deleteModal.close();
-              }
-            }}
-          >
-            <IoTrash size={24} color={colors.error} />
-            <div>
-              <span className="backup-btn-title" style={{ color: colors.error }}>Delete This Day Only</span>
-              <span className="backup-btn-sub">Remove from {formatDate(selectedDate)}</span>
+        {deleteModal.data?.recurrence !== 'none' ? (
+          <>
+            <p style={{ marginBottom: '1.5rem', color: colors.textSecondary }}>
+              This is a recurring task. How would you like to delete it?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                className="backup-btn"
+                style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
+                onClick={() => {
+                  if (deleteModal.data) {
+                    handleDeleteTodo(deleteModal.data, false);
+                    deleteModal.close();
+                  }
+                }}
+              >
+                <IoTrash size={24} color={colors.error} />
+                <div>
+                  <span className="backup-btn-title" style={{ color: colors.error }}>Delete This Day Only</span>
+                  <span className="backup-btn-sub">Remove from {formatDate(selectedDate)}</span>
+                </div>
+              </button>
+              <button
+                className="backup-btn"
+                style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
+                onClick={() => {
+                  if (deleteModal.data) {
+                    handleDeleteTodo(deleteModal.data, true);
+                    deleteModal.close();
+                  }
+                }}
+              >
+                <IoTrash size={24} color={colors.error} />
+                <div>
+                  <span className="backup-btn-title" style={{ color: colors.error }}>Delete Entire Series</span>
+                  <span className="backup-btn-sub">Remove all occurrences permanently</span>
+                </div>
+              </button>
+              <button
+                className="backup-btn"
+                style={{ border: `1px solid ${colors.border}`, backgroundColor: 'transparent' }}
+                onClick={deleteModal.close}
+              >
+                <IoClose size={24} color={colors.text} />
+                <div>
+                  <span className="backup-btn-title">Cancel</span>
+                  <span className="backup-btn-sub">Keep the task</span>
+                </div>
+              </button>
             </div>
-          </button>
-          <button
-            className="backup-btn"
-            style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
-            onClick={() => {
-              if (deleteModal.data) {
-                handleDeleteTodo(deleteModal.data, true);
-                deleteModal.close();
-              }
-            }}
-          >
-            <IoTrash size={24} color={colors.error} />
-            <div>
-              <span className="backup-btn-title" style={{ color: colors.error }}>Delete Entire Series</span>
-              <span className="backup-btn-sub">Remove all occurrences permanently</span>
+          </>
+        ) : (
+          <>
+            <p style={{ marginBottom: '1.5rem', color: colors.textSecondary }}>
+              Are you sure you want to delete "{deleteModal.data?.title}"?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                className="backup-btn"
+                style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
+                onClick={() => {
+                  if (deleteModal.data) {
+                    handleDeleteTodo(deleteModal.data, true);
+                    deleteModal.close();
+                  }
+                }}
+              >
+                <IoTrash size={24} color={colors.error} />
+                <div>
+                  <span className="backup-btn-title" style={{ color: colors.error }}>Delete Task</span>
+                  <span className="backup-btn-sub">This action cannot be undone</span>
+                </div>
+              </button>
+              <button
+                className="backup-btn"
+                style={{ border: `1px solid ${colors.border}`, backgroundColor: 'transparent' }}
+                onClick={deleteModal.close}
+              >
+                <IoClose size={24} color={colors.text} />
+                <div>
+                  <span className="backup-btn-title">Cancel</span>
+                  <span className="backup-btn-sub">Keep the task</span>
+                </div>
+              </button>
             </div>
-          </button>
-          <button
-            className="backup-btn"
-            style={{ border: `1px solid ${colors.border}`, backgroundColor: 'transparent' }}
-            onClick={deleteModal.close}
-          >
-            <IoClose size={24} color={colors.text} />
-            <div>
-              <span className="backup-btn-title">Cancel</span>
-              <span className="backup-btn-sub">Keep the task</span>
-            </div>
-          </button>
-        </div>
+          </>
+        )}
       </Modal>
 
       {/* Backup Modal */}
