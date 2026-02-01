@@ -60,6 +60,44 @@ export default function TodoPage() {
     loadTodos();
   }, []);
 
+  // Check for overdue tasks and carry them forward
+  useEffect(() => {
+    const checkOverdueTasks = async () => {
+      const today = formatDateKey(new Date());
+      let hasUpdates = false;
+      
+      const updatedTodos = todos.map(todo => {
+        // Skip if completed, recurring, or already processed today
+        if (todo.completed || todo.recurrence !== 'none' || todo.date >= today) {
+          return todo;
+        }
+        
+        // Task is from the past and not completed - mark as overdue and move to today
+        hasUpdates = true;
+        return {
+          ...todo,
+          originalDate: todo.originalDate || todo.date, // Preserve original date
+          date: today,
+          overdue: true,
+        };
+      });
+
+      if (hasUpdates) {
+        // Update all overdue tasks
+        for (const todo of updatedTodos) {
+          if (todo.overdue && todos.find(t => t.id === todo.id)?.date !== today) {
+            await updateTodo(todo);
+          }
+        }
+        setTodos(updatedTodos);
+      }
+    };
+
+    if (todos.length > 0) {
+      checkOverdueTasks();
+    }
+  }, [todos.length]); // Only run when todos are loaded or count changes
+
   async function loadTodos() {
     setIsLoading(true);
     const data = await getTodos();
@@ -155,7 +193,11 @@ export default function TodoPage() {
     let updatedTodoData: TodoItem;
 
     if (todo.recurrence === 'none') {
-      updatedTodoData = { ...todo, completed: !todo.completed };
+      updatedTodoData = { 
+        ...todo, 
+        completed: !todo.completed,
+        overdue: !todo.completed ? false : todo.overdue // Clear overdue when completing
+      };
     } else {
       const completedDates = todo.completedDates || [];
       const isCompleted = completedDates.includes(dateKey);
@@ -332,7 +374,7 @@ export default function TodoPage() {
             {todaysTasks.map((todo) => {
               const completed = isCompletedOnDate(todo, selectedDate);
               return (
-                <div key={todo.id} className={`task-item ${completed ? 'completed' : ''}`}>
+                <div key={todo.id} className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''}`}>
                   <button
                     className="task-checkbox"
                     onClick={() => toggleComplete(todo)}
@@ -347,6 +389,11 @@ export default function TodoPage() {
                     <div className="task-title-row">
                       <span className="task-title">{todo.title}</span>
                       <div className="task-badges">
+                        {todo.overdue && !completed && (
+                          <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
+                            <IoTime size={12} /> Overdue
+                          </span>
+                        )}
                         {todo.recurrence !== 'none' && (
                           <span className="badge recurrence"><IoRepeat size={12} /></span>
                         )}

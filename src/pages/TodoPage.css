@@ -231,6 +231,11 @@
   opacity: 0.6;
 }
 
+.task-item.overdue {
+  border-left: 3px solid #BC4B51;
+  background: linear-gradient(to right, #FFF5F5 0%, white 20%);
+}
+
 .task-checkbox {
   flex-shrink: 0;
   padding: 0;
@@ -288,6 +293,14 @@
 .badge.priority.high {
   background: #F9E5E6;
   color: #BC4B51;
+}
+
+.badge.overdue {
+  background: #FFF5F5;
+  color: #BC4B51;
+  font-weight: 600;
+  gap: 3px;
+  padding: 3px 8px;
 }
 
 .task-desc {

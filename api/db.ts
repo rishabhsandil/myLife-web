@@ -56,6 +56,26 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add original_date and overdue columns for overdue task tracking
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'original_date'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN original_date TEXT;
+      END IF;
+      
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'overdue'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN overdue BOOLEAN DEFAULT FALSE;
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,

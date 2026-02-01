@@ -206,26 +206,27 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
       const rows = await sql`
         SELECT id, title, completed, date, time, priority, recurrence,
           completed_dates as "completedDates", excluded_dates as "excludedDates", 
-          created_at as "createdAt", category
+          created_at as "createdAt", category, original_date as "originalDate", overdue
         FROM todos WHERE user_id = ${userId}
         ORDER BY date ASC, time ASC
       `;
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue } = req.body;
       await sql`
-        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category)
-        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null})
+        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue)
+        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue } = req.body;
       await sql`
         UPDATE todos SET title = ${title}, completed = ${completed}, 
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
-          completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null}
+          completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null},
+          original_date = ${originalDate || null}, overdue = ${overdue || false}
         WHERE id = ${id} AND user_id = ${userId}
       `;
       return res.status(200).json({ success: true });

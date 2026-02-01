@@ -12,6 +12,8 @@ export interface TodoItem {
   excludedDates?: string[];
   isEvent?: boolean;
   createdAt: string;
+  originalDate?: string; // Original date before being moved forward
+  overdue?: boolean; // Whether this task is overdue
 }
 
 export type Priority = 'low' | 'medium' | 'high';
