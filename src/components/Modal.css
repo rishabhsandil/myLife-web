@@ -28,6 +28,21 @@
   animation: slideUp 0.3s ease;
 }
 
+/* Desktop modal improvements */
+@media (min-width: 768px) {
+  .modal-content {
+    border-radius: 20px;
+    max-width: 600px;
+    max-height: 85vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-content {
+    max-width: 700px;
+  }
+}
+
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }

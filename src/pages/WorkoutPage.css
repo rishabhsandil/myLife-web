@@ -253,3 +253,87 @@
   justify-content: center;
   gap: 6px;
 }
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .workout-header {
+    padding: 40px 16px 16px;
+  }
+  
+  .workout-header .header-title {
+    font-size: 22px;
+  }
+  
+  .body-parts {
+    padding: 12px 16px;
+  }
+  
+  .workouts-list {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .workout-header {
+    padding: 36px 12px 12px;
+  }
+  
+  .workout-header .header-title {
+    font-size: 20px;
+  }
+  
+  .workout-card {
+    padding: 14px;
+  }
+}
+
+/* Tablet and desktop */
+@media (min-width: 768px) {
+  .workout-header {
+    padding: 56px 32px 24px;
+    border-radius: 0 0 24px 24px;
+  }
+  
+  .workout-header .header-title {
+    font-size: 28px;
+  }
+  
+  .body-parts {
+    padding: 20px 32px;
+  }
+  
+  .workouts-list {
+    padding: 24px 32px;
+  }
+  
+  .workout-card {
+    padding: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .workout-header {
+    padding: 64px 40px 28px;
+  }
+  
+  .workouts-list {
+    padding: 28px 40px;
+  }
+}
+
+/* Hover effects for desktop */
+@media (hover: hover) and (pointer: fine) {
+  .workout-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+  
+  .body-part-btn:hover {
+    background: #E8F3E0;
+    transform: translateY(-1px);
+  }
+  
+  .settings-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}

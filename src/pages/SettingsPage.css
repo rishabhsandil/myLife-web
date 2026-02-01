@@ -283,6 +283,90 @@
 
 /* Responsive */
 @media (max-width: 480px) {
+  .settings-header {
+    padding: 40px 16px 16px;
+  }
+  
+  .settings-header h1 {
+    font-size: 22px;
+  }
+  
+  .settings-content {
+    padding: 16px;
+  }
+  
+  .module-item {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .settings-header {
+    padding: 36px 12px 12px;
+  }
+  
+  .settings-header h1 {
+    font-size: 20px;
+  }
+  
+  .module-item {
+    padding: 12px;
+  }
+}
+
+/* Tablet and desktop */
+@media (min-width: 768px) {
+  .settings-header {
+    padding: 56px 32px 24px;
+    border-radius: 0 0 24px 24px;
+  }
+  
+  .settings-header h1 {
+    font-size: 28px;
+  }
+  
+  .settings-content {
+    padding: 24px 32px;
+  }
+  
+  .module-item {
+    padding: 18px;
+  }
+  
+  .settings-section {
+    padding: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .settings-header {
+    padding: 64px 40px 28px;
+  }
+  
+  .settings-content {
+    padding: 28px 40px;
+  }
+}
+
+/* Hover effects for desktop */
+@media (hover: hover) and (pointer: fine) {
+  .module-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+  
+  .action-btn:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+  
+  .toggle-switch:hover {
+    box-shadow: 0 0 0 3px rgba(91, 142, 125, 0.1);
+  }
+}
+
+/* Additional small screen adjustments */
+@media (max-width: 360px) {
   .module-card {
     padding: 14px;
     gap: 12px;

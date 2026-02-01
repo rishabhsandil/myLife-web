@@ -452,3 +452,79 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .shopping-header {
+    padding: 40px 16px 16px;
+  }
+  
+  .shopping-list {
+    padding: 16px;
+  }
+  
+  .shopping-item {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shopping-header {
+    padding: 36px 12px 12px;
+  }
+  
+  .shopping-header .header-title {
+    font-size: 22px;
+  }
+  
+  .shopping-item {
+    padding: 12px;
+  }
+}
+
+/* Tablet and desktop */
+@media (min-width: 768px) {
+  .shopping-header {
+    padding: 56px 32px 24px;
+    border-radius: 0 0 24px 24px;
+  }
+  
+  .shopping-header .header-title {
+    font-size: 28px;
+  }
+  
+  .shopping-list {
+    padding: 24px 32px;
+  }
+  
+  .shopping-item {
+    padding: 18px;
+  }
+  
+  .filter-section {
+    padding: 20px 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .shopping-header {
+    padding: 64px 40px 28px;
+  }
+  
+  .shopping-list {
+    padding: 28px 40px;
+  }
+}
+
+/* Hover effects for desktop */
+@media (hover: hover) and (pointer: fine) {
+  .shopping-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+  
+  .share-btn:hover,
+  .history-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}

@@ -5,12 +5,27 @@
   max-width: 500px;
   margin: 0 auto;
   background: #FDFCF5;
+  position: relative;
 }
 
 .main-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablet and larger screens */
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 700px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-container {
+    max-width: 900px;
+  }
 }
 
 /* Loading Screen */
@@ -76,6 +91,15 @@
   padding: 8px 8px 16px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
   border-top: none;
+  position: relative;
+  z-index: 10;
+}
+
+/* Desktop tab bar improvements */
+@media (min-width: 768px) {
+  .tab-bar {
+    padding: 12px 16px 16px;
+  }
 }
 
 .tab-item {
@@ -190,5 +214,33 @@
   
   .tab-icon-wrapper {
     padding: 5px 10px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .tab-item {
+    padding: 6px 8px;
+  }
+  
+  .tab-label {
+    font-size: 10px;
+  }
+  
+  .tab-icon-wrapper {
+    padding: 4px 8px;
+  }
+}
+
+/* Desktop hover effects */
+@media (hover: hover) and (pointer: fine) {
+  .tab-item:hover .tab-icon-wrapper {
+    background: rgba(91, 142, 125, 0.1);
+    transform: scale(1.05);
+  }
+  
+  .logout-button:hover .tab-icon-wrapper {
+    background: rgba(239, 68, 68, 0.1);
+    transform: scale(1.05);
   }
 }

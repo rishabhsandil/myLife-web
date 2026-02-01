@@ -23,8 +23,51 @@
   border-radius: 12px;
   font-weight: 600;
   font-size: 14px;
+  transition: all 0.2s ease;
+  min-height: 44px; /* Touch target */
 }
 
-.empty-state-btn:hover {
-  background: #4F46E5;
+@media (hover: hover) and (pointer: fine) {
+  .empty-state-btn:hover {
+    background: #4F46E5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+}
+
+.empty-state-btn:active {
+  transform: scale(0.98);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .empty-state {
+    padding: 40px 20px;
+  }
+  
+  .empty-state p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .empty-state {
+    padding: 30px 16px;
+  }
+}
+
+/* Desktop */
+@media (min-width: 768px) {
+  .empty-state {
+    padding: 80px 40px;
+  }
+  
+  .empty-state p {
+    font-size: 16px;
+  }
+  
+  .empty-state-btn {
+    font-size: 15px;
+    padding: 14px 24px;
+  }
 }

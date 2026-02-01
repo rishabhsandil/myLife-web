@@ -87,18 +87,30 @@ input, textarea {
   .safe-top {
     padding-top: max(0px, env(safe-area-inset-top));
   }
+  
+  .safe-left {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+  
+  .safe-right {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
 }
 
 /* Mobile-first enhancements */
 html {
-  /* Prevent zoom on input focus */
+  /* Prevent zoom on input focus - iOS */
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
+  /* Prevent tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Prevent pull-to-refresh on mobile */
 body {
   overscroll-behavior-y: contain;
+  /* Better font rendering on Android */
+  text-rendering: optimizeLegibility;
 }
 
 /* Better touch targets for mobile */
@@ -199,4 +211,43 @@ input[type="checkbox"] {
   height: 24px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* Desktop/Laptop Responsive Styles */
+@media (min-width: 768px) {
+  /* Center content on larger screens with max-width */
+  .app-container {
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Larger modals on desktop */
+  .modal-content {
+    border-radius: 20px;
+    max-width: 600px;
+    max-height: 85vh;
+  }
+  
+  .modal-overlay {
+    align-items: center;
+    padding: 40px;
+  }
+  
+  /* Hover effects for desktop */
+  button:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Even larger modals on desktop */
+  .modal-content {
+    max-width: 700px;
+  }
+  
+  /* Better spacing on large screens */
+  body {
+    font-size: 16px;
+  }
 }

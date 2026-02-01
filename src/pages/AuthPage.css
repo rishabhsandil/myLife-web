@@ -126,3 +126,44 @@
 .toggle-button:hover {
   text-decoration: underline;
 }
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 30px 24px;
+  }
+  
+  .auth-header h1 {
+    font-size: 2rem;
+  }
+  
+  .form-group input {
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .auth-container {
+    padding: 24px 20px;
+  }
+  
+  .auth-header h1 {
+    font-size: 1.75rem;
+  }
+}
+
+/* Desktop improvements */
+@media (min-width: 768px) {
+  .auth-container {
+    max-width: 450px;
+    padding: 48px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .toggle-button:hover {
+    text-decoration: underline;
+    color: #7AA05A;
+  }
+}

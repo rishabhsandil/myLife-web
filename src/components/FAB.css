@@ -12,12 +12,43 @@
   align-items: center;
   justify-content: center;
   z-index: 50;
+  transition: all 0.2s ease;
 }
 
-.fab:hover {
-  transform: scale(1.05);
+/* Hover effect for desktop */
+@media (hover: hover) and (pointer: fine) {
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(140, 179, 105, 0.5);
+  }
 }
 
 .fab:active {
   transform: scale(0.95);
+}
+
+/* Adjust FAB position for larger screens */
+@media (min-width: 768px) {
+  .fab {
+    right: calc((100vw - 700px) / 2 + 20px);
+    bottom: 120px;
+    width: 64px;
+    height: 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .fab {
+    right: calc((100vw - 900px) / 2 + 20px);
+  }
+}
+
+/* For very small screens */
+@media (max-width: 360px) {
+  .fab {
+    right: 16px;
+    bottom: 90px;
+    width: 52px;
+    height: 52px;
+  }
 }

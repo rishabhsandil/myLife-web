@@ -1,0 +1,49 @@
+{
+  "name": "Almost Adult",
+  "short_name": "Almost Adult",
+  "description": "Manage your todos, shopping lists, workouts, and period tracking all in one place",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDFCF5",
+  "theme_color": "#8CB369",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "productivity", "health"],
+  "shortcuts": [
+    {
+      "name": "Reminders",
+      "short_name": "Todos",
+      "description": "View your reminders",
+      "url": "/",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Shopping List",
+      "short_name": "Shopping",
+      "description": "View your shopping list",
+      "url": "/shopping",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Workout",
+      "short_name": "Workout",
+      "description": "Track your workouts",
+      "url": "/workout",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Period Tracker",
+      "short_name": "Period",
+      "description": "Track your menstrual cycle",
+      "url": "/period",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    }
+  ]
+}
