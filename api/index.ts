@@ -12,15 +12,30 @@ const DEFAULT_BODY_PARTS = [
 
 const DEFAULT_MODULES = ['todos', 'shopping', 'workout', 'period'];
 
-// CORS helper
-function setCors(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// Allowed origins for CORS (configure via environment variable)
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
+// CORS helper with origin validation
+function setCors(req: VercelRequest, res: VercelResponse) {
+  const origin = req.headers.origin;
+  
+  // Check if origin is allowed
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin && process.env.NODE_ENV !== 'production') {
+    // Allow requests without origin in development (e.g., curl, Postman)
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS[0]);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(res);
+  setCors(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -131,8 +146,24 @@ async function handleSignup(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Email, name, and password are required' });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  // Strong password policy: 8+ chars, uppercase, lowercase, number
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+  if (!/[A-Z]/.test(password)) {
+    return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
+  }
+  if (!/[a-z]/.test(password)) {
+    return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
+  }
+  if (!/[0-9]/.test(password)) {
+    return res.status(400).json({ error: 'Password must contain at least one number' });
   }
 
   const existingUsers = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`;

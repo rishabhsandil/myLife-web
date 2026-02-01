@@ -5,7 +5,11 @@ import type { VercelRequest } from '@vercel/node';
 // Get the SQL function from Neon
 const sql = neon(process.env.DATABASE_URL!);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// JWT secret must be configured in environment - no fallback for security
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable must be configured');
+}
 
 // Initialize database tables
 export async function initDb() {
@@ -145,16 +149,16 @@ export function getUserIdFromRequest(req: VercelRequest): string | null {
 
   const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET as string) as unknown as { userId: string };
     return decoded.userId;
   } catch {
     return null;
   }
 }
 
-// Generate JWT token
+// Generate JWT token (7 day expiration for security)
 export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
 }
 
 export { sql, JWT_SECRET };
