@@ -21,12 +21,27 @@ import './components/FAB.css';
 
 
 function LoadingScreen() {
+  const funnyLines = [
+    "Pretending to have it all together...",
+    "Loading adulting skills... (this may take a while)",
+    "Organizing life like a responsible person...",
+    "Charging social battery... 3%",
+    "Remembering what day it is...",
+    "Finding motivation... Still looking...",
+    "Adulting in progress... Please wait",
+    "Fake it till you make it mode: ON",
+    "Installing common sense... Error 404",
+    "Syncing with reality... Almost there"
+  ];
+  
+  const [subtitle] = useState(() => funnyLines[Math.floor(Math.random() * funnyLines.length)]);
+
   return (
     <div className="loading-screen">
       <div className="loading-content">
-        <img src={logo} alt="MyLife" className="loading-logo" />
-        <h1 className="loading-title">MyLife</h1>
-        <p className="loading-subtitle">Your personal assistant</p>
+        <img src={logo} alt="Almost Adult" className="loading-logo" />
+        <h1 className="loading-title">Almost Adult</h1>
+        <p className="loading-subtitle">{subtitle}</p>
       </div>
     </div>
   );
@@ -82,7 +97,7 @@ function AppContent() {
     // Show splash screen for minimum time
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 1500);
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 

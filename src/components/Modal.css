@@ -38,7 +38,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #E2E8F0;
+  border-bottom: 1px solid #EBE8D5;
   background: white;
   flex-shrink: 0;
 }
@@ -46,12 +46,12 @@
 .modal-header h2 {
   font-size: 18px;
   font-weight: 700;
-  color: #1E293B;
+  color: #3D4A3E;
 }
 
 .modal-close-btn {
   padding: 4px;
-  color: #64748B;
+  color: #6B7C6D;
 }
 
 .modal-body {
@@ -80,7 +80,7 @@
 }
 
 .btn.primary {
-  background: #6366F1;
+  background: #8CB369;
   color: white;
 }
 
@@ -90,6 +90,6 @@
 }
 
 .btn.secondary {
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
 }

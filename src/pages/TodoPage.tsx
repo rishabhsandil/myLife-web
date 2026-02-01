@@ -248,9 +248,9 @@ export default function TodoPage() {
       {/* Header */}
       <header className="todo-header">
         <div className="header-left">
-          <img src={logo} alt="MyLife" className="header-logo" />
+          <img src={logo} alt="Almost Adult" className="header-logo" />
           <div>
-            <h1 className="header-title">MyLife</h1>
+            <h1 className="header-title">Almost Adult</h1>
             <p className="header-subtitle">
               {isToday(selectedDate) ? 'Today' : formatDate(selectedDate)} • {todaysTasks.length} tasks
             </p>

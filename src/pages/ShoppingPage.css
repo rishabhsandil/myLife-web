@@ -2,7 +2,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #F8FAFC;
+  background: #FDFCF5;
 }
 
 /* Header */
@@ -11,7 +11,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 48px 20px 20px;
-  background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%);
+  background: linear-gradient(135deg, #F4A259 0%, #E89349 100%);
   border-radius: 0 0 20px 20px;
 }
 
@@ -90,14 +90,14 @@
 .progress-bar {
   flex: 1;
   height: 8px;
-  background: #E2E8F0;
+  background: #EBE8D5;
   border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22C55E, #14B8A6);
+  background: linear-gradient(90deg, #8CB369, #7AA05A);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -105,7 +105,7 @@
 .progress-text {
   font-size: 14px;
   font-weight: 600;
-  color: #64748B;
+  color: #6B7C6D;
   min-width: 40px;
 }
 
@@ -123,13 +123,13 @@
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
-  color: #64748B;
+  color: #6B7C6D;
   white-space: nowrap;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .filter-chip.active {
-  background: #EC4899;
+  background: #F4A259;
   color: white;
 }
 
@@ -171,7 +171,7 @@
 
 .item-name {
   font-weight: 600;
-  color: #1E293B;
+  color: #3D4A3E;
 }
 
 .item-card.completed .item-name {
@@ -187,7 +187,7 @@
 
 .item-qty {
   font-size: 13px;
-  color: #64748B;
+  color: #6B7C6D;
   font-weight: 500;
 }
 
@@ -202,23 +202,23 @@
 }
 
 .item-category.freshco {
-  background: #DCFCE7;
-  color: #22C55E;
+  background: #E8F3E0;
+  color: #8CB369;
 }
 
 .item-category.costco {
-  background: #E0E7FF;
-  color: #6366F1;
+  background: #E5F0ED;
+  color: #5B8E7D;
 }
 
 .item-category.amazon {
-  background: #FCE7F3;
-  color: #EC4899;
+  background: #FEF2E8;
+  color: #F4A259;
 }
 
 .item-category.other {
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
 }
 
 .item-delete {
@@ -228,13 +228,13 @@
 
 /* Page-specific FAB color */
 .shopping-page .fab {
-  background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%);
-  box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
+  background: linear-gradient(135deg, #F4A259 0%, #E89349 100%);
+  box-shadow: 0 4px 20px rgba(244, 162, 89, 0.4);
 }
 
 /* Page-specific button color */
 .shopping-page .btn.primary {
-  background: #EC4899;
+  background: #F4A259;
 }
 
 /* Category Grid */
@@ -250,14 +250,14 @@
   align-items: center;
   gap: 8px;
   padding: 16px;
-  background: #F8FAFC;
+  background: #FDFCF5;
   border-radius: 12px;
-  color: #64748B;
+  color: #6B7C6D;
 }
 
 .category-btn.active {
-  background: #FCE7F3;
-  color: #EC4899;
+  background: #FEF2E8;
+  color: #F4A259;
 }
 
 .category-btn span {
@@ -267,19 +267,19 @@
 
 /* Shared items styling */
 .item-card.shared {
-  border-left: 3px solid #EC4899;
+  border-left: 3px solid #F4A259;
 }
 
 .item-owner {
   font-size: 11px;
-  color: #94A3B8;
+  color: #8A9B8C;
   margin-left: 6px;
   font-weight: 400;
 }
 
 /* Share Modal */
 .share-info {
-  color: #64748B;
+  color: #6B7C6D;
   font-size: 14px;
   line-height: 1.5;
   margin-bottom: 16px;
@@ -294,20 +294,20 @@
 .share-add input {
   flex: 1;
   padding: 12px;
-  border: 2px solid #E2E8F0;
+  border: 2px solid #EBE8D5;
   border-radius: 10px;
   font-size: 15px;
 }
 
 .share-add input:focus {
   outline: none;
-  border-color: #EC4899;
+  border-color: #F4A259;
 }
 
 .share-add-btn {
   width: 48px;
   height: 48px;
-  background: #EC4899;
+  background: #F4A259;
   color: white;
   border-radius: 10px;
   display: flex;
@@ -320,7 +320,7 @@
 }
 
 .share-error {
-  color: #EF4444;
+  color: #BC4B51;
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -332,7 +332,7 @@
 .share-section h4 {
   font-size: 13px;
   font-weight: 600;
-  color: #64748B;
+  color: #6B7C6D;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -348,7 +348,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  background: #F8FAFC;
+  background: #FDFCF5;
   border-radius: 10px;
 }
 
@@ -359,26 +359,26 @@
 
 .share-name {
   font-weight: 600;
-  color: #1E293B;
+  color: #3D4A3E;
 }
 
 .share-email {
   font-size: 12px;
-  color: #94A3B8;
+  color: #8A9B8C;
 }
 
 .share-remove {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  color: #EF4444;
+  color: #BC4B51;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .share-remove:hover {
-  background: #FEE2E2;
+  background: #F9E5E6;
 }
 
 /* History Modal */

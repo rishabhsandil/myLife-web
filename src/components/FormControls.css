@@ -7,7 +7,7 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #64748B;
+  color: #6B7C6D;
   margin-bottom: 8px;
 }
 
@@ -18,7 +18,7 @@
 .form-group textarea {
   width: 100%;
   padding: 12px;
-  border: 2px solid #E2E8F0;
+  border: 2px solid #EBE8D5;
   border-radius: 10px;
   font-size: 15px;
   transition: border-color 0.2s;
@@ -27,7 +27,7 @@
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #6366F1;
+  border-color: #8CB369;
 }
 
 /* Form Row */
@@ -48,15 +48,15 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .number-control button:hover:not(:disabled) {
-  background: #E2E8F0;
+  background: #EBE8D5;
 }
 
 .number-control button:disabled {
@@ -69,7 +69,7 @@
   text-align: center;
   font-size: 18px;
   font-weight: 600;
-  color: #1E293B;
+  color: #3D4A3E;
 }
 
 /* Quantity Control (Shopping specific) */
@@ -83,15 +83,15 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .quantity-control button:hover {
-  background: #E2E8F0;
+  background: #EBE8D5;
 }
 
 .quantity-control span {
@@ -99,7 +99,7 @@
   text-align: center;
   font-size: 18px;
   font-weight: 600;
-  color: #1E293B;
+  color: #3D4A3E;
 }
 
 /* Option Pills */
@@ -114,17 +114,17 @@
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
   transition: all 0.2s;
 }
 
 .pill:hover {
-  background: #E2E8F0;
+  background: #EBE8D5;
 }
 
 .pill.active {
-  background: var(--pill-color, #6366F1);
+  background: var(--pill-color, #8CB369);
   color: white;
 }
 
@@ -163,10 +163,10 @@
 .checkbox-label input[type="checkbox"] {
   width: 20px;
   height: 20px;
-  accent-color: #6366F1;
+  accent-color: #8CB369;
 }
 
 .checkbox-label span {
   font-size: 14px;
-  color: #64748B;
+  color: #6B7C6D;
 }

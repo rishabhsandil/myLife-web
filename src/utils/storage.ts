@@ -1,10 +1,10 @@
 import { TodoItem, ShoppingItem, Exercise } from '../types';
 
 const STORAGE_KEYS = {
-  TODOS: 'mylife_todos',
-  SHOPPING: 'mylife_shopping',
-  EXERCISES: 'mylife_exercises',
-  LAST_BACKUP: 'mylife_last_backup',
+  TODOS: 'almostadult_todos',
+  SHOPPING: 'almostadult_shopping',
+  EXERCISES: 'almostadult_exercises',
+  LAST_BACKUP: 'almostadult_last_backup',
 };
 
 // Todos
@@ -53,7 +53,7 @@ export const exportBackup = (): void => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `mylife_backup_${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `almostadult_backup_${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

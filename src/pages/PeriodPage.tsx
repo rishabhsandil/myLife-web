@@ -172,7 +172,7 @@ export default function PeriodPage() {
       {/* Header */}
       <header className="period-header">
         <div className="header-left">
-          <img src={logo} alt="MyLife" className="header-logo" />
+          <img src={logo} alt="Almost Adult" className="header-logo" />
           <div>
             <h1 className="header-title">Period Tracker</h1>
             <p className="header-subtitle">

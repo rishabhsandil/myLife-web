@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png'],
       manifest: {
-        name: 'MyLife',
-        short_name: 'MyLife',
+        name: 'Almost Adult',
+        short_name: 'Almost Adult',
         description: 'Your personal assistant for daily activities',
         theme_color: '#6366F1',
         background_color: '#6366F1',

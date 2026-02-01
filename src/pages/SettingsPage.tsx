@@ -90,7 +90,7 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
     <div className="settings-page">
       <header className="settings-header">
         <div className="header-left">
-          <img src={logo} alt="MyLife" className="header-logo" />
+          <img src={logo} alt="Almost Adult" className="header-logo" />
           <div>
             <h1 className="header-title">Settings</h1>
             <p className="header-subtitle">Customize your experience</p>

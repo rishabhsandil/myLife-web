@@ -78,10 +78,10 @@ function createCrudApi<T extends Entity>(
 }
 
 // Create CRUD APIs for each entity
-const todosApi = createCrudApi<TodoItem>('todos', 'mylife_todos');
-const shoppingApi = createCrudApi<ShoppingItem>('shopping', 'mylife_shopping');
-const exercisesApi = createCrudApi<Exercise>('exercises', 'mylife_exercises');
-const bodyPartsApi = createCrudApi<BodyPart>('bodyparts', 'mylife_bodyparts');
+const todosApi = createCrudApi<TodoItem>('todos', 'almostadult_todos');
+const shoppingApi = createCrudApi<ShoppingItem>('shopping', 'almostadult_shopping');
+const exercisesApi = createCrudApi<Exercise>('exercises', 'almostadult_exercises');
+const bodyPartsApi = createCrudApi<BodyPart>('bodyparts', 'almostadult_bodyparts');
 
 // ============ TODOS ============
 export const getTodos = todosApi.getAll;
@@ -177,7 +177,7 @@ export const exportBackup = async (): Promise<void> => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `mylife_backup_${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `almostadult_backup_${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -191,9 +191,9 @@ export const importBackup = (file: File): Promise<boolean> => {
       try {
         const data = JSON.parse(e.target?.result as string);
         if (data.version && data.data) {
-          localStorage.setItem('mylife_todos', JSON.stringify(data.data.todos || []));
-          localStorage.setItem('mylife_shopping', JSON.stringify(data.data.shopping || []));
-          localStorage.setItem('mylife_exercises', JSON.stringify(data.data.exercises || []));
+          localStorage.setItem('almostadult_todos', JSON.stringify(data.data.todos || []));
+          localStorage.setItem('almostadult_shopping', JSON.stringify(data.data.shopping || []));
+          localStorage.setItem('almostadult_exercises', JSON.stringify(data.data.exercises || []));
           resolve(true);
         } else {
           resolve(false);
@@ -207,7 +207,7 @@ export const importBackup = (file: File): Promise<boolean> => {
 };
 
 // ============ PERIOD TRACKING ============
-const periodApi = createCrudApi<PeriodCycle>('periods', 'mylife_periods');
+const periodApi = createCrudApi<PeriodCycle>('periods', 'almostadult_periods');
 
 export const getPeriods = periodApi.getAll;
 export const savePeriod = periodApi.create;
@@ -220,7 +220,7 @@ export async function getPeriodSettings(): Promise<PeriodSettings> {
     return settings;
   } catch (error) {
     console.error('Failed to fetch period settings:', error);
-    const stored = localStorage.getItem('mylife_period_settings');
+    const stored = localStorage.getItem('almostadult_period_settings');
     return stored ? JSON.parse(stored) : {
       averageCycleLength: 28,
       averagePeriodLength: 5,
@@ -235,7 +235,7 @@ export async function savePeriodSettings(settings: PeriodSettings): Promise<void
       method: 'POST',
       body: JSON.stringify(settings),
     });
-    localStorage.setItem('mylife_period_settings', JSON.stringify(settings));
+    localStorage.setItem('almostadult_period_settings', JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to save period settings:', error);
   }
@@ -249,7 +249,7 @@ export async function getUserSettings(): Promise<UserSettings> {
     return await api<UserSettings>('settings');
   } catch (error) {
     console.error('Failed to fetch user settings:', error);
-    const stored = localStorage.getItem('mylife_user_settings');
+    const stored = localStorage.getItem('almostadult_user_settings');
     return stored ? JSON.parse(stored) : { enabledModules: DEFAULT_ENABLED_MODULES };
   }
 }
@@ -260,7 +260,7 @@ export async function saveUserSettings(settings: UserSettings): Promise<void> {
       method: 'POST',
       body: JSON.stringify(settings),
     });
-    localStorage.setItem('mylife_user_settings', JSON.stringify(settings));
+    localStorage.setItem('almostadult_user_settings', JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to save user settings:', error);
   }

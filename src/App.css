@@ -4,7 +4,7 @@
   height: 100%;
   max-width: 500px;
   margin: 0 auto;
-  background: #F8FAFC;
+  background: #FDFCF5;
 }
 
 .main-content {
@@ -20,7 +20,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  background: linear-gradient(135deg, #8CB369 0%, #7AA05A 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -94,18 +94,18 @@
 }
 
 .tab-icon-wrapper.active {
-  background: rgba(20, 184, 166, 0.15);
+  background: rgba(91, 142, 125, 0.15);
 }
 
 .tab-label {
   font-size: 12px;
   font-weight: 600;
   margin-top: 4px;
-  color: #94A3B8;
+  color: #8A9B8C;
 }
 
 .tab-item.active .tab-label {
-  color: #14B8A6;
+  color: #5B8E7D;
 }
 
 .logout-button {
@@ -136,12 +136,12 @@
 .logout-confirm-modal h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1E293B;
+  color: #3D4A3E;
   margin-bottom: 8px;
 }
 
 .logout-confirm-modal p {
-  color: #64748B;
+  color: #6B7C6D;
   font-size: 15px;
   margin-bottom: 24px;
 }
@@ -161,21 +161,21 @@
 }
 
 .logout-confirm-buttons .cancel-btn {
-  background: #F1F5F9;
-  color: #64748B;
+  background: #F5F3E8;
+  color: #6B7C6D;
 }
 
 .logout-confirm-buttons .cancel-btn:hover {
-  background: #E2E8F0;
+  background: #EBE8D5;
 }
 
 .logout-confirm-buttons .confirm-btn {
-  background: #EF4444;
+  background: #BC4B51;
   color: white;
 }
 
 .logout-confirm-buttons .confirm-btn:hover {
-  background: #DC2626;
+  background: #A84248;
 }
 
 /* Mobile Enhancements */
