@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry } from '../types';
+import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -205,3 +205,38 @@ export const importBackup = (file: File): Promise<boolean> => {
     reader.readAsText(file);
   });
 };
+
+// ============ PERIOD TRACKING ============
+const periodApi = createCrudApi<PeriodCycle>('periods', 'mylife_periods');
+
+export const getPeriods = periodApi.getAll;
+export const savePeriod = periodApi.create;
+export const updatePeriod = periodApi.update;
+export const deletePeriod = periodApi.delete;
+
+export async function getPeriodSettings(): Promise<PeriodSettings> {
+  try {
+    const settings = await api<PeriodSettings>('periods/settings');
+    return settings;
+  } catch (error) {
+    console.error('Failed to fetch period settings:', error);
+    const stored = localStorage.getItem('mylife_period_settings');
+    return stored ? JSON.parse(stored) : {
+      averageCycleLength: 28,
+      averagePeriodLength: 5,
+      notifyDaysBefore: 2,
+    };
+  }
+}
+
+export async function savePeriodSettings(settings: PeriodSettings): Promise<void> {
+  try {
+    await api('periods/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+    localStorage.setItem('mylife_period_settings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('Failed to save period settings:', error);
+  }
+}

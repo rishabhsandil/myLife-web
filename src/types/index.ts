@@ -66,3 +66,16 @@ export interface BodyPart {
   name: string;
   color: string;
 }
+
+export interface PeriodCycle {
+  id: string;
+  startDate: string;
+  endDate?: string; // null if currently ongoing
+  createdAt: string;
+}
+
+export interface PeriodSettings {
+  averageCycleLength: number; // days, default 28
+  averagePeriodLength: number; // days, default 5
+  notifyDaysBefore: number; // days before predicted period, default 2
+}

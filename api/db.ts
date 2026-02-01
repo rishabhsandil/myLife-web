@@ -98,11 +98,33 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id)`;
 
+  // Period tracking tables
+  await sql`
+    CREATE TABLE IF NOT EXISTS period_cycles (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  
+  await sql`
+    CREATE TABLE IF NOT EXISTS period_settings (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      average_cycle_length INTEGER DEFAULT 28,
+      average_period_length INTEGER DEFAULT 5,
+      notify_days_before INTEGER DEFAULT 2,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Create indexes for user_id lookups
   await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bodyparts_user ON body_parts(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id)`;
 }
 
 // Helper to verify JWT and get user ID from request

@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoLogOutOutline } from 'react-icons/io5';
+import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoLogOutOutline, IoWaterOutline, IoWater } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';
+import PeriodPage from './pages/PeriodPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
 import logo from './assets/logo.png';
@@ -37,6 +38,7 @@ function TabBar() {
     { path: '/', label: 'Reminders', iconActive: IoCheckbox, iconInactive: IoCheckboxOutline },
     { path: '/shopping', label: 'Shopping', iconActive: IoCart, iconInactive: IoCartOutline },
     { path: '/workout', label: 'Workout', iconActive: IoFitness, iconInactive: IoFitnessOutline },
+    { path: '/period', label: 'Period', iconActive: IoWater, iconInactive: IoWaterOutline },
   ];
 
   const handleLogoutClick = () => {
@@ -114,6 +116,7 @@ function AppContent() {
           <Route path="/" element={<TodoPage />} />
           <Route path="/shopping" element={<ShoppingPage />} />
           <Route path="/workout" element={<WorkoutPage />} />
+          <Route path="/period" element={<PeriodPage />} />
         </Routes>
       </main>
       <TabBar />
