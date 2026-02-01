@@ -115,9 +115,16 @@
   gap: 8px;
   padding: 12px 20px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.store-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .store-tab {
+  flex-shrink: 0;
   padding: 8px 16px;
   background: white;
   border-radius: 20px;
@@ -125,6 +132,9 @@
   font-weight: 500;
   color: #6B7C6D;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   border: 2px solid transparent;
   transition: all 0.2s;
