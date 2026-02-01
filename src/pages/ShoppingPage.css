@@ -221,9 +221,17 @@
   color: #6B7C6D;
 }
 
+.item-edit,
 .item-delete {
   flex-shrink: 0;
   padding: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.item-edit:hover,
+.item-delete:hover {
+  opacity: 1;
 }
 
 /* Page-specific FAB color */

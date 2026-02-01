@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoBasket, IoEllipsisHorizontal, IoRemove,
-  IoShareSocial, IoPersonAdd, IoClose, IoTime
+  IoShareSocial, IoPersonAdd, IoClose, IoTime, IoPencil
 } from 'react-icons/io5';
 import { ShoppingItem, ShoppingCategory, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import { 
@@ -38,6 +38,7 @@ export default function ShoppingPage() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [category, setCategory] = useState<ShoppingCategory>('freshco');
+  const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
 
   // Track mutations to pause sync
   const isMutating = useRef(false);
@@ -45,18 +46,18 @@ export default function ShoppingPage() {
 
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
-  const loadItems = useCallback(async () => {
+  const loadItems = useCallback(async (showLoading = true) => {
     // Skip sync if a mutation is in progress
     if (isMutating.current) return;
     
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     const data = await getShoppingItems();
     // Double-check mutation didn't start during fetch
     if (!isMutating.current) {
       setItems(data);
       lastSyncTime.current = Date.now();
     }
-    setIsLoading(false);
+    if (showLoading) setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -69,7 +70,7 @@ export default function ShoppingPage() {
     if (!isSharing) return;
     
     const interval = setInterval(() => {
-      loadItems();
+      loadItems(false); // Don't show loading skeleton during background sync
     }, 5000); // Sync every 5 seconds
     
     return () => clearInterval(interval);
@@ -92,10 +93,19 @@ export default function ShoppingPage() {
     setName('');
     setQuantity(1);
     setCategory('freshco');
+    setEditingItem(null);
   };
 
   const openModal = () => {
     resetForm();
+    modal.open();
+  };
+
+  const openEditModal = (item: ShoppingItem) => {
+    setEditingItem(item);
+    setName(item.name);
+    setQuantity(item.quantity);
+    setCategory(item.category);
     modal.open();
   };
 
@@ -114,19 +124,30 @@ export default function ShoppingPage() {
   const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newItem: ShoppingItem = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      quantity,
-      category,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      isOwn: true,
-    };
-
     isMutating.current = true;
     try {
-      await saveShoppingItem(newItem);
+      if (editingItem) {
+        // Update existing item
+        const updatedItem: ShoppingItem = {
+          ...editingItem,
+          name: name.trim(),
+          quantity,
+          category,
+        };
+        await updateShoppingItem(updatedItem);
+      } else {
+        // Create new item
+        const newItem: ShoppingItem = {
+          id: Date.now().toString(),
+          name: name.trim(),
+          quantity,
+          category,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          isOwn: true,
+        };
+        await saveShoppingItem(newItem);
+      }
       // Fetch fresh data from server to get authoritative state
       const data = await getShoppingItems();
       setItems(data);
@@ -340,6 +361,9 @@ export default function ShoppingPage() {
                       </span>
                     </div>
                   </div>
+                  <button className="item-edit" onClick={() => openEditModal(item)}>
+                    <IoPencil size={18} color={colors.primary} />
+                  </button>
                   <button className="item-delete" onClick={() => deleteItem(item.id)}>
                     <IoTrash size={18} color={colors.error} />
                   </button>
@@ -353,16 +377,16 @@ export default function ShoppingPage() {
       {/* FAB */}
       <FAB onClick={openModal} />
 
-      {/* Add Modal */}
+      {/* Add/Edit Modal */}
       <Modal
         isOpen={modal.isOpen}
         onClose={modal.close}
-        title="Add Item"
+        title={editingItem ? "Edit Item" : "Add Item"}
         footer={
           <ModalFooter
             onCancel={modal.close}
             onSubmit={handleSave}
-            submitText="Add Item"
+            submitText={editingItem ? "Save Changes" : "Add Item"}
             submitDisabled={!name.trim()}
           />
         }
