@@ -204,7 +204,8 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/*isLoading ? (
+      <div className="exercises-container">
+        {isLoading ? (
           <div className="exercises-list">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="skeleton-item">
@@ -218,9 +219,7 @@ export default function WorkoutPage() {
               </div>
             ))}
           </div>
-        ) :  Exercises List */}
-      <div className="exercises-container">
-        {bodyParts.length === 0 ? (
+        ) : bodyParts.length === 0 ? (
           <EmptyState
             icon={IoSettings}
             message="No workout splits configured"
