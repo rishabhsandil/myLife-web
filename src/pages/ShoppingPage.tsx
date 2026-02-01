@@ -193,12 +193,13 @@ export default function ShoppingPage() {
   };
 
   const clearCompleted = async () => {
+    if (!selectedStore) return;
     // Optimistic update
     setItems(items.filter(i => !i.completed || i.storeId !== selectedStore));
     
     isMutating.current = true;
     try {
-      await clearCompletedItems();
+      await clearCompletedItems(selectedStore);
     } finally {
       isMutating.current = false;
     }

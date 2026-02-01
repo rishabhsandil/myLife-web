@@ -104,9 +104,12 @@ export const saveShoppingStore = shoppingStoresApi.create;
 export const updateShoppingStore = shoppingStoresApi.update;
 export const deleteShoppingStore = shoppingStoresApi.delete;
 
-export async function clearCompletedItems(): Promise<void> {
+export async function clearCompletedItems(storeId?: string): Promise<void> {
   try {
-    await api('shopping?clearCompleted=true', { method: 'DELETE' });
+    const url = storeId 
+      ? `shopping?clearCompleted=true&storeId=${storeId}` 
+      : 'shopping?clearCompleted=true';
+    await api(url, { method: 'DELETE' });
   } catch (error) {
     console.error('Failed to clear completed items:', error);
   }
