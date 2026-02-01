@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType } from '../types';
+import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -80,6 +80,7 @@ function createCrudApi<T extends Entity>(
 // Create CRUD APIs for each entity
 const todosApi = createCrudApi<TodoItem>('todos', 'almostadult_todos');
 const shoppingApi = createCrudApi<ShoppingItem>('shopping', 'almostadult_shopping');
+const shoppingStoresApi = createCrudApi<ShoppingStore>('shopping-stores', 'almostadult_shopping_stores');
 const exercisesApi = createCrudApi<Exercise>('exercises', 'almostadult_exercises');
 const bodyPartsApi = createCrudApi<BodyPart>('bodyparts', 'almostadult_bodyparts');
 
@@ -96,6 +97,12 @@ export const saveShoppingItem = shoppingApi.create;
 export const updateShoppingItem = shoppingApi.update;
 export const deleteShoppingItem = shoppingApi.delete;
 export const saveShoppingItems = shoppingApi.saveToLocalStorage;
+
+// ============ SHOPPING STORES ============
+export const getShoppingStores = shoppingStoresApi.getAll;
+export const saveShoppingStore = shoppingStoresApi.create;
+export const updateShoppingStore = shoppingStoresApi.update;
+export const deleteShoppingStore = shoppingStoresApi.delete;
 
 export async function clearCompletedItems(): Promise<void> {
   try {

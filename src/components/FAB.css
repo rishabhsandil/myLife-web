@@ -52,3 +52,8 @@
     height: 52px;
   }
 }
+
+.fab:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

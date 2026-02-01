@@ -10,6 +10,14 @@ const DEFAULT_BODY_PARTS = [
   { name: 'Legs/Core', color: '#EC4899' },
 ];
 
+// Default shopping stores for new users
+const DEFAULT_SHOPPING_STORES = [
+  { name: 'FreshCo', color: '#22C55E' },
+  { name: 'Costco', color: '#6366F1' },
+  { name: 'Amazon', color: '#F59E0B' },
+  { name: 'Other', color: '#64748B' },
+];
+
 const DEFAULT_MODULES = ['todos', 'shopping', 'workout', 'period'];
 
 // Allowed origins for CORS (configure via environment variable)
@@ -79,6 +87,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleTodos(req, res, userId);
       case 'shopping':
         return handleShopping(req, res, userId);
+      case 'shopping-stores':
+        return handleShoppingStores(req, res, userId);
       case 'shopping-share':
         return handleShoppingShare(req, res, userId);
       case 'shopping-audit':
@@ -248,7 +258,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
   switch (req.method) {
     case 'GET': {
       const rows = await sql`
-        SELECT si.id, si.name, si.quantity, si.category, si.completed, 
+        SELECT si.id, si.name, si.quantity, si.store_id as "storeId", si.completed, 
           si.created_at as "createdAt", si.user_id as "ownerId",
           u.name as "ownerName",
           CASE WHEN si.user_id = ${userId} THEN true ELSE false END as "isOwn"
@@ -265,23 +275,23 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, name, quantity, category, completed } = req.body;
+      const { id, name, quantity, storeId, completed } = req.body;
       await sql`
-        INSERT INTO shopping_items (id, user_id, name, quantity, category, completed)
-        VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${category || 'freshco'}, ${completed || false})
+        INSERT INTO shopping_items (id, user_id, name, quantity, store_id, completed)
+        VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${storeId}, ${completed || false})
       `;
       await sql`
         INSERT INTO shopping_audit (id, user_id, action, item_name, details)
-        VALUES (${Date.now().toString()}, ${userId}, 'added', ${name}, ${`Qty: ${quantity || 1}, Store: ${category || 'freshco'}`})
+        VALUES (${Date.now().toString()}, ${userId}, 'added', ${name}, ${`Qty: ${quantity || 1}`})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, name, quantity, category, completed } = req.body;
+      const { id, name, quantity, storeId, completed } = req.body;
       const [currentItem] = await sql`SELECT name, completed FROM shopping_items WHERE id = ${id}`;
       
       await sql`
-        UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, category = ${category}, completed = ${completed}
+        UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}
         WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
           SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
           UNION
@@ -339,6 +349,55 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
           `;
         }
       }
+      return res.status(200).json({ success: true });
+    }
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+// ============ SHOPPING STORES ============
+async function handleShoppingStores(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'GET': {
+      let rows = await sql`
+        SELECT id, name, color, sort_order as "sortOrder"
+        FROM shopping_stores WHERE user_id = ${userId} ORDER BY sort_order, created_at
+      `;
+      if (rows.length === 0) {
+        for (let i = 0; i < DEFAULT_SHOPPING_STORES.length; i++) {
+          const store = DEFAULT_SHOPPING_STORES[i];
+          await sql`
+            INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
+            VALUES (${`store_${Date.now()}_${i}`}, ${userId}, ${store.name}, ${store.color}, ${i})
+          `;
+        }
+        rows = await sql`
+          SELECT id, name, color, sort_order as "sortOrder"
+          FROM shopping_stores WHERE user_id = ${userId} ORDER BY sort_order, created_at
+        `;
+      }
+      return res.status(200).json(rows);
+    }
+    case 'POST': {
+      const { id, name, color, sortOrder } = req.body;
+      await sql`
+        INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
+        VALUES (${id}, ${userId}, ${name}, ${color}, ${sortOrder || 0})
+      `;
+      return res.status(201).json({ success: true });
+    }
+    case 'PUT': {
+      const { id, name, color, sortOrder } = req.body;
+      await sql`
+        UPDATE shopping_stores SET name = ${name}, color = ${color}, sort_order = ${sortOrder || 0}
+        WHERE id = ${id} AND user_id = ${userId}
+      `;
+      return res.status(200).json({ success: true });
+    }
+    case 'DELETE': {
+      const { id } = req.query;
+      if (id) await sql`DELETE FROM shopping_stores WHERE id = ${id as string} AND user_id = ${userId}`;
       return res.status(200).json({ success: true });
     }
     default:

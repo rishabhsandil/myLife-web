@@ -1,30 +1,30 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
-  IoCart, IoBasket, IoEllipsisHorizontal, IoRemove,
-  IoShareSocial, IoPersonAdd, IoClose, IoTime, IoPencil
+  IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
+  IoTime, IoPencil, IoSettings
 } from 'react-icons/io5';
-import { ShoppingItem, ShoppingCategory, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
+import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import { 
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
+  getShoppingStores, saveShoppingStore, updateShoppingStore, deleteShoppingStore as apiDeleteStore,
   getShoppingShareStatus, unshareShoppingList, getShoppingAudit
 } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
+import { Modal, ModalFooter, FormGroup, ColorPicker, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './ShoppingPage.css';
 
-const CATEGORIES: { key: ShoppingCategory; label: string; icon: typeof IoCart }[] = [
-  { key: 'freshco', label: 'FreshCo', icon: IoCart },
-  { key: 'costco', label: 'Costco', icon: IoBasket },
-  { key: 'amazon', label: 'Amazon', icon: IoCart },
-  { key: 'other', label: 'Other', icon: IoEllipsisHorizontal },
+const COLOR_OPTIONS = [
+  '#22C55E', '#6366F1', '#F59E0B', '#EF4444', 
+  '#14B8A6', '#EC4899', '#8B5CF6', '#64748B'
 ];
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [stores, setStores] = useState<ShoppingStore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<ShoppingCategory | 'all'>('all');
+  const [selectedStore, setSelectedStore] = useState<string>('');
   const [shareStatus, setShareStatus] = useState<ShoppingShareStatus>({ sharedWith: [], sharedBy: [] });
   const [shareEmail, setShareEmail] = useState('');
   const [shareError, setShareError] = useState('');
@@ -33,12 +33,17 @@ export default function ShoppingPage() {
   const modal = useModal();
   const shareModal = useModal();
   const historyModal = useModal();
+  const settingsModal = useModal();
 
   // Form state
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [category, setCategory] = useState<ShoppingCategory>('freshco');
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
+
+  // Store form state
+  const [editingStore, setEditingStore] = useState<ShoppingStore | null>(null);
+  const [storeName, setStoreName] = useState('');
+  const [storeColor, setStoreColor] = useState(COLOR_OPTIONS[0]);
 
   // Track mutations to pause sync
   const isMutating = useRef(false);
@@ -46,53 +51,60 @@ export default function ShoppingPage() {
 
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
-  const loadItems = useCallback(async (showLoading = true) => {
+  const loadData = useCallback(async (showLoading = true) => {
     // Skip sync if a mutation is in progress
     if (isMutating.current) return;
     
     if (showLoading) setIsLoading(true);
-    const data = await getShoppingItems();
+    const [itemsData, storesData] = await Promise.all([
+      getShoppingItems(),
+      getShoppingStores()
+    ]);
     // Double-check mutation didn't start during fetch
     if (!isMutating.current) {
-      setItems(data);
+      setItems(itemsData);
+      setStores(storesData);
+      if (storesData.length > 0 && !selectedStore) {
+        setSelectedStore(storesData[0].id);
+      }
       lastSyncTime.current = Date.now();
     }
     if (showLoading) setIsLoading(false);
-  }, []);
+  }, [selectedStore]);
 
   useEffect(() => {
-    loadItems();
+    loadData();
     loadShareStatus();
-  }, [loadItems]);
+  }, [loadData]);
 
   // Auto-sync when list is shared
   useEffect(() => {
     if (!isSharing) return;
     
     const interval = setInterval(() => {
-      loadItems(false); // Don't show loading skeleton during background sync
+      loadData(false); // Don't show loading skeleton during background sync
     }, 5000); // Sync every 5 seconds
     
     return () => clearInterval(interval);
-  }, [isSharing, loadItems]);
+  }, [isSharing, loadData]);
 
   async function loadShareStatus() {
     const status = await getShoppingShareStatus();
     setShareStatus(status);
   }
 
+  const currentStore = stores.find(s => s.id === selectedStore);
   const filteredItems = useMemo(() => {
-    if (filter === 'all') return items;
-    return items.filter(item => item.category === filter);
-  }, [items, filter]);
+    return items.filter(item => item.storeId === selectedStore);
+  }, [items, selectedStore]);
 
-  const completedCount = items.filter(i => i.completed).length;
-  const progress = items.length > 0 ? (completedCount / items.length) * 100 : 0;
+  const completedCount = filteredItems.filter(i => i.completed).length;
+  const totalCount = filteredItems.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   const resetForm = () => {
     setName('');
     setQuantity(1);
-    setCategory('freshco');
     setEditingItem(null);
   };
 
@@ -105,7 +117,6 @@ export default function ShoppingPage() {
     setEditingItem(item);
     setName(item.name);
     setQuantity(item.quantity);
-    setCategory(item.category);
     modal.open();
   };
 
@@ -122,7 +133,7 @@ export default function ShoppingPage() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !selectedStore) return;
 
     isMutating.current = true;
     try {
@@ -132,7 +143,6 @@ export default function ShoppingPage() {
           ...editingItem,
           name: name.trim(),
           quantity,
-          category,
         };
         await updateShoppingItem(updatedItem);
       } else {
@@ -141,7 +151,7 @@ export default function ShoppingPage() {
           id: Date.now().toString(),
           name: name.trim(),
           quantity,
-          category,
+          storeId: selectedStore,
           completed: false,
           createdAt: new Date().toISOString(),
           isOwn: true,
@@ -184,7 +194,7 @@ export default function ShoppingPage() {
 
   const clearCompleted = async () => {
     // Optimistic update
-    setItems(items.filter(i => !i.completed));
+    setItems(items.filter(i => !i.completed || i.storeId !== selectedStore));
     
     isMutating.current = true;
     try {
@@ -233,8 +243,50 @@ export default function ShoppingPage() {
     }));
   };
 
-  const getCategoryIcon = (cat: ShoppingCategory) => {
-    return CATEGORIES.find(c => c.key === cat)?.icon || IoCart;
+  // Store management
+  const openEditStore = (store: ShoppingStore) => {
+    setEditingStore(store);
+    setStoreName(store.name);
+    setStoreColor(store.color);
+  };
+
+  const resetStoreForm = () => {
+    setEditingStore(null);
+    setStoreName('');
+    setStoreColor(COLOR_OPTIONS[0]);
+  };
+
+  const handleSaveStore = async () => {
+    if (!storeName.trim()) return;
+
+    if (editingStore) {
+      const updated: ShoppingStore = { ...editingStore, name: storeName.trim(), color: storeColor };
+      await updateShoppingStore(updated);
+      setStores(stores.map(s => s.id === updated.id ? updated : s));
+    } else {
+      const newStore: ShoppingStore = {
+        id: `store_${Date.now()}`,
+        name: storeName.trim(),
+        color: storeColor,
+      };
+      await saveShoppingStore(newStore);
+      setStores([...stores, newStore]);
+      if (!selectedStore) {
+        setSelectedStore(newStore.id);
+      }
+    }
+
+    resetStoreForm();
+  };
+
+  const handleDeleteStore = async (id: string) => {
+    await apiDeleteStore(id);
+    setStores(stores.filter(s => s.id !== id));
+    setItems(items.filter(i => i.storeId !== id));
+    if (selectedStore === id) {
+      const remaining = stores.filter(s => s.id !== id);
+      setSelectedStore(remaining.length > 0 ? remaining[0].id : '');
+    }
   };
 
   const getInitials = (name: string) => {
@@ -247,11 +299,11 @@ export default function ShoppingPage() {
   return (
     <div className="shopping-page">
       {/* Header */}
-      <header className="shopping-header">
+      <header className="shopping-header" style={{ background: currentStore ? `linear-gradient(135deg, ${currentStore.color} 0%, ${currentStore.color}dd 100%)` : undefined }}>
         <div>
-          <h1 className="header-title">Shopping List</h1>
+          <h1 className="header-title">{currentStore?.name || 'Shopping'}</h1>
           <p className="header-subtitle">
-            {items.length} items • {completedCount} done
+            {totalCount} items • {completedCount} done
             {isSharing && ' • Shared'}
           </p>
         </div>
@@ -292,23 +344,38 @@ export default function ShoppingPage() {
         <span className="progress-text">{Math.round(progress)}%</span>
       </div>
 
-      {/* Filter */}
-      <div className="filter-container">
-        <button
-          className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          All
-        </button>
-        {CATEGORIES.map(cat => (
+      {/* Store Tabs */}
+      <div className="store-tabs">
+        {stores.map(store => (
           <button
-            key={cat.key}
-            className={`filter-chip ${filter === cat.key ? 'active' : ''}`}
-            onClick={() => setFilter(cat.key)}
+            key={store.id}
+            className={`store-tab ${selectedStore === store.id ? 'active' : ''}`}
+            onClick={() => setSelectedStore(store.id)}
+            style={{ 
+              borderColor: selectedStore === store.id ? store.color : 'transparent',
+              color: selectedStore === store.id ? store.color : undefined
+            }}
           >
-            {cat.label}
+            {store.name}
           </button>
         ))}
+        <button className="store-tab settings" onClick={() => settingsModal.open()}>
+          <IoSettings size={18} />
+        </button>
+      </div>
+
+      {/* Progress */}
+      <div className="progress-container">
+        <div className="progress-bar">
+          <div 
+            className="progress-fill" 
+            style={{ 
+              width: `${progress}%`,
+              background: currentStore?.color || colors.primary 
+            }} 
+          />
+        </div>
+        <span className="progress-text">{Math.round(progress)}%</span>
       </div>
 
       {/* Items List */}
@@ -330,13 +397,15 @@ export default function ShoppingPage() {
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={IoCart}
-            message="No items yet"
-            action={{ label: 'Add Item', icon: IoAdd, onClick: openModal }}
+            message={stores.length === 0 ? "Add a store to get started" : "No items yet"}
+            action={stores.length === 0 
+              ? { label: 'Add Store', icon: IoAdd, onClick: () => settingsModal.open() }
+              : { label: 'Add Item', icon: IoAdd, onClick: openModal }
+            }
           />
         ) : (
           <div className="items-list">
             {filteredItems.map(item => {
-              const Icon = getCategoryIcon(item.category);
               const isSharedItem = item.isOwn === false;
               return (
                 <div key={item.id} className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}>
@@ -356,9 +425,6 @@ export default function ShoppingPage() {
                     </div>
                     <div className="item-meta">
                       <span className="item-qty">×{item.quantity}</span>
-                      <span className={`item-category ${item.category}`}>
-                        <Icon size={12} /> {item.category}
-                      </span>
                     </div>
                   </div>
                   <button className="item-edit" onClick={() => openEditModal(item)}>
@@ -375,7 +441,7 @@ export default function ShoppingPage() {
       </div>
 
       {/* FAB */}
-      <FAB onClick={openModal} />
+      <FAB onClick={openModal} disabled={stores.length === 0} />
 
       {/* Add/Edit Modal */}
       <Modal
@@ -412,24 +478,79 @@ export default function ShoppingPage() {
             </button>
           </div>
         </FormGroup>
+      </Modal>
 
-        <FormGroup label="Category">
-          <div className="category-grid">
-            {CATEGORIES.map(cat => {
-              const Icon = cat.icon;
-              return (
-                <button
-                  key={cat.key}
-                  className={`category-btn ${category === cat.key ? 'active' : ''}`}
-                  onClick={() => setCategory(cat.key)}
-                >
-                  <Icon size={24} />
-                  <span>{cat.label}</span>
-                </button>
-              );
-            })}
+      {/* Settings Modal - Manage Stores */}
+      <Modal
+        isOpen={settingsModal.isOpen}
+        onClose={() => { settingsModal.close(); resetStoreForm(); }}
+        title="Manage Stores"
+      >
+        <div className="store-settings-list">
+          {stores.map(store => (
+            <div key={store.id} className="store-settings-item">
+              {editingStore?.id === store.id ? (
+                <div className="store-edit-form">
+                  <input
+                    type="text"
+                    value={storeName}
+                    onChange={e => setStoreName(e.target.value)}
+                    placeholder="Store name"
+                    autoFocus
+                  />
+                  <ColorPicker
+                    colors={COLOR_OPTIONS}
+                    value={storeColor}
+                    onChange={setStoreColor}
+                  />
+                  <div className="store-edit-actions">
+                    <button className="btn secondary" onClick={resetStoreForm}>Cancel</button>
+                    <button className="btn primary" onClick={handleSaveStore} disabled={!storeName.trim()}>Save</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="store-info">
+                    <span className="store-color" style={{ background: store.color }} />
+                    <span className="store-name">{store.name}</span>
+                  </div>
+                  <div className="store-actions">
+                    <button className="edit-store-btn" onClick={() => openEditStore(store)}>
+                      <IoPencil size={16} />
+                    </button>
+                    <button className="delete-store-btn" onClick={() => handleDeleteStore(store.id)}>
+                      <IoTrash size={16} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Add new store */}
+        {!editingStore && (
+          <div className="add-store-form">
+            <input
+              type="text"
+              value={storeName}
+              onChange={e => setStoreName(e.target.value)}
+              placeholder="New store name"
+            />
+            <ColorPicker
+              colors={COLOR_OPTIONS}
+              value={storeColor}
+              onChange={setStoreColor}
+            />
+            <button 
+              className="btn primary" 
+              onClick={handleSaveStore} 
+              disabled={!storeName.trim()}
+            >
+              <IoAdd size={18} /> Add Store
+            </button>
           </div>
-        </FormGroup>
+        )}
       </Modal>
 
       {/* Share Modal */}

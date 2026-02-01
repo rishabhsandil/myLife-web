@@ -23,7 +23,7 @@ export interface ShoppingItem {
   id: string;
   name: string;
   quantity: number;
-  category: ShoppingCategory;
+  storeId: string; // Reference to ShoppingStore
   completed: boolean;
   createdAt: string;
   ownerId?: string;
@@ -31,7 +31,14 @@ export interface ShoppingItem {
   isOwn?: boolean;
 }
 
-export type ShoppingCategory = 'freshco' | 'costco' | 'amazon' | 'other';
+export interface ShoppingStore {
+  id: string;
+  name: string;
+  color: string;
+}
+
+// Legacy type for backwards compatibility
+export type ShoppingCategory = string;
 
 export interface ShoppingShareUser {
   id: string;

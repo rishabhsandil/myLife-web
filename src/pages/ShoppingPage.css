@@ -109,16 +109,16 @@
   min-width: 40px;
 }
 
-/* Filter */
-.filter-container {
+/* Store Tabs */
+.store-tabs {
   display: flex;
   gap: 8px;
-  padding: 2px 20px;
+  padding: 12px 20px;
   overflow-x: auto;
 }
 
-.filter-chip {
-  padding: 8px 12px;
+.store-tab {
+  padding: 8px 16px;
   background: white;
   border-radius: 20px;
   font-size: 13px;
@@ -126,11 +126,22 @@
   color: #6B7C6D;
   white-space: nowrap;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 2px solid transparent;
+  transition: all 0.2s;
 }
 
-.filter-chip.active {
-  background: #F4A259;
-  color: white;
+.store-tab.active {
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.store-tab.settings {
+  padding: 8px 12px;
+  color: #8A9B8C;
+}
+
+.store-tab.settings:hover {
+  color: #6B7C6D;
 }
 
 /* Items */
@@ -489,6 +500,107 @@
   .shopping-item {
     padding: 12px;
   }
+}
+
+/* Store Settings */
+.store-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.store-settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #F9F9F6;
+  border-radius: 10px;
+}
+
+.store-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.store-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.store-name {
+  font-weight: 500;
+  color: #3D4A3E;
+}
+
+.store-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-store-btn,
+.delete-store-btn {
+  padding: 6px;
+  border-radius: 6px;
+  color: #6B7C6D;
+  transition: all 0.2s;
+}
+
+.edit-store-btn:hover {
+  background: #EBE8D5;
+  color: #F4A259;
+}
+
+.delete-store-btn:hover {
+  background: #F9E5E6;
+  color: #BC4B51;
+}
+
+.store-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.store-edit-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #E0DCC8;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.store-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.add-store-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #EBE8D5;
+}
+
+.add-store-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #E0DCC8;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.add-store-form .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 /* Tablet and desktop */

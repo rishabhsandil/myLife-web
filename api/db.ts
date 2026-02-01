@@ -82,10 +82,38 @@ export async function initDb() {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       quantity INTEGER DEFAULT 1,
-      category TEXT DEFAULT 'freshco',
+      store_id TEXT,
       completed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS shopping_stores (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_stores_user ON shopping_stores(user_id)`;
+
+  // Migration: Rename category to store_id if needed
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'shopping_items' AND column_name = 'category'
+      ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'shopping_items' AND column_name = 'store_id'
+      ) THEN
+        ALTER TABLE shopping_items RENAME COLUMN category TO store_id;
+      END IF;
+    END $$;
   `;
 
   await sql`
