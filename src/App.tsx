@@ -17,18 +17,8 @@ import './components/FAB.css';
 
 
 function LoadingScreen({ onFinish }: { onFinish: () => void }) {
-  const [fadeOut, setFadeOut] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setFadeOut(true);
-      setTimeout(onFinish, 300);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [onFinish]);
-
   return (
-    <div className={`loading-screen ${fadeOut ? 'fade-out' : ''}`}>
+    <div className="loading-screen">
       <div className="loading-content">
         <img src={logo} alt="MyLife" className="loading-logo" />
         <h1 className="loading-title">MyLife</h1>
@@ -99,17 +89,18 @@ function TabBar() {
 
 function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
 
-  if (authLoading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <img src={logo} alt="MyLife" className="loading-logo" />
-          <h1 className="loading-title">MyLife</h1>
-          <p className="loading-subtitle">Loading...</p>
-        </div>
-      </div>
-    );
+  useEffect(() => {
+    // Show splash screen for minimum time
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (authLoading || showSplash) {
+    return <LoadingScreen onFinish={() => {}} />;
   }
 
   if (!user) {
@@ -131,12 +122,6 @@ function AppContent() {
 }
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-
-  if (isLoading) {
-    return <LoadingScreen onFinish={() => setIsLoading(false)} />;
-  }
-
   return (
     <BrowserRouter>
       <AuthProvider>

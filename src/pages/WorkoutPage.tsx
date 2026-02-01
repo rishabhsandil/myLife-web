@@ -20,6 +20,7 @@ const COLOR_OPTIONS = [
 export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>('');
   
   const exerciseModal = useModal<Exercise>();
@@ -41,6 +42,7 @@ export default function WorkoutPage() {
   }, []);
 
   async function loadData() {
+    setIsLoading(true);
     const [exerciseData, bodyPartData] = await Promise.all([
       getExercises(),
       getBodyParts()
@@ -50,6 +52,7 @@ export default function WorkoutPage() {
     if (bodyPartData.length > 0 && !selectedBodyPart) {
       setSelectedBodyPart(bodyPartData[0].id);
     }
+    setIsLoading(false);
   }
 
   const currentBodyPart = bodyParts.find(bp => bp.id === selectedBodyPart);
@@ -201,7 +204,21 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/* Exercises List */}
+      {/*isLoading ? (
+          <div className="exercises-list">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton-item">
+                <div className="skeleton-row">
+                  <div className="skeleton skeleton-circle" style={{ width: '40px', height: '40px' }}></div>
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text large" style={{ width: '65%' }}></div>
+                    <div className="skeleton skeleton-text" style={{ width: '45%' }}></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) :  Exercises List */}
       <div className="exercises-container">
         {bodyParts.length === 0 ? (
           <EmptyState

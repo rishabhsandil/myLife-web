@@ -40,6 +40,7 @@ const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(n
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
@@ -62,8 +63,10 @@ export default function TodoPage() {
   }, []);
 
   async function loadTodos() {
+    setIsLoading(true);
     const data = await getTodos();
     setTodos(data);
+    setIsLoading(false);
   }
 
   const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
@@ -312,7 +315,21 @@ export default function TodoPage() {
 
       {/* Tasks List */}
       <div className="tasks-container">
-        {todaysTasks.length === 0 ? (
+        {isLoading ? (
+          <div className="tasks-list">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton-item">
+                <div className="skeleton-row">
+                  <div className="skeleton skeleton-circle"></div>
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text large" style={{ width: '70%' }}></div>
+                    <div className="skeleton skeleton-text" style={{ width: '40%' }}></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : todaysTasks.length === 0 ? (
           <EmptyState
             icon={IoCalendarOutline}
             message="No tasks for this day"

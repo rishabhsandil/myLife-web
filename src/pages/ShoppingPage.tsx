@@ -23,6 +23,7 @@ const CATEGORIES: { key: ShoppingCategory; label: string; icon: typeof IoCart }[
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<ShoppingCategory | 'all'>('all');
   const [shareStatus, setShareStatus] = useState<ShoppingShareStatus>({ sharedWith: [], sharedBy: [] });
   const [shareEmail, setShareEmail] = useState('');
@@ -48,12 +49,14 @@ export default function ShoppingPage() {
     // Skip sync if a mutation is in progress
     if (isMutating.current) return;
     
+    setIsLoading(true);
     const data = await getShoppingItems();
     // Double-check mutation didn't start during fetch
     if (!isMutating.current) {
       setItems(data);
       lastSyncTime.current = Date.now();
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -289,7 +292,21 @@ export default function ShoppingPage() {
 
       {/* Items List */}
       <div className="items-container">
-        {filteredItems.length === 0 ? (
+        {isLoading ? (
+          <div className="items-list">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="skeleton-item">
+                <div className="skeleton-row">
+                  <div className="skeleton skeleton-circle"></div>
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text large" style={{ width: '60%' }}></div>
+                    <div className="skeleton skeleton-text" style={{ width: '30%' }}></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={IoCart}
             message="No items yet"
