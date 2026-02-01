@@ -47,6 +47,7 @@ export default function TodoPage() {
   
   const taskModal = useModal<TodoItem>();
   const backupModal = useModal();
+  const deleteModal = useModal<TodoItem>();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -71,19 +72,21 @@ export default function TodoPage() {
 
   const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
     const dateKey = formatDateKey(date);
-    const todoDate = new Date(todo.date);
-    const todoDateKey = formatDateKey(todoDate);
+    const todoDateKey = todo.date;
 
     if (todo.excludedDates?.includes(dateKey)) return false;
     if (todo.recurrence === 'none') return todoDateKey === dateKey;
-    if (new Date(dateKey) < new Date(todoDateKey)) return false;
+    if (dateKey < todoDateKey) return false;
+
+    const todoDate = new Date(todo.date + 'T00:00:00');
+    const checkDate = new Date(dateKey + 'T00:00:00');
 
     switch (todo.recurrence) {
       case 'daily': return true;
-      case 'weekly': return date.getDay() === todoDate.getDay();
-      case 'monthly': return date.getDate() === todoDate.getDate();
+      case 'weekly': return checkDate.getDay() === todoDate.getDay();
+      case 'monthly': return checkDate.getDate() === todoDate.getDate();
       case 'yearly':
-        return date.getDate() === todoDate.getDate() && date.getMonth() === todoDate.getMonth();
+        return checkDate.getDate() === todoDate.getDate() && checkDate.getMonth() === todoDate.getMonth();
       default: return false;
     }
   };
@@ -374,11 +377,7 @@ export default function TodoPage() {
                   </div>
                   <button className="task-delete" onClick={() => {
                     if (todo.recurrence !== 'none') {
-                      if (confirm('Delete all occurrences? Click OK for all, Cancel for just this day.')) {
-                        handleDeleteTodo(todo, true);
-                      } else {
-                        handleDeleteTodo(todo, false);
-                      }
+                      deleteModal.open(todo);
                     } else {
                       handleDeleteTodo(todo, true);
                     }
@@ -478,6 +477,62 @@ export default function TodoPage() {
             <span>Event (no completion needed, e.g., birthdays)</span>
           </label>
         </FormGroup>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.close}
+        title="Delete Recurring Task"
+      >
+        <p style={{ marginBottom: '1.5rem', color: colors.textSecondary }}>
+          This is a recurring task. How would you like to delete it?
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button
+            className="backup-btn"
+            style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
+            onClick={() => {
+              if (deleteModal.data) {
+                handleDeleteTodo(deleteModal.data, false);
+                deleteModal.close();
+              }
+            }}
+          >
+            <IoTrash size={24} color={colors.error} />
+            <div>
+              <span className="backup-btn-title" style={{ color: colors.error }}>Delete This Day Only</span>
+              <span className="backup-btn-sub">Remove from {formatDate(selectedDate)}</span>
+            </div>
+          </button>
+          <button
+            className="backup-btn"
+            style={{ border: `1px solid ${colors.error}`, backgroundColor: 'transparent' }}
+            onClick={() => {
+              if (deleteModal.data) {
+                handleDeleteTodo(deleteModal.data, true);
+                deleteModal.close();
+              }
+            }}
+          >
+            <IoTrash size={24} color={colors.error} />
+            <div>
+              <span className="backup-btn-title" style={{ color: colors.error }}>Delete Entire Series</span>
+              <span className="backup-btn-sub">Remove all occurrences permanently</span>
+            </div>
+          </button>
+          <button
+            className="backup-btn"
+            style={{ border: `1px solid ${colors.border}`, backgroundColor: 'transparent' }}
+            onClick={deleteModal.close}
+          >
+            <IoClose size={24} color={colors.text} />
+            <div>
+              <span className="backup-btn-title">Cancel</span>
+              <span className="backup-btn-sub">Keep the task</span>
+            </div>
+          </button>
+        </div>
       </Modal>
 
       {/* Backup Modal */}
