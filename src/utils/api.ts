@@ -159,53 +159,6 @@ export const saveBodyPart = bodyPartsApi.create;
 export const updateBodyPart = bodyPartsApi.update;
 export const deleteBodyPart = bodyPartsApi.delete;
 
-// ============ BACKUP ============
-export const exportBackup = async (): Promise<void> => {
-  const [todos, shopping, exercises] = await Promise.all([
-    getTodos(),
-    getShoppingItems(),
-    getExercises(),
-  ]);
-
-  const backupData = {
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    data: { todos, shopping, exercises },
-  };
-
-  const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `almostadult_backup_${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-export const importBackup = (file: File): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        if (data.version && data.data) {
-          localStorage.setItem('almostadult_todos', JSON.stringify(data.data.todos || []));
-          localStorage.setItem('almostadult_shopping', JSON.stringify(data.data.shopping || []));
-          localStorage.setItem('almostadult_exercises', JSON.stringify(data.data.exercises || []));
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      } catch {
-        resolve(false);
-      }
-    };
-    reader.readAsText(file);
-  });
-};
-
 // ============ PERIOD TRACKING ============
 const periodApi = createCrudApi<PeriodCycle>('periods', 'almostadult_periods');
 

@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoFlag, IoRepeat, IoTrash,
-  IoCloudUpload, IoCloudDownload, IoTime, IoCalendarOutline, IoPencil
+  IoTime, IoCalendarOutline, IoPencil
 } from 'react-icons/io5';
 import { TodoItem, Priority, RecurrenceType } from '../types';
-import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, exportBackup, importBackup } from '../utils/api.ts';
+import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo } from '../utils/api.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
@@ -45,7 +45,6 @@ export default function TodoPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   
   const taskModal = useModal<TodoItem>();
-  const backupModal = useModal();
   const deleteModal = useModal<TodoItem>();
 
   // Form state
@@ -263,20 +262,6 @@ export default function TodoPage() {
     return dates;
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const success = await importBackup(file);
-      if (success) {
-        setTodos(await getTodos());
-        backupModal.close();
-        alert('Backup restored successfully!');
-      } else {
-        alert('Invalid backup file');
-      }
-    }
-  };
-
   return (
     <div className="todo-page">
       {/* Header */}
@@ -284,7 +269,7 @@ export default function TodoPage() {
         <div className="header-left">
           <img src={logo} alt="Almost Adult" className="header-logo" />
           <div>
-            <h1 className="header-title">Almost Adult</h1>
+            <h1 className="header-title">Reminders</h1>
             <p className="header-subtitle">
               {isToday(selectedDate) ? 'Today' : formatDate(selectedDate)} • {todaysTasks.length} tasks
             </p>
@@ -294,9 +279,6 @@ export default function TodoPage() {
           <button className="header-btn" onClick={goToToday}>Today</button>
           <button className="header-btn icon" onClick={() => setShowCalendar(!showCalendar)}>
             {showCalendar ? <IoClose size={20} /> : <IoCalendar size={20} />}
-          </button>
-          <button className="header-btn icon" onClick={() => backupModal.open()}>
-            <IoCloudUpload size={20} />
           </button>
         </div>
       </header>
@@ -581,34 +563,6 @@ export default function TodoPage() {
             </div>
           </>
         )}
-      </Modal>
-
-      {/* Backup Modal */}
-      <Modal
-        isOpen={backupModal.isOpen}
-        onClose={backupModal.close}
-        title="Backup & Restore"
-      >
-        <p className="backup-info">
-          Your data is saved locally in your browser. Use backup to transfer data or keep a copy safe.
-        </p>
-
-        <button className="backup-btn" onClick={() => { exportBackup(); backupModal.close(); }}>
-          <IoCloudDownload size={24} />
-          <div>
-            <span className="backup-btn-title">Export Backup</span>
-            <span className="backup-btn-sub">Download your data as a file</span>
-          </div>
-        </button>
-
-        <label className="backup-btn">
-          <IoCloudUpload size={24} />
-          <div>
-            <span className="backup-btn-title">Restore from Backup</span>
-            <span className="backup-btn-sub">Import a backup file</span>
-          </div>
-          <input type="file" accept=".json" onChange={handleImport} hidden />
-        </label>
       </Modal>
     </div>
   );
