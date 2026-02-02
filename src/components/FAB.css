@@ -1,7 +1,7 @@
 .fab {
   position: fixed;
   right: 20px;
-  bottom: 100px;
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border-radius: 16px;
@@ -31,7 +31,7 @@
 @media (min-width: 768px) {
   .fab {
     right: calc((100vw - 700px) / 2 + 20px);
-    bottom: 120px;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     width: 64px;
     height: 64px;
   }
@@ -47,7 +47,7 @@
 @media (max-width: 360px) {
   .fab {
     right: 16px;
-    bottom: 90px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     width: 52px;
     height: 52px;
   }
