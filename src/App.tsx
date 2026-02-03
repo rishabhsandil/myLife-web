@@ -61,7 +61,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
   const tabs = allTabs.filter(tab => enabledModules.includes(tab.module));
 
   return (
-    <nav className="tab-bar safe-bottom">
+    <nav className="tab-bar">
       {tabs.map((tab) => {
         const isActive = location.pathname === tab.path;
         const Icon = isActive ? tab.iconActive : tab.iconInactive;
