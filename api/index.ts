@@ -3,15 +3,17 @@ import bcrypt from 'bcryptjs';
 import webpush from 'web-push';
 import { sql, getUserIdFromRequest, generateToken, initDb } from './db.js';
 
-// Configure web-push with VAPID keys
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BFCk7RQ4XRQSLqB1SDQNYixLPrs1mYqC_KyfB9yjYIbB1ykgYel31eyPTM4zXmfPenZdmvdWi4mxt-k3fcTjUn4';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'SumLc9HdXlm_noixUjImFE8ixFAJyaKyKeAg95cSmDQ';
+// Configure web-push with VAPID keys (must be set in environment variables)
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 
-webpush.setVapidDetails(
-  'mailto:support@almostadult.app',
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@almostadult.app',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
 
 // Default body parts for new users
 const DEFAULT_BODY_PARTS = [
@@ -395,6 +397,15 @@ async function handleConnections(req: VercelRequest, res: VercelResponse, userId
         VALUES (${`conn_${Date.now()}_2`}, ${targetUser.id}, ${userId})
       `;
 
+      // Notify the other user about the new connection
+      const [connectingUser] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+      sendNotificationToUser(targetUser.id, {
+        title: '👋 New Connection',
+        body: `${connectingUser?.name || 'Someone'} added you as a connection`,
+        tag: `connection-${userId}`,
+        url: '/settings'
+      });
+
       return res.status(201).json({ 
         success: true, 
         user: { id: targetUser.id, name: targetUser.name, email: targetUser.email }
@@ -454,7 +465,10 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'PUT': {
       const { id, name, quantity, storeId, completed, sortOrder } = req.body;
-      const [currentItem] = await sql`SELECT name, completed FROM shopping_items WHERE id = ${id}`;
+      const [currentItem] = await sql`SELECT si.name, si.completed, si.user_id as "ownerId", u.name as "ownerName" 
+        FROM shopping_items si 
+        JOIN users u ON si.user_id = u.id 
+        WHERE si.id = ${id}`;
       
       await sql`
         UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
@@ -468,6 +482,17 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
           INSERT INTO shopping_audit (id, user_id, action, item_name, details)
           VALUES (${Date.now().toString()}, ${userId}, ${completed ? 'completed' : 'uncompleted'}, ${name}, NULL)
         `;
+        
+        // Notify item owner if someone else completed their item
+        if (completed && currentItem.ownerId && currentItem.ownerId !== userId) {
+          const [completedBy] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+          sendNotificationToUser(currentItem.ownerId, {
+            title: '✅ Item Completed',
+            body: `${completedBy?.name || 'Someone'} marked "${name}" as done`,
+            tag: `shopping-${id}`,
+            url: '/shopping'
+          });
+        }
       }
       return res.status(200).json({ success: true });
     }
