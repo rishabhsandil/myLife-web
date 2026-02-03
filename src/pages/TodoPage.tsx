@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
-  IoTime, IoCalendarOutline, IoPencil, IoReorderTwo
+  IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline
 } from 'react-icons/io5';
 import {
   DndContext,
@@ -22,8 +22,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TodoItem, Priority, RecurrenceType } from '../types';
-import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo } from '../utils/api.ts';
-import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, FAB, EmptyState } from '../components';
+import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory } from '../utils/api.ts';
+import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, ColorPicker, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import logo from '../assets/logo.png';
@@ -46,7 +46,10 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
   { key: 'high', label: 'High', color: colors.error },
 ];
 
-const QUICK_CATEGORIES = ['🎂 Birthday', '💊 Medicine', '💪 Workout', '📞 Call', '💼 Work', '🏠 Home'];
+const COLOR_OPTIONS = [
+  '#6366F1', '#EC4899', '#EF4444', '#22C55E',
+  '#F59E0B', '#8B5CF6', '#14B8A6', '#64748B'
+];
 
 // Date helper functions
 const formatDateInput = (date: Date): string => {
@@ -151,6 +154,7 @@ function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: Sorta
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; color: string; sortOrder: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -158,6 +162,7 @@ export default function TodoPage() {
   
   const taskModal = useModal<TodoItem>();
   const deleteModal = useModal<TodoItem>();
+  const categoryModal = useModal();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -166,6 +171,11 @@ export default function TodoPage() {
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
+  
+  // Category management state
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; color: string } | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryColor, setCategoryColor] = useState('#6366F1');
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -177,7 +187,13 @@ export default function TodoPage() {
 
   useEffect(() => {
     loadTodos();
+    loadCategories();
   }, []);
+
+  async function loadCategories() {
+    const data = await getTodoCategories();
+    setCategories(data);
+  }
 
   // Check for overdue tasks and carry them forward
   useEffect(() => {
@@ -407,6 +423,43 @@ export default function TodoPage() {
     }
   };
 
+  // Category management functions
+  const resetCategoryForm = () => {
+    setCategoryName('');
+    setCategoryColor('#6366F1');
+    setEditingCategory(null);
+  };
+
+  const openEditCategory = (cat: { id: string; name: string; color: string }) => {
+    setEditingCategory(cat);
+    setCategoryName(cat.name);
+    setCategoryColor(cat.color);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryName.trim()) return;
+
+    if (editingCategory) {
+      const sortOrder = categories.find(c => c.id === editingCategory.id)?.sortOrder || 0;
+      await updateTodoCategory({ ...editingCategory, name: categoryName, color: categoryColor, sortOrder });
+    } else {
+      await saveTodoCategory({
+        id: `category_${Date.now()}`,
+        name: categoryName,
+        color: categoryColor,
+        sortOrder: categories.length,
+      });
+    }
+
+    await loadCategories();
+    resetCategoryForm();
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    await deleteTodoCategory(id);
+    await loadCategories();
+  };
+
   const goToToday = () => {
     const today = new Date();
     setSelectedDate(today);
@@ -459,6 +512,9 @@ export default function TodoPage() {
           <button className="header-btn" onClick={goToToday}>Today</button>
           <button className="header-btn icon" onClick={() => setShowCalendar(!showCalendar)}>
             {showCalendar ? <IoClose size={20} /> : <IoCalendar size={20} />}
+          </button>
+          <button className="header-btn icon" onClick={() => categoryModal.open()}>
+            <IoSettingsOutline size={20} />
           </button>
         </div>
       </header>
@@ -607,14 +663,15 @@ export default function TodoPage() {
 
         <FormGroup label="Category (optional)">
           <div className="category-chips">
-            {QUICK_CATEGORIES.map(cat => (
+            {categories.map(cat => (
               <button
-                key={cat}
+                key={cat.id}
                 type="button"
-                className={`category-chip ${category === cat ? 'active' : ''}`}
-                onClick={() => setCategory(category === cat ? '' : cat)}
+                className={`category-chip ${category === cat.name ? 'active' : ''}`}
+                onClick={() => setCategory(category === cat.name ? '' : cat.name)}
+                style={{ backgroundColor: category === cat.name ? cat.color : undefined }}
               >
-                {cat}
+                {cat.name}
               </button>
             ))}
           </div>
@@ -721,6 +778,79 @@ export default function TodoPage() {
               </button>
             </div>
           </>
+        )}
+      </Modal>
+
+      {/* Category Management Modal */}
+      <Modal
+        isOpen={categoryModal.isOpen}
+        onClose={() => { categoryModal.close(); resetCategoryForm(); }}
+        title="Manage Categories"
+      >
+        <div className="store-settings-list">
+          {categories.map(cat => (
+            <div key={cat.id} className="store-settings-item">
+              {editingCategory?.id === cat.id ? (
+                <div className="store-edit-form">
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={e => setCategoryName(e.target.value)}
+                    placeholder="Category name"
+                    autoFocus
+                  />
+                  <ColorPicker
+                    colors={COLOR_OPTIONS}
+                    value={categoryColor}
+                    onChange={setCategoryColor}
+                  />
+                  <div className="store-edit-actions">
+                    <button className="btn secondary" onClick={resetCategoryForm}>Cancel</button>
+                    <button className="btn primary" onClick={handleSaveCategory} disabled={!categoryName.trim()}>Save</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="store-info">
+                    <span className="store-color" style={{ background: cat.color }} />
+                    <span className="store-name">{cat.name}</span>
+                  </div>
+                  <div className="store-actions">
+                    <button className="edit-store-btn" onClick={() => openEditCategory(cat)}>
+                      <IoPencil size={16} />
+                    </button>
+                    <button className="delete-store-btn" onClick={() => handleDeleteCategory(cat.id)}>
+                      <IoTrash size={16} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Add new category */}
+        {!editingCategory && (
+          <div className="add-store-form">
+            <input
+              type="text"
+              value={categoryName}
+              onChange={e => setCategoryName(e.target.value)}
+              placeholder="New category name"
+            />
+            <ColorPicker
+              colors={COLOR_OPTIONS}
+              value={categoryColor}
+              onChange={setCategoryColor}
+            />
+            <button 
+              className="btn primary" 
+              onClick={handleSaveCategory} 
+              disabled={!categoryName.trim()}
+            >
+              <IoAdd size={18} /> Add Category
+            </button>
+          </div>
         )}
       </Modal>
     </div>

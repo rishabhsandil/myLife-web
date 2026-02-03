@@ -18,6 +18,16 @@ const DEFAULT_SHOPPING_STORES = [
   { name: 'Other', color: '#64748B' },
 ];
 
+// Default todo categories for new users
+const DEFAULT_TODO_CATEGORIES = [
+  { name: '🎂 Birthday', color: '#EC4899' },
+  { name: '💊 Medicine', color: '#EF4444' },
+  { name: '💪 Workout', color: '#6366F1' },
+  { name: '📞 Call', color: '#22C55E' },
+  { name: '💼 Work', color: '#F59E0B' },
+  { name: '🏠 Home', color: '#8B5CF6' },
+];
+
 const DEFAULT_MODULES = ['todos', 'shopping', 'workout', 'period'];
 
 // Allowed origins for CORS (configure via environment variable)
@@ -85,6 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (routePath) {
       case 'todos':
         return handleTodos(req, res, userId);
+      case 'todo-categories':
+        return handleTodoCategories(req, res, userId);
       case 'shopping':
         return handleShopping(req, res, userId);
       case 'shopping-stores':
@@ -443,6 +455,57 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
       return res.status(405).json({ error: 'Method not allowed' });
   }
 }
+
+// ============ TODO CATEGORIES ============
+async function handleTodoCategories(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'GET': {
+      // Check if user has their own categories, create defaults if not
+      let ownCategories = await sql`
+        SELECT id, name, color, sort_order as "sortOrder"
+        FROM todo_categories WHERE user_id = ${userId} ORDER BY sort_order, created_at
+      `;
+      if (ownCategories.length === 0) {
+        for (let i = 0; i < DEFAULT_TODO_CATEGORIES.length; i++) {
+          const category = DEFAULT_TODO_CATEGORIES[i];
+          await sql`
+            INSERT INTO todo_categories (id, user_id, name, color, sort_order)
+            VALUES (${`category_${Date.now()}_${i}`}, ${userId}, ${category.name}, ${category.color}, ${i})
+          `;
+        }
+        ownCategories = await sql`
+          SELECT id, name, color, sort_order as "sortOrder"
+          FROM todo_categories WHERE user_id = ${userId} ORDER BY sort_order, created_at
+        `;
+      }
+      return res.status(200).json(ownCategories);
+    }
+    case 'POST': {
+      const { id, name, color, sortOrder } = req.body;
+      await sql`
+        INSERT INTO todo_categories (id, user_id, name, color, sort_order)
+        VALUES (${id}, ${userId}, ${name}, ${color}, ${sortOrder || 0})
+      `;
+      return res.status(201).json({ success: true });
+    }
+    case 'PUT': {
+      const { id, name, color, sortOrder } = req.body;
+      await sql`
+        UPDATE todo_categories SET name = ${name}, color = ${color}, sort_order = ${sortOrder || 0}
+        WHERE id = ${id} AND user_id = ${userId}
+      `;
+      return res.status(200).json({ success: true });
+    }
+    case 'DELETE': {
+      const { id } = req.query;
+      if (id) await sql`DELETE FROM todo_categories WHERE id = ${id as string} AND user_id = ${userId}`;
+      return res.status(200).json({ success: true });
+    }
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
 
 // ============ SHOPPING SHARE ============
 async function handleShoppingShare(req: VercelRequest, res: VercelResponse, userId: string) {

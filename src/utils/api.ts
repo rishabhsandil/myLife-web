@@ -169,6 +169,14 @@ export const saveBodyPart = bodyPartsApi.create;
 export const updateBodyPart = bodyPartsApi.update;
 export const deleteBodyPart = bodyPartsApi.delete;
 
+// ============ TODO CATEGORIES ============
+const todoCategoriesApi = createCrudApi<{ id: string; name: string; color: string; sortOrder: number }>('todo-categories', 'almostadult_todo_categories');
+
+export const getTodoCategories = todoCategoriesApi.getAll;
+export const saveTodoCategory = todoCategoriesApi.create;
+export const updateTodoCategory = todoCategoriesApi.update;
+export const deleteTodoCategory = todoCategoriesApi.delete;
+
 // ============ PERIOD TRACKING ============
 const periodApi = createCrudApi<PeriodCycle>('periods', 'almostadult_periods');
 
