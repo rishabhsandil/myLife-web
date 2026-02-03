@@ -227,6 +227,23 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.drag-handle {
+  flex-shrink: 0;
+  padding: 4px;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  opacity: 0.7;
+}
+
 .task-item.completed {
   opacity: 0.6;
 }
@@ -337,6 +354,29 @@
   color: #8A9B8C;
   font-size: 12px;
   margin-top: 6px;
+}
+
+.task-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.task-actions .icon-btn {
+  padding: 6px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.task-actions .icon-btn:hover {
+  opacity: 1;
+  background: #F0EED8;
+}
+
+.task-actions .icon-btn.delete:hover {
+  background: #F9E5E6;
+  color: #BC4B51;
 }
 
 .task-edit,

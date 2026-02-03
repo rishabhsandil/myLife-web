@@ -94,6 +94,23 @@
   overflow: hidden;
 }
 
+.exercise-card .drag-handle {
+  flex-shrink: 0;
+  padding: 14px 8px 14px 12px;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.exercise-card .drag-handle:active {
+  cursor: grabbing;
+}
+
+.exercise-card .drag-handle:hover {
+  opacity: 0.7;
+}
+
 .exercise-content {
   flex: 1;
   display: flex;

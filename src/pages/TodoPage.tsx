@@ -1,9 +1,26 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
-  IoCheckmarkCircle, IoEllipseOutline, IoFlag, IoRepeat, IoTrash,
-  IoTime, IoCalendarOutline, IoPencil
+  IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
+  IoTime, IoCalendarOutline, IoPencil, IoReorderTwo
 } from 'react-icons/io5';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TodoItem, Priority, RecurrenceType } from '../types';
 import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo } from '../utils/api.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, FAB, EmptyState } from '../components';
@@ -47,6 +64,91 @@ const formatDateKey = (date: Date): string => {
 const formatDate = (date: Date): string => `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(new Date());
 
+// Sortable Task Item Component
+interface SortableTaskItemProps {
+  todo: TodoItem;
+  completed: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: SortableTaskItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: todo.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''}`}
+    >
+      <button
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >
+        <IoReorderTwo size={20} color={colors.textMuted} />
+      </button>
+      <button
+        className="task-checkbox"
+        onClick={onToggle}
+      >
+        {completed ? (
+          <IoCheckmarkCircle size={24} color={colors.success} />
+        ) : (
+          <IoEllipseOutline size={24} color={colors.textMuted} />
+        )}
+      </button>
+      <div className="task-content">
+        <div className="task-title-row">
+          <span className="task-title">{todo.title}</span>
+          <div className="task-badges">
+            {todo.overdue && !completed && (
+              <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
+                <IoTime size={12} /> Overdue
+              </span>
+            )}
+            {todo.recurrence !== 'none' && (
+              <span className="badge recurring">
+                <IoRepeat size={12} />
+              </span>
+            )}
+            {todo.isEvent && (
+              <span className="badge event">
+                <IoCalendar size={12} />
+              </span>
+            )}
+          </div>
+        </div>
+        {todo.description && <p className="task-description">{todo.description}</p>}
+        <div className="task-meta">
+          {todo.time && <span className="task-time"><IoTime size={14} /> {todo.time}</span>}
+          {todo.category && <span className="task-category">{todo.category}</span>}
+        </div>
+      </div>
+      <div className="task-actions">
+        <button className="icon-btn" onClick={onEdit}>
+          <IoPencil size={18} />
+        </button>
+        <button className="icon-btn delete" onClick={onDelete}>
+          <IoTrash size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function TodoPage() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +166,14 @@ export default function TodoPage() {
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     loadTodos();
@@ -142,7 +252,36 @@ export default function TodoPage() {
   };
 
   const todaysTasks = useMemo(() => {
-    return todos.filter(todo => shouldShowOnDate(todo, selectedDate));
+    return todos
+      .filter(todo => shouldShowOnDate(todo, selectedDate))
+      .sort((a, b) => {
+        const aCompleted = isCompletedOnDate(a, selectedDate);
+        const bCompleted = isCompletedOnDate(b, selectedDate);
+        
+        // Completed tasks always go to bottom
+        if (aCompleted && !bCompleted) return 1;
+        if (!aCompleted && bCompleted) return -1;
+        
+        // Both completed or both incomplete - prioritize sortOrder if set
+        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+          return a.sortOrder - b.sortOrder;
+        }
+        if (a.sortOrder !== undefined) return -1;
+        if (b.sortOrder !== undefined) return 1;
+        
+        // Sort by time
+        // Tasks with time come before tasks without time
+        if (a.time && !b.time) return -1;
+        if (!a.time && b.time) return 1;
+        
+        // Both have time - sort by time
+        if (a.time && b.time) {
+          return a.time.localeCompare(b.time);
+        }
+        
+        // Both have no time - maintain original order
+        return 0;
+      });
   }, [todos, selectedDate]);
 
   const resetForm = () => {
@@ -199,13 +338,16 @@ export default function TodoPage() {
 
   const toggleComplete = async (todo: TodoItem) => {
     const dateKey = formatDateKey(selectedDate);
+    const today = formatDateKey(new Date());
     let updatedTodoData: TodoItem;
 
     if (todo.recurrence === 'none') {
+      const isCompleting = !todo.completed;
       updatedTodoData = { 
         ...todo, 
-        completed: !todo.completed,
-        overdue: !todo.completed ? false : todo.overdue // Clear overdue when completing
+        completed: isCompleting,
+        // Clear overdue when completing; restore overdue when uncompleting if task is from the past
+        overdue: isCompleting ? false : (todo.originalDate ? true : todo.date < today)
       };
     } else {
       const completedDates = todo.completedDates || [];
@@ -234,6 +376,34 @@ export default function TodoPage() {
     } else {
       await apiDeleteTodo(todo.id);
       setTodos(todos.filter(t => t.id !== todo.id));
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = todaysTasks.findIndex((task) => task.id === active.id);
+      const newIndex = todaysTasks.findIndex((task) => task.id === over.id);
+
+      const reorderedTasks = arrayMove(todaysTasks, oldIndex, newIndex);
+      
+      // Assign sortOrder to all tasks for this date
+      const updatedTasks = reorderedTasks.map((task, index) => ({
+        ...task,
+        sortOrder: index,
+      }));
+
+      // Optimistically update UI
+      setTodos(todos.map(t => {
+        const updatedTask = updatedTasks.find(ut => ut.id === t.id);
+        return updatedTask || t;
+      }));
+
+      // Update all reordered tasks in backend
+      for (const task of updatedTasks) {
+        await updateTodo(task);
+      }
     }
   };
 
@@ -362,53 +532,32 @@ export default function TodoPage() {
             action={{ label: 'Add Task', icon: IoAdd, onClick: openAddModal }}
           />
         ) : (
-          <div className="tasks-list">
-            {todaysTasks.map((todo) => {
-              const completed = isCompletedOnDate(todo, selectedDate);
-              return (
-                <div key={todo.id} className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''}`}>
-                  <button
-                    className="task-checkbox"
-                    onClick={() => toggleComplete(todo)}
-                  >
-                    {completed ? (
-                      <IoCheckmarkCircle size={24} color={colors.success} />
-                    ) : (
-                      <IoEllipseOutline size={24} color={colors.textMuted} />
-                    )}
-                  </button>
-                  <div className="task-content">
-                    <div className="task-title-row">
-                      <span className="task-title">{todo.title}</span>
-                      <div className="task-badges">
-                        {todo.overdue && !completed && (
-                          <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
-                            <IoTime size={12} /> Overdue
-                          </span>
-                        )}
-                        {todo.recurrence !== 'none' && (
-                          <span className="badge recurrence"><IoRepeat size={12} /></span>
-                        )}
-                        <span className={`badge priority ${todo.priority}`}>
-                          <IoFlag size={12} />
-                        </span>
-                      </div>
-                    </div>
-                    {todo.category && <span className="task-category">{todo.category}</span>}
-                    {todo.time && (
-                      <span className="task-time"><IoTime size={12} /> {todo.time}</span>
-                    )}
-                  </div>
-                  <button className="task-edit" onClick={() => openEditModal(todo)}>
-                    <IoPencil size={18} color={colors.primary} />
-                  </button>
-                  <button className="task-delete" onClick={() => deleteModal.open(todo)}>
-                    <IoTrash size={18} color={colors.error} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={todaysTasks.map(t => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="tasks-list">
+                {todaysTasks.map((todo) => {
+                  const completed = isCompletedOnDate(todo, selectedDate);
+                  return (
+                    <SortableTaskItem
+                      key={todo.id}
+                      todo={todo}
+                      completed={completed}
+                      onToggle={() => toggleComplete(todo)}
+                      onEdit={() => openEditModal(todo)}
+                      onDelete={() => deleteModal.open(todo)}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 

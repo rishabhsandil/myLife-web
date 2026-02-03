@@ -2,8 +2,25 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
-  IoTime, IoPencil, IoSettings
+  IoTime, IoPencil, IoSettings, IoReorderTwo
 } from 'react-icons/io5';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import { 
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
@@ -19,6 +36,73 @@ const COLOR_OPTIONS = [
   '#22C55E', '#6366F1', '#F59E0B', '#EF4444', 
   '#14B8A6', '#EC4899', '#8B5CF6', '#64748B'
 ];
+
+// Sortable Shopping Item Component
+interface SortableShoppingItemProps {
+  item: ShoppingItem;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShoppingItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const isSharedItem = item.isOwn === false;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}
+    >
+      <button
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >
+        <IoReorderTwo size={20} color={colors.textMuted} />
+      </button>
+      <button className="item-checkbox" onClick={onToggle}>
+        {item.completed ? (
+          <IoCheckmarkCircle size={24} color={colors.success} />
+        ) : (
+          <IoEllipseOutline size={24} color={colors.textMuted} />
+        )}
+      </button>
+      <div className="item-content">
+        <div className="item-name">
+          {item.name}
+          {isSharedItem && (
+            <span className="item-owner">({item.ownerName})</span>
+          )}
+        </div>
+        <div className="item-meta">
+          <span className="item-qty">×{item.quantity}</span>
+        </div>
+      </div>
+      <div className="item-actions">
+        <button className="icon-btn" onClick={onEdit}>
+          <IoPencil size={16} />
+        </button>
+        <button className="icon-btn delete" onClick={onDelete}>
+          <IoTrash size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -48,6 +132,14 @@ export default function ShoppingPage() {
   // Track mutations to pause sync
   const isMutating = useRef(false);
   const lastSyncTime = useRef(0);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
@@ -97,7 +189,23 @@ export default function ShoppingPage() {
   const filteredItems = useMemo(() => {
     // Filter by store name to handle shared lists where users have different store IDs for the same store name
     const storeName = currentStore?.name;
-    return items.filter(item => item.storeName === storeName);
+    return items
+      .filter(item => item.storeName === storeName)
+      .sort((a, b) => {
+        // Completed items go to bottom
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+        
+        // Sort by sortOrder if available
+        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+          return a.sortOrder - b.sortOrder;
+        }
+        if (a.sortOrder !== undefined) return -1;
+        if (b.sortOrder !== undefined) return 1;
+        
+        // Default to creation order
+        return 0;
+      });
   }, [items, selectedStore, currentStore]);
 
   const completedCount = filteredItems.filter(i => i.completed).length;
@@ -205,6 +313,39 @@ export default function ShoppingPage() {
       await clearCompletedItems(storeName);
     } finally {
       isMutating.current = false;
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredItems.findIndex((item) => item.id === active.id);
+      const newIndex = filteredItems.findIndex((item) => item.id === over.id);
+
+      const reorderedItems = arrayMove(filteredItems, oldIndex, newIndex);
+      
+      // Assign sortOrder to all items in this store
+      const updatedItems = reorderedItems.map((item, index) => ({
+        ...item,
+        sortOrder: index,
+      }));
+
+      // Optimistically update UI
+      setItems(items.map(i => {
+        const updatedItem = updatedItems.find(ui => ui.id === i.id);
+        return updatedItem || i;
+      }));
+
+      // Update all reordered items in backend
+      isMutating.current = true;
+      try {
+        for (const item of updatedItems) {
+          await updateShoppingItem(item);
+        }
+      } finally {
+        isMutating.current = false;
+      }
     }
   };
 
@@ -400,39 +541,28 @@ export default function ShoppingPage() {
             }
           />
         ) : (
-          <div className="items-list">
-            {filteredItems.map(item => {
-              const isSharedItem = item.isOwn === false;
-              return (
-                <div key={item.id} className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}>
-                  <button className="item-checkbox" onClick={() => toggleComplete(item)}>
-                    {item.completed ? (
-                      <IoCheckmarkCircle size={24} color={colors.success} />
-                    ) : (
-                      <IoEllipseOutline size={24} color={colors.textMuted} />
-                    )}
-                  </button>
-                  <div className="item-content">
-                    <div className="item-name">
-                      {item.name}
-                      {isSharedItem && (
-                        <span className="item-owner">({item.ownerName})</span>
-                      )}
-                    </div>
-                    <div className="item-meta">
-                      <span className="item-qty">×{item.quantity}</span>
-                    </div>
-                  </div>
-                  <button className="item-edit" onClick={() => openEditModal(item)}>
-                    <IoPencil size={18} color={colors.primary} />
-                  </button>
-                  <button className="item-delete" onClick={() => deleteItem(item.id)}>
-                    <IoTrash size={18} color={colors.error} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredItems.map(i => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="items-list">
+                {filteredItems.map(item => (
+                  <SortableShoppingItem
+                    key={item.id}
+                    item={item}
+                    onToggle={() => toggleComplete(item)}
+                    onEdit={() => openEditModal(item)}
+                    onDelete={() => deleteItem(item.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 

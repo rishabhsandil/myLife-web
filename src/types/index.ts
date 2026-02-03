@@ -14,6 +14,7 @@ export interface TodoItem {
   createdAt: string;
   originalDate?: string; // Original date before being moved forward
   overdue?: boolean; // Whether this task is overdue
+  sortOrder?: number; // For manual drag-drop reordering
 }
 
 export type Priority = 'low' | 'medium' | 'high';
@@ -30,6 +31,7 @@ export interface ShoppingItem {
   ownerId?: string;
   ownerName?: string;
   isOwn?: boolean;
+  sortOrder?: number; // For manual drag-drop reordering
 }
 
 export interface ShoppingStore {
@@ -69,6 +71,7 @@ export interface Exercise {
   sets: number;
   reps: number;
   weight: number; // PR weight
+  sortOrder?: number; // For manual drag-drop reordering
 }
 
 export interface BodyPart {

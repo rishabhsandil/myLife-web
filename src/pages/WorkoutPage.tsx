@@ -1,7 +1,24 @@
 import { useState, useEffect } from 'react';
 import {
-  IoAdd, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings
+  IoAdd, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings, IoReorderTwo
 } from 'react-icons/io5';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Exercise, BodyPart } from '../types';
 import { 
   getExercises, saveExercise, updateExercise, deleteExercise as apiDeleteExercise,
@@ -16,6 +33,70 @@ const COLOR_OPTIONS = [
   '#EF4444', '#F59E0B', '#22C55E', '#14B8A6', 
   '#6366F1', '#EC4899', '#8B5CF6', '#64748B'
 ];
+
+// Sortable Exercise Item Component
+interface SortableExerciseItemProps {
+  exercise: Exercise;
+  bodyPartColor: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: SortableExerciseItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: exercise.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="exercise-card"
+    >
+      <button
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >
+        <IoReorderTwo size={20} color={colors.textMuted} />
+      </button>
+      <div className="exercise-content" onClick={onEdit}>
+        <div
+          className="exercise-icon"
+          style={{ background: bodyPartColor + '20', color: bodyPartColor }}
+        >
+          <IoBarbell size={20} />
+        </div>
+        <div className="exercise-info">
+          <span className="exercise-name">{exercise.name}</span>
+          <div className="exercise-details">
+            <span className="exercise-stats">
+              {exercise.sets} sets × {exercise.reps} reps
+            </span>
+            {exercise.weight > 0 && (
+              <span className="exercise-pr">
+                <IoTrophy size={12} /> {exercise.weight} kg
+              </span>
+            )}
+          </div>
+        </div>
+        <IoPencil size={18} color={colors.textMuted} />
+      </div>
+      <button className="exercise-delete" onClick={onDelete}>
+        <IoTrash size={16} color={colors.error} />
+      </button>
+    </div>
+  );
+}
 
 export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -37,6 +118,14 @@ export default function WorkoutPage() {
   const [bpName, setBpName] = useState('');
   const [bpColor, setBpColor] = useState(COLOR_OPTIONS[0]);
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
     loadData();
   }, []);
@@ -56,7 +145,18 @@ export default function WorkoutPage() {
   }
 
   const currentBodyPart = bodyParts.find(bp => bp.id === selectedBodyPart);
-  const filteredExercises = exercises.filter(e => e.bodyPart === selectedBodyPart);
+  const filteredExercises = exercises
+    .filter(e => e.bodyPart === selectedBodyPart)
+    .sort((a, b) => {
+      // Sort by sortOrder if available
+      if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+        return a.sortOrder - b.sortOrder;
+      }
+      if (a.sortOrder !== undefined) return -1;
+      if (b.sortOrder !== undefined) return 1;
+      // Default order
+      return 0;
+    });
 
   const resetExerciseForm = () => {
     setExerciseName('');
@@ -112,6 +212,34 @@ export default function WorkoutPage() {
   const handleDeleteExercise = async (id: string) => {
     await apiDeleteExercise(id);
     setExercises(exercises.filter(e => e.id !== id));
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredExercises.findIndex((ex) => ex.id === active.id);
+      const newIndex = filteredExercises.findIndex((ex) => ex.id === over.id);
+
+      const reorderedExercises = arrayMove(filteredExercises, oldIndex, newIndex);
+      
+      // Assign sortOrder to all exercises in this body part
+      const updatedExercises = reorderedExercises.map((ex, index) => ({
+        ...ex,
+        sortOrder: index,
+      }));
+
+      // Optimistically update UI
+      setExercises(exercises.map(e => {
+        const updatedEx = updatedExercises.find(ue => ue.id === e.id);
+        return updatedEx || e;
+      }));
+
+      // Update all reordered exercises in backend
+      for (const ex of updatedExercises) {
+        await updateExercise(ex);
+      }
+    }
   };
 
   const getBodyPartColor = (partId: string) => {
@@ -232,37 +360,28 @@ export default function WorkoutPage() {
             action={{ label: 'Add Exercise', icon: IoAdd, onClick: openAddModal }}
           />
         ) : (
-          <div className="exercises-list">
-            {filteredExercises.map(exercise => (
-              <div key={exercise.id} className="exercise-card">
-                <div className="exercise-content" onClick={() => openEditModal(exercise)}>
-                  <div
-                    className="exercise-icon"
-                    style={{ background: getBodyPartColor(exercise.bodyPart) + '20', color: getBodyPartColor(exercise.bodyPart) }}
-                  >
-                    <IoBarbell size={20} />
-                  </div>
-                  <div className="exercise-info">
-                    <span className="exercise-name">{exercise.name}</span>
-                    <div className="exercise-details">
-                      <span className="exercise-stats">
-                        {exercise.sets} sets × {exercise.reps} reps
-                      </span>
-                      {exercise.weight > 0 && (
-                        <span className="exercise-pr">
-                          <IoTrophy size={12} /> {exercise.weight} kg
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <IoPencil size={18} color={colors.textMuted} />
-                </div>
-                <button className="exercise-delete" onClick={() => handleDeleteExercise(exercise.id)}>
-                  <IoTrash size={16} color={colors.error} />
-                </button>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredExercises.map(e => e.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="exercises-list">
+                {filteredExercises.map(exercise => (
+                  <SortableExerciseItem
+                    key={exercise.id}
+                    exercise={exercise}
+                    bodyPartColor={getBodyPartColor(exercise.bodyPart)}
+                    onEdit={() => openEditModal(exercise)}
+                    onDelete={() => handleDeleteExercise(exercise.id)}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
