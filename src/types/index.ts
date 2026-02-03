@@ -15,6 +15,12 @@ export interface TodoItem {
   originalDate?: string; // Original date before being moved forward
   overdue?: boolean; // Whether this task is overdue
   sortOrder?: number; // For manual drag-drop reordering
+  ownerId?: string; // User who created the task
+  ownerName?: string;
+  ownerEmail?: string;
+  assignedToUserId?: string; // User assigned to complete the task
+  assigneeName?: string;
+  assigneeEmail?: string;
 }
 
 export type Priority = 'low' | 'medium' | 'high';

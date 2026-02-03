@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { IoCheckbox, IoCart, IoFitness, IoWater, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline } from 'react-icons/io5';
+import { useState, useEffect } from 'react';
+import { IoCheckbox, IoCart, IoFitness, IoWater, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople } from 'react-icons/io5';
 import { ModuleType } from '../types';
-import { saveUserSettings } from '../utils/api';
+import { saveUserSettings, getConnections, addConnection, removeConnection, UserConnection } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.png';
 import './SettingsPage.css';
@@ -55,6 +55,44 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   const [saving, setSaving] = useState(false);
   const [localModules, setLocalModules] = useState<ModuleType[]>(enabledModules);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  // Connections state
+  const [connections, setConnections] = useState<UserConnection[]>([]);
+  const [newConnectionEmail, setNewConnectionEmail] = useState('');
+  const [connectionError, setConnectionError] = useState('');
+  const [addingConnection, setAddingConnection] = useState(false);
+
+  useEffect(() => {
+    loadConnections();
+  }, []);
+
+  async function loadConnections() {
+    const data = await getConnections();
+    setConnections(data);
+  }
+
+  const handleAddConnection = async () => {
+    if (!newConnectionEmail.trim()) return;
+    
+    setAddingConnection(true);
+    setConnectionError('');
+    
+    const result = await addConnection(newConnectionEmail.trim());
+    
+    if (result.success && result.user) {
+      setConnections(prev => [...prev, result.user!]);
+      setNewConnectionEmail('');
+    } else {
+      setConnectionError(result.error || 'User not found');
+    }
+    
+    setAddingConnection(false);
+  };
+
+  const handleRemoveConnection = async (userId: string) => {
+    await removeConnection(userId);
+    setConnections(prev => prev.filter(c => c.id !== userId));
+  };
 
   const toggleModule = (moduleId: ModuleType) => {
     setLocalModules(prev => {
@@ -150,6 +188,55 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
           </button>
         </div>
       )}
+
+      {/* Connections Section */}
+      <section className="settings-section">
+        <h2 className="section-title">
+          <IoPeople size={20} /> Connections
+        </h2>
+        <p className="section-description">
+          Add people you want to share shopping lists or assign tasks to. They'll be able to do the same with you.
+        </p>
+
+        <div className="connections-add">
+          <input
+            type="email"
+            value={newConnectionEmail}
+            onChange={e => { setNewConnectionEmail(e.target.value); setConnectionError(''); }}
+            placeholder="Enter email address"
+            onKeyDown={e => e.key === 'Enter' && handleAddConnection()}
+          />
+          <button 
+            className="add-connection-btn" 
+            onClick={handleAddConnection}
+            disabled={!newConnectionEmail.trim() || addingConnection}
+          >
+            <IoPersonAdd size={20} />
+          </button>
+        </div>
+        {connectionError && <p className="connection-error">{connectionError}</p>}
+
+        <div className="connections-list">
+          {connections.length === 0 ? (
+            <p className="connections-empty">No connections yet. Add someone by their email address.</p>
+          ) : (
+            connections.map(conn => (
+              <div key={conn.id} className="connection-item">
+                <div className="connection-info">
+                  <span className="connection-name">{conn.name}</span>
+                  <span className="connection-email">{conn.email}</span>
+                </div>
+                <button 
+                  className="remove-connection-btn"
+                  onClick={() => handleRemoveConnection(conn.id)}
+                >
+                  <IoClose size={18} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       {/* Account Section */}
       <section className="settings-section">

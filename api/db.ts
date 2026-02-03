@@ -89,6 +89,19 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add assigned_to field for task assignments
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'assigned_to_user_id'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN assigned_to_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,
@@ -191,7 +204,20 @@ export async function initDb() {
     END $$;
   `;
 
-  // Shopping list sharing - tracks who shares their list with whom
+  // User connections - bidirectional relationships for sharing/assigning
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_connections (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      connected_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, connected_user_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_connections_user ON user_connections(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_connections_connected ON user_connections(connected_user_id)`;
+
+  // Shopping list sharing - tracks who shares their list with whom (legacy, kept for backwards compat)
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_shares (
       id TEXT PRIMARY KEY,

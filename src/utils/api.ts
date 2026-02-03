@@ -236,3 +236,50 @@ export async function saveUserSettings(settings: UserSettings): Promise<void> {
     console.error('Failed to save user settings:', error);
   }
 }
+
+// ============ USER SEARCH ============
+export async function searchUsers(email: string): Promise<Array<{ id: string; name: string; email: string }>> {
+  try {
+    return await api<Array<{ id: string; name: string; email: string }>>(`users/search?email=${encodeURIComponent(email)}`);
+  } catch (error) {
+    console.error('Failed to search users:', error);
+    return [];
+  }
+}
+
+// ============ CONNECTIONS ============
+export interface UserConnection {
+  id: string;
+  name: string;
+  email: string;
+  connectedAt?: string;
+}
+
+export async function getConnections(): Promise<UserConnection[]> {
+  try {
+    return await api<UserConnection[]>('connections');
+  } catch (error) {
+    console.error('Failed to get connections:', error);
+    return [];
+  }
+}
+
+export async function addConnection(email: string): Promise<{ success: boolean; user?: UserConnection; error?: string }> {
+  try {
+    return await api<{ success: boolean; user?: UserConnection; error?: string }>('connections', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  } catch (error) {
+    console.error('Failed to add connection:', error);
+    return { success: false, error: 'User not found' };
+  }
+}
+
+export async function removeConnection(userId: string): Promise<void> {
+  try {
+    await api(`connections?id=${userId}`, { method: 'DELETE' });
+  } catch (error) {
+    console.error('Failed to remove connection:', error);
+  }
+}

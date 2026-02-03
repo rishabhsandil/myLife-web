@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
-  IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline
+  IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline, IoPersonAdd
 } from 'react-icons/io5';
 import {
   DndContext,
@@ -22,7 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TodoItem, Priority, RecurrenceType } from '../types';
-import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory } from '../utils/api.ts';
+import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory, searchUsers } from '../utils/api.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, ColorPicker, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
@@ -112,6 +112,16 @@ function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: Sorta
         <div className="task-title-row">
           <span className="task-title">{todo.title}</span>
           <div className="task-badges">
+            {todo.assignedToUserId && (
+              <span className="badge assigned" title={`Assigned to: ${todo.assigneeName}`}>
+                <IoPersonAdd size={12} /> {todo.assigneeName}
+              </span>
+            )}
+            {todo.ownerId && todo.ownerId !== todo.assignedToUserId && todo.ownerName && (
+              <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
+                From {todo.ownerName}
+              </span>
+            )}
             {todo.overdue && !completed && (
               <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
                 <IoTime size={12} /> Overdue
@@ -171,6 +181,11 @@ export default function TodoPage() {
   const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; color: string } | null>(null);
   const [categoryName, setCategoryName] = useState('');
   const [categoryColor, setCategoryColor] = useState('#6366F1');
+  
+  // Assignment state
+  const [assigneeEmail, setAssigneeEmail] = useState('');
+  const [assigneeSearchResults, setAssigneeSearchResults] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState<{ id: string; name: string; email: string } | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -302,6 +317,9 @@ export default function TodoPage() {
     setPriority('medium');
     setCategory('');
     setRecurrence('none');
+    setAssigneeEmail('');
+    setAssigneeSearchResults([]);
+    setSelectedAssignee(null);
   };
 
   const openAddModal = () => {
@@ -316,6 +334,20 @@ export default function TodoPage() {
     setPriority(todo.priority);
     setCategory(todo.category || '');
     setRecurrence(todo.recurrence);
+    
+    // Load assignee if exists
+    if (todo.assignedToUserId && todo.assigneeName && todo.assigneeEmail) {
+      setSelectedAssignee({
+        id: todo.assignedToUserId,
+        name: todo.assigneeName,
+        email: todo.assigneeEmail,
+      });
+    } else {
+      setSelectedAssignee(null);
+    }
+    setAssigneeEmail('');
+    setAssigneeSearchResults([]);
+    
     taskModal.open(todo);
   };
 
@@ -334,6 +366,9 @@ export default function TodoPage() {
       completedDates: taskModal.data?.completedDates || [],
       excludedDates: taskModal.data?.excludedDates || [],
       createdAt: taskModal.data?.createdAt || new Date().toISOString(),
+      assignedToUserId: selectedAssignee?.id || undefined,
+      assigneeName: selectedAssignee?.name || undefined,
+      assigneeEmail: selectedAssignee?.email || undefined,
     };
 
     if (taskModal.data) {
@@ -453,6 +488,29 @@ export default function TodoPage() {
   const handleDeleteCategory = async (id: string) => {
     await deleteTodoCategory(id);
     await loadCategories();
+  };
+
+  // Assignment functions
+  const handleSearchUsers = async (email: string) => {
+    setAssigneeEmail(email);
+    if (email.length >= 2) {
+      const results = await searchUsers(email);
+      setAssigneeSearchResults(results);
+    } else {
+      setAssigneeSearchResults([]);
+    }
+  };
+
+  const handleSelectAssignee = (user: { id: string; name: string; email: string }) => {
+    setSelectedAssignee(user);
+    setAssigneeEmail('');
+    setAssigneeSearchResults([]);
+  };
+
+  const handleClearAssignee = () => {
+    setSelectedAssignee(null);
+    setAssigneeEmail('');
+    setAssigneeSearchResults([]);
   };
 
   const goToToday = () => {
@@ -678,6 +736,47 @@ export default function TodoPage() {
 
         <FormGroup label="Repeat">
           <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+        </FormGroup>
+
+        <FormGroup label="Assign to (optional)">
+          {selectedAssignee ? (
+            <div className="assignee-selected">
+              <div className="assignee-info">
+                <IoPersonAdd size={18} />
+                <div>
+                  <div className="assignee-name">{selectedAssignee.name}</div>
+                  <div className="assignee-email">{selectedAssignee.email}</div>
+                </div>
+              </div>
+              <button type="button" className="clear-assignee-btn" onClick={handleClearAssignee}>
+                <IoClose size={18} />
+              </button>
+            </div>
+          ) : (
+            <div className="assignee-search">
+              <input
+                type="email"
+                value={assigneeEmail}
+                onChange={e => handleSearchUsers(e.target.value)}
+                placeholder="Search by email..."
+              />
+              {assigneeSearchResults.length > 0 && (
+                <div className="search-results">
+                  {assigneeSearchResults.map(user => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      className="search-result-item"
+                      onClick={() => handleSelectAssignee(user)}
+                    >
+                      <div className="search-result-name">{user.name}</div>
+                      <div className="search-result-email">{user.email}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </FormGroup>
       </Modal>
 

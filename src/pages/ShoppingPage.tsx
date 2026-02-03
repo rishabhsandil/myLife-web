@@ -676,11 +676,11 @@ export default function ShoppingPage() {
       <Modal
         isOpen={shareModal.isOpen}
         onClose={shareModal.close}
-        title="Share Shopping List"
+        title="Shopping Connections"
         footer={<button className="btn secondary" onClick={shareModal.close}>Done</button>}
       >
         <p className="share-info">
-          Share your shopping list with another user. They'll see your items and can mark them as done.
+          Connect with another user to share shopping lists. Connected users can also be assigned to reminders.
         </p>
 
         {/* Add new share */}
@@ -698,10 +698,10 @@ export default function ShoppingPage() {
         </div>
         {shareError && <p className="share-error">{shareError}</p>}
 
-        {/* People I share with */}
+        {/* Connected users */}
         {shareStatus.sharedWith.length > 0 && (
           <div className="share-section">
-            <h4>Shared with</h4>
+            <h4>Connected Users</h4>
             <div className="share-list">
               {shareStatus.sharedWith.map(user => (
                 <div key={user.id} className="share-item">
@@ -712,23 +712,6 @@ export default function ShoppingPage() {
                   <button className="share-remove" onClick={() => handleUnshare(user.id)}>
                     <IoClose size={18} />
                   </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* People who share with me */}
-        {shareStatus.sharedBy.length > 0 && (
-          <div className="share-section">
-            <h4>Shared by others</h4>
-            <div className="share-list">
-              {shareStatus.sharedBy.map(user => (
-                <div key={user.id} className="share-item">
-                  <div className="share-user">
-                    <span className="share-name">{user.name}</span>
-                    <span className="share-email">{user.email}</span>
-                  </div>
                 </div>
               ))}
             </div>

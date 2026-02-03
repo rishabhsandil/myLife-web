@@ -97,6 +97,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleTodos(req, res, userId);
       case 'todo-categories':
         return handleTodoCategories(req, res, userId);
+      case 'users/search':
+        return handleUserSearch(req, res, userId);
+      case 'connections':
+        return handleConnections(req, res, userId);
       case 'shopping':
         return handleShopping(req, res, userId);
       case 'shopping-stores':
@@ -226,30 +230,37 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
   switch (req.method) {
     case 'GET': {
       const rows = await sql`
-        SELECT id, title, completed, date, time, priority, recurrence,
-          completed_dates as "completedDates", excluded_dates as "excludedDates", 
-          created_at as "createdAt", category, original_date as "originalDate", overdue
-        FROM todos WHERE user_id = ${userId}
-        ORDER BY date ASC, time ASC
+        SELECT t.id, t.title, t.completed, t.date, t.time, t.priority, t.recurrence,
+          t.completed_dates as "completedDates", t.excluded_dates as "excludedDates", 
+          t.created_at as "createdAt", t.category, t.original_date as "originalDate", t.overdue,
+          t.sort_order as "sortOrder", t.user_id as "ownerId", t.assigned_to_user_id as "assignedToUserId",
+          owner.name as "ownerName", owner.email as "ownerEmail",
+          assignee.name as "assigneeName", assignee.email as "assigneeEmail"
+        FROM todos t
+        JOIN users owner ON t.user_id = owner.id
+        LEFT JOIN users assignee ON t.assigned_to_user_id = assignee.id
+        WHERE t.user_id = ${userId} OR t.assigned_to_user_id = ${userId}
+        ORDER BY t.date ASC, t.time ASC
       `;
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId } = req.body;
       await sql`
-        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order)
-        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null})
+        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order, assigned_to_user_id)
+        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null}, ${assignedToUserId || null})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId } = req.body;
       await sql`
         UPDATE todos SET title = ${title}, completed = ${completed}, 
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
           completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null},
-          original_date = ${originalDate || null}, overdue = ${overdue || false}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
-        WHERE id = ${id} AND user_id = ${userId}
+          original_date = ${originalDate || null}, overdue = ${overdue || false}, sort_order = ${sortOrder !== undefined ? sortOrder : null},
+          assigned_to_user_id = ${assignedToUserId !== undefined ? assignedToUserId : null}
+        WHERE id = ${id} AND (user_id = ${userId} OR assigned_to_user_id = ${userId})
       `;
       return res.status(200).json({ success: true });
     }
@@ -258,6 +269,123 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
       if (id) {
         await sql`DELETE FROM todos WHERE id = ${id as string} AND user_id = ${userId}`;
       }
+      return res.status(200).json({ success: true });
+    }
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+// ============ USER SEARCH ============
+async function handleUserSearch(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { email } = req.query;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email parameter required' });
+  }
+
+  // Only search among connected users
+  const users = await sql`
+    SELECT u.id, u.name, u.email
+    FROM users u
+    WHERE u.id IN (
+      SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
+      UNION
+      SELECT user_id FROM user_connections WHERE connected_user_id = ${userId}
+    )
+    AND LOWER(u.email) LIKE LOWER(${`%${email}%`})
+    AND u.id != ${userId}
+    LIMIT 10
+  `;
+
+  return res.status(200).json(users);
+}
+
+// ============ CONNECTIONS ============
+async function handleConnections(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'GET': {
+      // Get all connections (bidirectional)
+      const connections = await sql`
+        SELECT u.id, u.name, u.email, uc.created_at as "connectedAt"
+        FROM users u
+        INNER JOIN user_connections uc ON (
+          (uc.connected_user_id = u.id AND uc.user_id = ${userId})
+          OR (uc.user_id = u.id AND uc.connected_user_id = ${userId})
+        )
+        WHERE u.id != ${userId}
+        ORDER BY u.name
+      `;
+      // Deduplicate (since bidirectional connections may show twice)
+      const uniqueConnections = Array.from(
+        new Map(connections.map((c) => [c.id, c])).values()
+      );
+      return res.status(200).json(uniqueConnections);
+    }
+    case 'POST': {
+      // Add connection by email
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email required' });
+      }
+
+      // Find user by exact email
+      const users = await sql`
+        SELECT id, name, email FROM users WHERE LOWER(email) = LOWER(${email}) AND id != ${userId}
+      `;
+
+      if (users.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const targetUser = users[0];
+
+      // Check if connection already exists
+      const existing = await sql`
+        SELECT id FROM user_connections 
+        WHERE (user_id = ${userId} AND connected_user_id = ${targetUser.id})
+           OR (user_id = ${targetUser.id} AND connected_user_id = ${userId})
+      `;
+
+      if (existing.length > 0) {
+        return res.status(200).json({ 
+          success: true, 
+          user: { id: targetUser.id, name: targetUser.name, email: targetUser.email },
+          message: 'Already connected' 
+        });
+      }
+
+      // Create bidirectional connection
+      await sql`
+        INSERT INTO user_connections (id, user_id, connected_user_id)
+        VALUES (${`conn_${Date.now()}_1`}, ${userId}, ${targetUser.id})
+      `;
+      await sql`
+        INSERT INTO user_connections (id, user_id, connected_user_id)
+        VALUES (${`conn_${Date.now()}_2`}, ${targetUser.id}, ${userId})
+      `;
+
+      return res.status(201).json({ 
+        success: true, 
+        user: { id: targetUser.id, name: targetUser.name, email: targetUser.email }
+      });
+    }
+    case 'DELETE': {
+      const { id } = req.query;
+      if (!id || typeof id !== 'string') {
+        return res.status(400).json({ error: 'Connection user ID required' });
+      }
+
+      // Delete both directions
+      await sql`
+        DELETE FROM user_connections 
+        WHERE (user_id = ${userId} AND connected_user_id = ${id})
+           OR (user_id = ${id} AND connected_user_id = ${userId})
+      `;
+
       return res.status(200).json({ success: true });
     }
     default:
@@ -279,9 +407,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
         LEFT JOIN shopping_stores ss ON si.store_id = ss.id
         WHERE si.user_id = ${userId}
            OR si.user_id IN (
-             SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-             UNION
-             SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+             SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
            )
         ORDER BY si.completed ASC, si.created_at DESC
       `;
@@ -306,9 +432,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       await sql`
         UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
-          SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-          UNION
-          SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+          SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
         ))
       `;
       
@@ -330,17 +454,13 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
               JOIN shopping_stores ss ON si.store_id = ss.id
               WHERE si.completed = true AND ss.name = ${storeNameFilter}
                 AND (si.user_id = ${userId} OR si.user_id IN (
-                  SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-                  UNION
-                  SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+                  SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
                 ))
             `
           : await sql`
               SELECT name FROM shopping_items WHERE completed = true 
                 AND (user_id = ${userId} OR user_id IN (
-                  SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-                  UNION
-                  SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+                  SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
                 ))
             `;
         if (storeNameFilter) {
@@ -349,18 +469,14 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
             USING shopping_stores ss
             WHERE si.store_id = ss.id AND si.completed = true AND ss.name = ${storeNameFilter}
               AND (si.user_id = ${userId} OR si.user_id IN (
-                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-                UNION
-                SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+                SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
               ))
           `;
         } else {
           await sql`
             DELETE FROM shopping_items WHERE completed = true 
               AND (user_id = ${userId} OR user_id IN (
-                SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-                UNION
-                SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+                SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
               ))
           `;
         }
@@ -375,9 +491,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
         await sql`
           DELETE FROM shopping_items WHERE id = ${id as string}
             AND (user_id = ${userId} OR user_id IN (
-              SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-              UNION
-              SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+              SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
             ))
         `;
         if (item) {
@@ -422,9 +536,7 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
         FROM shopping_stores ss
         WHERE ss.user_id = ${userId}
            OR ss.user_id IN (
-             SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-             UNION
-             SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+             SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
            )
         ORDER BY ss.name, ss.sort_order
       `;
@@ -508,20 +620,19 @@ async function handleTodoCategories(req: VercelRequest, res: VercelResponse, use
 
 
 // ============ SHOPPING SHARE ============
+// This now uses the unified user_connections table
 async function handleShoppingShare(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      const sharedWith = await sql`
-        SELECT u.id, u.email, u.name, ss.created_at as "sharedAt"
-        FROM shopping_shares ss JOIN users u ON ss.shared_with_id = u.id
-        WHERE ss.owner_id = ${userId}
+      // Return connections (bidirectional, so all connections appear as "shared with")
+      const connections = await sql`
+        SELECT u.id, u.email, u.name, uc.created_at as "sharedAt"
+        FROM user_connections uc 
+        JOIN users u ON uc.connected_user_id = u.id
+        WHERE uc.user_id = ${userId}
       `;
-      const sharedBy = await sql`
-        SELECT u.id, u.email, u.name, ss.created_at as "sharedAt"
-        FROM shopping_shares ss JOIN users u ON ss.owner_id = u.id
-        WHERE ss.shared_with_id = ${userId}
-      `;
-      return res.status(200).json({ sharedWith, sharedBy });
+      // For backwards compatibility, return as sharedWith (sharedBy is empty since connections are bidirectional)
+      return res.status(200).json({ sharedWith: connections, sharedBy: [] });
     }
     case 'POST': {
       const { email } = req.body;
@@ -531,23 +642,30 @@ async function handleShoppingShare(req: VercelRequest, res: VercelResponse, user
       if (users.length === 0) return res.status(404).json({ error: 'User not found' });
 
       const targetUser = users[0];
-      if (targetUser.id === userId) return res.status(400).json({ error: 'Cannot share with yourself' });
+      if (targetUser.id === userId) return res.status(400).json({ error: 'Cannot connect with yourself' });
 
       const existing = await sql`
-        SELECT id FROM shopping_shares WHERE owner_id = ${userId} AND shared_with_id = ${targetUser.id}
+        SELECT id FROM user_connections WHERE user_id = ${userId} AND connected_user_id = ${targetUser.id}
       `;
-      if (existing.length > 0) return res.status(400).json({ error: 'Already shared with this user' });
+      if (existing.length > 0) return res.status(400).json({ error: 'Already connected with this user' });
 
+      // Create bidirectional connection
       await sql`
-        INSERT INTO shopping_shares (id, owner_id, shared_with_id)
-        VALUES (${`share_${Date.now()}`}, ${userId}, ${targetUser.id})
+        INSERT INTO user_connections (id, user_id, connected_user_id)
+        VALUES (${`conn_${Date.now()}_1`}, ${userId}, ${targetUser.id})
+      `;
+      await sql`
+        INSERT INTO user_connections (id, user_id, connected_user_id)
+        VALUES (${`conn_${Date.now()}_2`}, ${targetUser.id}, ${userId})
       `;
       return res.status(201).json({ success: true, sharedWith: { id: targetUser.id, email: targetUser.email, name: targetUser.name } });
     }
     case 'DELETE': {
       const { userId: targetUserId } = req.query;
       if (!targetUserId) return res.status(400).json({ error: 'User ID is required' });
-      await sql`DELETE FROM shopping_shares WHERE owner_id = ${userId} AND shared_with_id = ${targetUserId as string}`;
+      // Remove both directions of the connection
+      await sql`DELETE FROM user_connections WHERE user_id = ${userId} AND connected_user_id = ${targetUserId as string}`;
+      await sql`DELETE FROM user_connections WHERE user_id = ${targetUserId as string} AND connected_user_id = ${userId}`;
       return res.status(200).json({ success: true });
     }
     default:
@@ -565,9 +683,7 @@ async function handleShoppingAudit(req: VercelRequest, res: VercelResponse, user
     FROM shopping_audit sa JOIN users u ON sa.user_id = u.id
     WHERE sa.user_id = ${userId}
        OR sa.user_id IN (
-         SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
-         UNION
-         SELECT shared_with_id FROM shopping_shares WHERE owner_id = ${userId}
+         SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
        )
     ORDER BY sa.created_at DESC LIMIT 50
   `;
