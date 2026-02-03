@@ -76,6 +76,19 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add sort_order column for drag-drop reordering
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'sort_order'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN sort_order INTEGER;
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,
@@ -116,6 +129,19 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add sort_order column for drag-drop reordering
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'shopping_items' AND column_name = 'sort_order'
+      ) THEN
+        ALTER TABLE shopping_items ADD COLUMN sort_order INTEGER;
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS exercises (
       id TEXT PRIMARY KEY,
@@ -138,6 +164,19 @@ export async function initDb() {
       sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     )
+  `;
+
+  // Migration: Add sort_order column for drag-drop reordering
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'exercises' AND column_name = 'sort_order'
+      ) THEN
+        ALTER TABLE exercises ADD COLUMN sort_order INTEGER;
+      END IF;
+    END $$;
   `;
 
   // Shopping list sharing - tracks who shares their list with whom

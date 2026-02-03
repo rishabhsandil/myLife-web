@@ -223,20 +223,20 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder } = req.body;
       await sql`
-        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue)
-        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false})
+        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order)
+        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder } = req.body;
       await sql`
         UPDATE todos SET title = ${title}, completed = ${completed}, 
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
           completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null},
-          original_date = ${originalDate || null}, overdue = ${overdue || false}
+          original_date = ${originalDate || null}, overdue = ${overdue || false}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND user_id = ${userId}
       `;
       return res.status(200).json({ success: true });
@@ -276,10 +276,10 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, name, quantity, storeId, completed } = req.body;
+      const { id, name, quantity, storeId, completed, sortOrder } = req.body;
       await sql`
-        INSERT INTO shopping_items (id, user_id, name, quantity, store_id, completed)
-        VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${storeId}, ${completed || false})
+        INSERT INTO shopping_items (id, user_id, name, quantity, store_id, completed, sort_order)
+        VALUES (${id}, ${userId}, ${name}, ${quantity || 1}, ${storeId}, ${completed || false}, ${sortOrder !== undefined ? sortOrder : null})
       `;
       await sql`
         INSERT INTO shopping_audit (id, user_id, action, item_name, details)
@@ -288,11 +288,11 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, name, quantity, storeId, completed } = req.body;
+      const { id, name, quantity, storeId, completed, sortOrder } = req.body;
       const [currentItem] = await sql`SELECT name, completed FROM shopping_items WHERE id = ${id}`;
       
       await sql`
-        UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}
+        UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
           SELECT owner_id FROM shopping_shares WHERE shared_with_id = ${userId}
           UNION
@@ -522,17 +522,17 @@ async function handleExercises(req: VercelRequest, res: VercelResponse, userId: 
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, name, bodyPart, sets, reps, weight } = req.body;
+      const { id, name, bodyPart, sets, reps, weight, sortOrder } = req.body;
       await sql`
-        INSERT INTO exercises (id, user_id, name, body_part, sets, reps, weight)
-        VALUES (${id}, ${userId}, ${name}, ${bodyPart}, ${sets || 3}, ${reps || 10}, ${weight || 0})
+        INSERT INTO exercises (id, user_id, name, body_part, sets, reps, weight, sort_order)
+        VALUES (${id}, ${userId}, ${name}, ${bodyPart}, ${sets || 3}, ${reps || 10}, ${weight || 0}, ${sortOrder !== undefined ? sortOrder : null})
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, name, bodyPart, sets, reps, weight } = req.body;
+      const { id, name, bodyPart, sets, reps, weight, sortOrder } = req.body;
       await sql`
-        UPDATE exercises SET name = ${name}, body_part = ${bodyPart}, sets = ${sets}, reps = ${reps}, weight = ${weight}
+        UPDATE exercises SET name = ${name}, body_part = ${bodyPart}, sets = ${sets}, reps = ${reps}, weight = ${weight}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND user_id = ${userId}
       `;
       return res.status(200).json({ success: true });
