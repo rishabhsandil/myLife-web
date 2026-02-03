@@ -22,9 +22,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TodoItem, Priority, RecurrenceType } from '../types';
-import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory, searchUsers } from '../utils/api.ts';
+import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory, getConnections, UserConnection } from '../utils/api.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, ColorPicker, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../utils/theme';
 import logo from '../assets/logo.png';
 import './TodoPage.css';
@@ -66,12 +67,13 @@ const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(n
 interface SortableTaskItemProps {
   todo: TodoItem;
   completed: boolean;
+  currentUserId?: string;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: SortableTaskItemProps) {
+function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, onDelete }: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
@@ -117,7 +119,7 @@ function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: Sorta
                 <IoPersonAdd size={12} /> {todo.assigneeName}
               </span>
             )}
-            {todo.ownerId && todo.ownerId !== todo.assignedToUserId && todo.ownerName && (
+            {todo.ownerId && todo.ownerId !== currentUserId && todo.ownerName && (
               <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
                 From {todo.ownerName}
               </span>
@@ -158,6 +160,7 @@ function SortableTaskItem({ todo, completed, onToggle, onEdit, onDelete }: Sorta
 }
 
 export default function TodoPage() {
+  const { user } = useAuth();
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string; color: string; sortOrder: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,8 +186,7 @@ export default function TodoPage() {
   const [categoryColor, setCategoryColor] = useState('#6366F1');
   
   // Assignment state
-  const [assigneeEmail, setAssigneeEmail] = useState('');
-  const [assigneeSearchResults, setAssigneeSearchResults] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [connections, setConnections] = useState<UserConnection[]>([]);
   const [selectedAssignee, setSelectedAssignee] = useState<{ id: string; name: string; email: string } | null>(null);
 
   // Drag and drop sensors
@@ -198,11 +200,17 @@ export default function TodoPage() {
   useEffect(() => {
     loadTodos();
     loadCategories();
+    loadConnections();
   }, []);
 
   async function loadCategories() {
     const data = await getTodoCategories();
     setCategories(data);
+  }
+
+  async function loadConnections() {
+    const data = await getConnections();
+    setConnections(data);
   }
 
   // Check for overdue tasks and carry them forward
@@ -317,8 +325,6 @@ export default function TodoPage() {
     setPriority('medium');
     setCategory('');
     setRecurrence('none');
-    setAssigneeEmail('');
-    setAssigneeSearchResults([]);
     setSelectedAssignee(null);
   };
 
@@ -345,8 +351,6 @@ export default function TodoPage() {
     } else {
       setSelectedAssignee(null);
     }
-    setAssigneeEmail('');
-    setAssigneeSearchResults([]);
     
     taskModal.open(todo);
   };
@@ -491,26 +495,19 @@ export default function TodoPage() {
   };
 
   // Assignment functions
-  const handleSearchUsers = async (email: string) => {
-    setAssigneeEmail(email);
-    if (email.length >= 2) {
-      const results = await searchUsers(email);
-      setAssigneeSearchResults(results);
+  const handleAssigneeChange = (userId: string) => {
+    if (!userId) {
+      setSelectedAssignee(null);
     } else {
-      setAssigneeSearchResults([]);
+      const connection = connections.find(c => c.id === userId);
+      if (connection) {
+        setSelectedAssignee({
+          id: connection.id,
+          name: connection.name,
+          email: connection.email,
+        });
+      }
     }
-  };
-
-  const handleSelectAssignee = (user: { id: string; name: string; email: string }) => {
-    setSelectedAssignee(user);
-    setAssigneeEmail('');
-    setAssigneeSearchResults([]);
-  };
-
-  const handleClearAssignee = () => {
-    setSelectedAssignee(null);
-    setAssigneeEmail('');
-    setAssigneeSearchResults([]);
   };
 
   const goToToday = () => {
@@ -658,6 +655,7 @@ export default function TodoPage() {
                       key={todo.id}
                       todo={todo}
                       completed={completed}
+                      currentUserId={user?.id}
                       onToggle={() => toggleComplete(todo)}
                       onEdit={() => openEditModal(todo)}
                       onDelete={() => deleteModal.open(todo)}
@@ -739,43 +737,20 @@ export default function TodoPage() {
         </FormGroup>
 
         <FormGroup label="Assign to (optional)">
-          {selectedAssignee ? (
-            <div className="assignee-selected">
-              <div className="assignee-info">
-                <IoPersonAdd size={18} />
-                <div>
-                  <div className="assignee-name">{selectedAssignee.name}</div>
-                  <div className="assignee-email">{selectedAssignee.email}</div>
-                </div>
-              </div>
-              <button type="button" className="clear-assignee-btn" onClick={handleClearAssignee}>
-                <IoClose size={18} />
-              </button>
-            </div>
-          ) : (
-            <div className="assignee-search">
-              <input
-                type="email"
-                value={assigneeEmail}
-                onChange={e => handleSearchUsers(e.target.value)}
-                placeholder="Search by email..."
-              />
-              {assigneeSearchResults.length > 0 && (
-                <div className="search-results">
-                  {assigneeSearchResults.map(user => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      className="search-result-item"
-                      onClick={() => handleSelectAssignee(user)}
-                    >
-                      <div className="search-result-name">{user.name}</div>
-                      <div className="search-result-email">{user.email}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          <select
+            value={selectedAssignee?.id || ''}
+            onChange={e => handleAssigneeChange(e.target.value)}
+            className="assignee-select"
+          >
+            <option value="">Not assigned</option>
+            {connections.map(conn => (
+              <option key={conn.id} value={conn.id}>
+                {conn.name} ({conn.email})
+              </option>
+            ))}
+          </select>
+          {connections.length === 0 && (
+            <p className="assignee-hint">Add connections in Settings to assign tasks</p>
           )}
         </FormGroup>
       </Modal>
