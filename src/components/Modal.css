@@ -81,10 +81,18 @@
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
   border-top: 1px solid #EBE8D5;
   background: white;
   flex-shrink: 0;
+}
+
+/* Safe area for iOS standalone PWA */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (display-mode: standalone) {
+    .modal-footer {
+      padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+    }
+  }
 }
 
 /* Buttons */
