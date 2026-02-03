@@ -1,7 +1,7 @@
 // Push Notification Utilities
 
 // VAPID Public Key - This is safe to expose on client
-const VAPID_PUBLIC_KEY = 'BFCk7RQ4XRQSLqB1SDQNYixLPrs1mYqC_KyfB9yjYIbB1ykgYel31eyPTM4zXmfPenZdmvdWi4mxt-k3fcTjUn4';
+const VAPID_PUBLIC_KEY = 'BCOhgIYXnar8eG1biadkg60AZ0rwfDe3qpUNF1pslyxxl7Y3vZzRYzk86fHm7NXSkQykotYJkVvipyceFxPWLpY';
 
 // Convert VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
