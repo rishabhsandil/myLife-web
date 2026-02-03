@@ -113,10 +113,14 @@ export async function getPushSubscription(): Promise<PushSubscription | null> {
 
 // Save subscription to server
 export async function saveSubscriptionToServer(subscription: PushSubscription): Promise<boolean> {
-  const token = localStorage.getItem('token');
-  if (!token) return false;
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    console.error('No auth token found for saving subscription');
+    return false;
+  }
   
   try {
+    console.log('Saving push subscription to server...');
     const response = await fetch('/api/push-subscription', {
       method: 'POST',
       headers: {
@@ -126,7 +130,14 @@ export async function saveSubscriptionToServer(subscription: PushSubscription): 
       body: JSON.stringify({ subscription: subscription.toJSON() })
     });
     
-    return response.ok;
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      console.error('Failed to save subscription:', response.status, data);
+      return false;
+    }
+    
+    console.log('Push subscription saved successfully');
+    return true;
   } catch (error) {
     console.error('Failed to save subscription:', error);
     return false;
@@ -135,7 +146,7 @@ export async function saveSubscriptionToServer(subscription: PushSubscription): 
 
 // Remove subscription from server
 export async function removeSubscriptionFromServer(): Promise<boolean> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('authToken');
   if (!token) return false;
   
   try {
@@ -230,4 +241,56 @@ export async function enableNotifications(): Promise<boolean> {
 export async function disableNotifications(): Promise<void> {
   await unsubscribeFromPush();
   await removeSubscriptionFromServer();
+}
+
+// Badge API functions for PWA icon badge
+export function isBadgeSupported(): boolean {
+  return 'setAppBadge' in navigator;
+}
+
+// Set badge count on PWA icon
+export async function setBadgeCount(count: number): Promise<boolean> {
+  if (!isBadgeSupported()) return false;
+  
+  try {
+    if (count > 0) {
+      await (navigator as any).setAppBadge(count);
+    } else {
+      await (navigator as any).clearAppBadge();
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to set badge:', error);
+    return false;
+  }
+}
+
+// Clear badge from PWA icon (only if no overdue tasks)
+export async function clearBadge(): Promise<boolean> {
+  if (!isBadgeSupported()) return false;
+  
+  try {
+    await (navigator as any).clearAppBadge();
+    return true;
+  } catch (error) {
+    console.error('Failed to clear badge:', error);
+    return false;
+  }
+}
+
+// Update badge based on overdue task count
+export async function updateBadgeWithOverdueTasks(overdueCount: number): Promise<boolean> {
+  if (!isBadgeSupported()) return false;
+  
+  try {
+    if (overdueCount > 0) {
+      await (navigator as any).setAppBadge(overdueCount);
+    } else {
+      await (navigator as any).clearAppBadge();
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to update badge:', error);
+    return false;
+  }
 }

@@ -9,8 +9,9 @@ import PeriodPage from './pages/PeriodPage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
-import { getUserSettings } from './utils/api';
-import { ModuleType } from './types';
+import { getUserSettings, getTodos } from './utils/api';
+import { updateBadgeWithOverdueTasks } from './utils/notifications';
+import { ModuleType, TodoItem } from './types';
 import logo from './assets/logo.png';
 // Global styles - shared components use these
 import './App.css';
@@ -100,6 +101,54 @@ function AppContent() {
     }, 3500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Update badge when app is opened/focused (show overdue count)
+  useEffect(() => {
+    const updateBadge = async () => {
+      if (!user) return;
+      
+      try {
+        const todos = await getTodos();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Count overdue tasks (past date, not completed, not recurring completed for today)
+        const overdueCount = todos.filter((todo: TodoItem) => {
+          if (todo.completed) return false;
+          
+          const todoDate = new Date(todo.date);
+          todoDate.setHours(0, 0, 0, 0);
+          
+          // Check if it's overdue (before today)
+          if (todoDate >= today) return false;
+          
+          // For recurring tasks, check if completed for the original date
+          if (todo.recurrence !== 'none' && todo.completedDates) {
+            if (todo.completedDates.includes(todo.date)) return false;
+          }
+          
+          return true;
+        }).length;
+        
+        await updateBadgeWithOverdueTasks(overdueCount);
+      } catch (error) {
+        console.error('Failed to update badge:', error);
+      }
+    };
+    
+    // Update badge on app load
+    updateBadge();
+    
+    // Update badge when app becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        updateBadge();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user]);
 
   useEffect(() => {
     // Load user settings when user is available

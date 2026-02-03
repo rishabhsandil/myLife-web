@@ -557,6 +557,51 @@
   color: #22C55E;
 }
 
+.notification-test-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.notification-test-btn {
+  padding: 8px 16px;
+  background: #F1F5F9;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+
+.notification-test-btn:hover {
+  background: #E2E8F0;
+}
+
+.notification-test-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notification-test-result {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.notification-test-result.success {
+  color: #22C55E;
+}
+
+.notification-test-result.warning {
+  color: #F59E0B;
+}
+
+.notification-test-result.error {
+  color: #EF4444;
+}
+
 .notification-unsupported,
 .notification-denied {
   display: flex;

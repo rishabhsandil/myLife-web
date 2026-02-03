@@ -39,6 +39,8 @@ export default defineConfig({
       '/api': {
         target: 'https://mylife-kappa-lyart.vercel.app',
         changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path,
       }
     }
   }

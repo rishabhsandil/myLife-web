@@ -13,6 +13,25 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
+// Helper to update badge count
+async function updateBadgeCount() {
+  if ('setAppBadge' in navigator) {
+    try {
+      // Get all visible notifications to count them
+      const notifications = await self.registration.getNotifications();
+      const count = notifications.length;
+      
+      if (count > 0) {
+        await navigator.setAppBadge(count);
+      } else {
+        await navigator.clearAppBadge();
+      }
+    } catch (error) {
+      console.error('Error updating badge:', error);
+    }
+  }
+}
+
 // Push notification received
 self.addEventListener('push', (event) => {
   console.log('Push notification received', event);
@@ -38,7 +57,7 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/logo.png',
     badge: data.badge || '/logo.png',
-    tag: data.tag || 'default',
+    tag: data.tag || Date.now().toString(), // Unique tag to count multiple notifications
     data: data.data || { url: '/' },
     vibrate: [200, 100, 200],
     requireInteraction: data.requireInteraction || false,
@@ -47,6 +66,7 @@ self.addEventListener('push', (event) => {
   
   event.waitUntil(
     self.registration.showNotification(data.title, options)
+      .then(() => updateBadgeCount())
   );
 });
 
@@ -72,10 +92,12 @@ self.addEventListener('notificationclick', (event) => {
           return clients.openWindow(urlToOpen);
         }
       })
+      .then(() => updateBadgeCount())
   );
 });
 
 // Handle notification close
 self.addEventListener('notificationclose', (event) => {
   console.log('Notification closed', event);
+  event.waitUntil(updateBadgeCount());
 });
