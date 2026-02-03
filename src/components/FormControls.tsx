@@ -1,5 +1,7 @@
 import { ReactNode } from 'react';
 import { IoAdd, IoRemove } from 'react-icons/io5';
+import { useState } from 'react';
+import { HexColorPicker } from 'react-colorful';
 import './FormControls.css';
 
 // Form Group - a labeled form field container
@@ -98,25 +100,54 @@ export function OptionPills<T extends string>({
   );
 }
 
-// Color Picker - a grid of color options
+// Color Picker - react-colorful with popover
 interface ColorPickerProps {
-  colors: string[];
   value: string;
   onChange: (color: string) => void;
 }
 
-export function ColorPicker({ colors, value, onChange }: ColorPickerProps) {
+export function ColorPicker({ value, onChange }: ColorPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <div className="color-picker">
-      {colors.map(c => (
-        <button
-          key={c}
-          type="button"
-          className={`color-option ${value === c ? 'active' : ''}`}
-          style={{ background: c }}
-          onClick={() => onChange(c)}
-        />
-      ))}
+      <button
+        type="button"
+        className="color-picker-trigger"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ backgroundColor: value }}
+      >
+        <span className="color-value">{value.toUpperCase()}</span>
+      </button>
+      {isOpen && (
+        <>
+          <div className="color-picker-backdrop" onClick={() => setIsOpen(false)} />
+          <div className="color-picker-popover">
+            <HexColorPicker color={value} onChange={onChange} />
+            <div className="color-picker-footer">
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                    onChange(val);
+                  }
+                }}
+                className="color-hex-input"
+                placeholder="#000000"
+              />
+              <button
+                type="button"
+                className="color-picker-done"
+                onClick={() => setIsOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

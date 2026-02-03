@@ -29,11 +29,6 @@ import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './WorkoutPage.css';
 
-const COLOR_OPTIONS = [
-  '#EF4444', '#F59E0B', '#22C55E', '#14B8A6', 
-  '#6366F1', '#EC4899', '#8B5CF6', '#64748B'
-];
-
 // Sortable Exercise Item Component
 interface SortableExerciseItemProps {
   exercise: Exercise;
@@ -116,7 +111,7 @@ export default function WorkoutPage() {
   // Body part form state
   const [editingBodyPart, setEditingBodyPart] = useState<BodyPart | null>(null);
   const [bpName, setBpName] = useState('');
-  const [bpColor, setBpColor] = useState(COLOR_OPTIONS[0]);
+  const [bpColor, setBpColor] = useState('#ef4444');
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -256,7 +251,7 @@ export default function WorkoutPage() {
   const resetBodyPartForm = () => {
     setEditingBodyPart(null);
     setBpName('');
-    setBpColor(COLOR_OPTIONS[0]);
+    setBpColor('#ef4444');
   };
 
   const handleSaveBodyPart = async () => {
@@ -455,7 +450,7 @@ export default function WorkoutPage() {
                     className="body-part-input"
                     autoFocus
                   />
-                  <ColorPicker colors={COLOR_OPTIONS} value={bpColor} onChange={setBpColor} />
+                  <ColorPicker value={bpColor} onChange={setBpColor} />
                   <button className="save-bp-btn" onClick={handleSaveBodyPart}>Save</button>
                   <button className="cancel-bp-btn" onClick={resetBodyPartForm}>✕</button>
                 </>
@@ -487,7 +482,7 @@ export default function WorkoutPage() {
               placeholder="New split name (e.g., Push)"
               className="body-part-input"
             />
-            <ColorPicker colors={COLOR_OPTIONS} value={bpColor} onChange={setBpColor} />
+            <ColorPicker value={bpColor} onChange={setBpColor} />
             <button 
               className="btn primary add-bp-btn" 
               onClick={handleSaveBodyPart}

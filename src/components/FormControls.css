@@ -148,26 +148,110 @@
 
 /* Color Picker */
 .color-picker {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  position: relative;
 }
 
-.color-option {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid transparent;
+.color-picker-trigger {
+  width: 100%;
+  height: 44px;
+  border: 2px solid #EBE8D5;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.color-picker-trigger:hover {
+  border-color: #8CB369;
+  transform: scale(1.02);
+}
+
+.color-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  mix-blend-mode: difference;
+  user-select: none;
+}
+
+.color-picker-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.color-picker-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 1000;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  min-width: 220px;
+}
+
+.color-picker-popover .react-colorful {
+  width: 100%;
+  height: 180px;
+}
+
+.react-colorful__saturation {
+  border-radius: 8px 8px 0 0;
+}
+
+.react-colorful__hue {
+  border-radius: 8px;
+  height: 16px;
+  margin-top: 12px;
+}
+
+.react-colorful__pointer {
+  width: 20px;
+  height: 20px;
+}
+
+.color-picker-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.color-hex-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #EBE8D5;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.color-hex-input:focus {
+  outline: none;
+  border-color: #8CB369;
+}
+
+.color-picker-done {
+  padding: 8px 16px;
+  background: #8CB369;
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
-.color-option:hover {
-  transform: scale(1.1);
-}
-
-.color-option.active {
-  border-color: white;
-  box-shadow: 0 0 0 2px currentColor;
+.color-picker-done:hover {
+  background: #7AA05A;
 }
 
 /* Checkbox Label */

@@ -32,11 +32,6 @@ import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './ShoppingPage.css';
 
-const COLOR_OPTIONS = [
-  '#22C55E', '#6366F1', '#F59E0B', '#EF4444', 
-  '#14B8A6', '#EC4899', '#8B5CF6', '#64748B'
-];
-
 // Sortable Shopping Item Component
 interface SortableShoppingItemProps {
   item: ShoppingItem;
@@ -127,7 +122,7 @@ export default function ShoppingPage() {
   // Store form state
   const [editingStore, setEditingStore] = useState<ShoppingStore | null>(null);
   const [storeName, setStoreName] = useState('');
-  const [storeColor, setStoreColor] = useState(COLOR_OPTIONS[0]);
+  const [storeColor, setStoreColor] = useState('#22c55e');
 
   // Track mutations to pause sync
   const isMutating = useRef(false);
@@ -398,7 +393,7 @@ export default function ShoppingPage() {
   const resetStoreForm = () => {
     setEditingStore(null);
     setStoreName('');
-    setStoreColor(COLOR_OPTIONS[0]);
+    setStoreColor('#22c55e');
   };
 
   const handleSaveStore = async () => {
@@ -625,7 +620,6 @@ export default function ShoppingPage() {
                     autoFocus
                   />
                   <ColorPicker
-                    colors={COLOR_OPTIONS}
                     value={storeColor}
                     onChange={setStoreColor}
                   />
@@ -664,7 +658,6 @@ export default function ShoppingPage() {
               placeholder="New store name"
             />
             <ColorPicker
-              colors={COLOR_OPTIONS}
               value={storeColor}
               onChange={setStoreColor}
             />

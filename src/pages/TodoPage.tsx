@@ -46,11 +46,6 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
   { key: 'high', label: 'High', color: colors.error },
 ];
 
-const COLOR_OPTIONS = [
-  '#6366F1', '#EC4899', '#EF4444', '#22C55E',
-  '#F59E0B', '#8B5CF6', '#14B8A6', '#64748B'
-];
-
 // Date helper functions
 const formatDateInput = (date: Date): string => {
   const year = date.getFullYear();
@@ -800,7 +795,6 @@ export default function TodoPage() {
                     autoFocus
                   />
                   <ColorPicker
-                    colors={COLOR_OPTIONS}
                     value={categoryColor}
                     onChange={setCategoryColor}
                   />
@@ -839,7 +833,6 @@ export default function TodoPage() {
               placeholder="New category name"
             />
             <ColorPicker
-              colors={COLOR_OPTIONS}
               value={categoryColor}
               onChange={setCategoryColor}
             />
