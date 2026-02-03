@@ -1,6 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
+import webpush from 'web-push';
 import { sql, getUserIdFromRequest, generateToken, initDb } from './db.js';
+
+// Configure web-push with VAPID keys
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BFCk7RQ4XRQSLqB1SDQNYixLPrs1mYqC_KyfB9yjYIbB1ykgYel31eyPTM4zXmfPenZdmvdWi4mxt-k3fcTjUn4';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'SumLc9HdXlm_noixUjImFE8ixFAJyaKyKeAg95cSmDQ';
+
+webpush.setVapidDetails(
+  'mailto:support@almostadult.app',
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
+);
 
 // Default body parts for new users
 const DEFAULT_BODY_PARTS = [
@@ -121,6 +132,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handlePeriodSettings(req, res, userId);
       case 'settings':
         return handleUserSettings(req, res, userId);
+      case 'push-subscription':
+        return handlePushSubscription(req, res, userId);
+      case 'notifications/test':
+        return handleTestNotification(req, res, userId);
       default:
         return res.status(404).json({ error: 'Not found' });
     }
@@ -250,6 +265,18 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
         INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order, assigned_to_user_id)
         VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null}, ${assignedToUserId || null})
       `;
+      
+      // Send notification if task is assigned to someone else
+      if (assignedToUserId && assignedToUserId !== userId) {
+        const [owner] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+        sendNotificationToUser(assignedToUserId, {
+          title: '📋 New Task Assigned',
+          body: `${owner?.name || 'Someone'} assigned you: "${title}"`,
+          tag: `task-${id}`,
+          url: '/'
+        });
+      }
+      
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
@@ -904,5 +931,128 @@ async function handleUserSettings(req: VercelRequest, res: VercelResponse, userI
     }
     default:
       return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+// ============ PUSH SUBSCRIPTIONS ============
+async function handlePushSubscription(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'POST': {
+      const { subscription } = req.body;
+      if (!subscription || !subscription.endpoint || !subscription.keys) {
+        return res.status(400).json({ error: 'Invalid subscription' });
+      }
+      
+      const { endpoint, keys } = subscription;
+      const id = `push_${Date.now()}`;
+      
+      // Delete any existing subscriptions for this endpoint
+      await sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
+      
+      // Insert new subscription
+      await sql`
+        INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth)
+        VALUES (${id}, ${userId}, ${endpoint}, ${keys.p256dh}, ${keys.auth})
+      `;
+      
+      return res.status(201).json({ success: true });
+    }
+    case 'DELETE': {
+      // Delete all subscriptions for this user
+      await sql`DELETE FROM push_subscriptions WHERE user_id = ${userId}`;
+      return res.status(200).json({ success: true });
+    }
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+// ============ TEST NOTIFICATION ============
+async function handleTestNotification(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  
+  // Get user's subscriptions
+  const subscriptions = await sql`
+    SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ${userId}
+  `;
+  
+  if (subscriptions.length === 0) {
+    return res.status(404).json({ error: 'No push subscriptions found' });
+  }
+  
+  const payload = JSON.stringify({
+    title: 'Almost Adult 🎉',
+    body: 'Notifications are working! You\'ll be notified about reminders and updates.',
+    icon: '/logo.png',
+    tag: 'test',
+    data: { url: '/' }
+  });
+  
+  const results = [];
+  for (const sub of subscriptions) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth
+          }
+        } as any,
+        payload
+      );
+      results.push({ endpoint: sub.endpoint, success: true });
+    } catch (error: unknown) {
+      console.error('Push notification failed:', error);
+      // If subscription is invalid, remove it
+      if (error && typeof error === 'object' && 'statusCode' in error && (error as { statusCode: number }).statusCode === 410) {
+        await sql`DELETE FROM push_subscriptions WHERE endpoint = ${sub.endpoint}`;
+      }
+      results.push({ endpoint: sub.endpoint, success: false, error: String(error) });
+    }
+  }
+  
+  return res.status(200).json({ results });
+}
+
+// ============ SEND NOTIFICATION HELPER ============
+async function sendNotificationToUser(userId: string, notification: { title: string; body: string; tag?: string; url?: string }) {
+  const subscriptions = await sql`
+    SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ${userId}
+  `;
+  
+  if (subscriptions.length === 0) return;
+  
+  const payload = JSON.stringify({
+    title: notification.title,
+    body: notification.body,
+    icon: '/logo.png',
+    tag: notification.tag || 'notification',
+    data: { url: notification.url || '/' }
+  });
+  
+  for (const sub of subscriptions) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth
+          }
+        } as any,
+        payload
+      );
+    } catch (error: unknown) {
+      console.error('Push notification failed:', error);
+      // If subscription is invalid (410 Gone), remove it
+      if (error && typeof error === 'object' && 'statusCode' in error && (error as { statusCode: number }).statusCode === 410) {
+        await sql`DELETE FROM push_subscriptions WHERE endpoint = ${sub.endpoint}`;
+      }
+    }
   }
 }
