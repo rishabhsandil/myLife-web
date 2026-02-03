@@ -32,8 +32,18 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
 const QUICK_CATEGORIES = ['🎂 Birthday', '💊 Medicine', '💪 Workout', '📞 Call', '💼 Work', '🏠 Home'];
 
 // Date helper functions
-const formatDateInput = (date: Date): string => date.toISOString().split('T')[0];
-const formatDateKey = (date: Date): string => date.toISOString().split('T')[0];
+const formatDateInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 const formatDate = (date: Date): string => `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(new Date());
 
