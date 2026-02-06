@@ -16,13 +16,7 @@
 }
 
 /* Safe area for iOS standalone PWA */
-@supports (bottom: env(safe-area-inset-bottom)) {
-  @media (display-mode: standalone) {
-    .fab {
-      bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-    }
-  }
-}
+/* Safe area handled by 100dvh viewport height */
 
 /* Hover effect for desktop */
 @media (hover: hover) and (pointer: fine) {
@@ -46,13 +40,7 @@
   }
 }
 
-@media (min-width: 768px) and (display-mode: standalone) {
-  @supports (bottom: env(safe-area-inset-bottom)) {
-    .fab {
-      bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-    }
-  }
-}
+/* Safe area handled by 100dvh viewport height */
 
 @media (min-width: 1024px) {
   .fab {
@@ -70,13 +58,7 @@
   }
 }
 
-@media (max-width: 360px) and (display-mode: standalone) {
-  @supports (bottom: env(safe-area-inset-bottom)) {
-    .fab {
-      bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-    }
-  }
-}
+/* Safe area handled by 100dvh viewport height */
 
 .fab:disabled {
   opacity: 0.5;

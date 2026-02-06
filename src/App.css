@@ -96,14 +96,7 @@
   z-index: 10;
 }
 
-/* Safe area padding for iOS standalone PWA with home indicator */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  @media (display-mode: standalone) {
-    .tab-bar {
-      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    }
-  }
-}
+/* Safe area handled by 100dvh viewport height */
 
 /* Desktop tab bar improvements */
 @media (min-width: 768px) {

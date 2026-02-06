@@ -87,13 +87,7 @@
 }
 
 /* Safe area for iOS standalone PWA */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  @media (display-mode: standalone) {
-    .modal-footer {
-      padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-    }
-  }
-}
+/* Safe area handled by 100dvh viewport height */
 
 /* Buttons */
 .btn {
