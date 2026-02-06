@@ -102,6 +102,19 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add backlog_month column for backlog task month grouping
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'backlog_month'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN backlog_month TEXT;
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,

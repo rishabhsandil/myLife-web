@@ -196,6 +196,8 @@ export default function TodoPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [activeView, setActiveView] = useState<'schedule' | 'backlog'>('schedule');
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   
   const taskModal = useModal<TodoItem>();
   const deleteModal = useModal<TodoItem>();
@@ -204,6 +206,8 @@ export default function TodoPage() {
   // Form state
   const [title, setTitle] = useState('');
   const [taskDate, setTaskDate] = useState(formatDateInput(new Date()));
+  const [isBacklogTask, setIsBacklogTask] = useState(false);
+  const [backlogMonthSelection, setBacklogMonthSelection] = useState('');
   const [time, setTime] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState('');
@@ -373,6 +377,53 @@ export default function TodoPage() {
     return todaysTasks.filter(todo => isCompletedOnDate(todo, selectedDate));
   }, [todaysTasks, selectedDate]);
 
+  // Get backlog tasks grouped by month (unscheduled tasks)
+  const backlogTasksByMonth = useMemo(() => {
+    const today = new Date();
+    const monthKeys: { display: string; key: string }[] = [];
+
+    // Generate 6 months starting from current month
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const display = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthKeys.push({ display, key });
+    }
+
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    // Filter unscheduled tasks
+    const unscheduledTasks = todos
+      .filter(todo => !todo.date || todo.date === 'backlog')
+      .filter(todo => !todo.completed)
+      .sort((a, b) => {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        if (a.priority !== b.priority) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+    // Group tasks by month
+    const grouped: { [key: string]: TodoItem[] } = {};
+    monthKeys.forEach(({ key }) => {
+      grouped[key] = [];
+    });
+
+    unscheduledTasks.forEach(task => {
+      const monthKey = task.backlogMonth || currentMonthKey;
+      if (grouped[monthKey]) {
+        grouped[monthKey].push(task);
+      }
+    });
+
+    return monthKeys.map(({ display, key }) => ({ month: display, monthKey: key, tasks: grouped[key] }));
+  }, [todos]);
+
+  const backlogTasks = useMemo(() => {
+    return backlogTasksByMonth.flatMap(group => group.tasks);
+  }, [backlogTasksByMonth]);
+
   const resetForm = () => {
     setTitle('');
     setTaskDate(formatDateInput(selectedDate));
@@ -381,16 +432,32 @@ export default function TodoPage() {
     setCategory('');
     setRecurrence('none');
     setSelectedAssignee(null);
+    setBacklogMonthSelection('');
   };
 
   const openAddModal = () => {
     resetForm();
+    if (activeView === 'backlog') {
+      setIsBacklogTask(true);
+      setTaskDate('');
+    }
+    taskModal.open();
+  };
+
+  const openAddModalForMonth = (monthKey: string) => {
+    resetForm();
+    setIsBacklogTask(true);
+    setTaskDate('');
+    setBacklogMonthSelection(monthKey);
     taskModal.open();
   };
 
   const openEditModal = (todo: TodoItem) => {
     setTitle(todo.title);
-    setTaskDate(todo.date);
+    const isBacklog = !todo.date || todo.date === 'backlog' || todo.date.startsWith('backlog-');
+    setTaskDate(isBacklog ? '' : todo.date);
+    setIsBacklogTask(isBacklog);
+    setBacklogMonthSelection(todo.backlogMonth || '');
     setTime(todo.time || '');
     setPriority(todo.priority);
     setCategory(todo.category || '');
@@ -417,17 +484,18 @@ export default function TodoPage() {
       id: taskModal.data?.id || Date.now().toString(),
       title: title.trim(),
       completed: false,
-      date: taskDate,
+      date: isBacklogTask ? 'backlog' : taskDate,
       time: time || undefined,
       priority,
       category: category || undefined,
-      recurrence,
+      recurrence: isBacklogTask ? 'none' : recurrence,
       completedDates: taskModal.data?.completedDates || [],
       excludedDates: taskModal.data?.excludedDates || [],
       createdAt: taskModal.data?.createdAt || new Date().toISOString(),
       assignedToUserId: selectedAssignee?.id || undefined,
       assigneeName: selectedAssignee?.name || undefined,
       assigneeEmail: selectedAssignee?.email || undefined,
+      backlogMonth: isBacklogTask ? backlogMonthSelection || undefined : undefined,
       // Preserve additional properties when editing
       overdue: taskModal.data?.overdue,
       originalDate: taskModal.data?.originalDate,
@@ -489,6 +557,18 @@ export default function TodoPage() {
       await apiDeleteTodo(todo.id);
       setTodos(todos.filter(t => t.id !== todo.id));
     }
+  };
+
+  const toggleMonthCollapsed = (monthKey: string) => {
+    setCollapsedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -616,23 +696,46 @@ export default function TodoPage() {
           <div>
             <h1 className="header-title">Reminders</h1>
             <p className="header-subtitle">
-              {isToday(selectedDate) ? 'Today' : formatDate(selectedDate)} • {todaysTasks.length} tasks
+              {activeView === 'schedule' 
+                ? `${isToday(selectedDate) ? 'Today' : formatDate(selectedDate)} • ${todaysTasks.length} tasks`
+                : `Backlog • ${backlogTasks.length} tasks`
+              }
             </p>
           </div>
         </div>
         <div className="header-actions">
-          <button className="header-btn" onClick={goToToday}>Today</button>
-          <button className="header-btn icon" onClick={() => setShowCalendar(!showCalendar)}>
-            {showCalendar ? <IoClose size={20} /> : <IoCalendar size={20} />}
-          </button>
+          {activeView === 'schedule' && (
+            <>
+              <button className="header-btn" onClick={goToToday}>Today</button>
+              <button className="header-btn icon" onClick={() => setShowCalendar(!showCalendar)}>
+                {showCalendar ? <IoClose size={20} /> : <IoCalendar size={20} />}
+              </button>
+            </>
+          )}
           <button className="header-btn icon" onClick={() => categoryModal.open()}>
             <IoSettingsOutline size={20} />
           </button>
         </div>
       </header>
 
-      {/* Calendar View */}
-      {showCalendar && (
+      {/* View Tabs */}
+      <div className="view-tabs">
+        <button 
+          className={`view-tab ${activeView === 'schedule' ? 'active' : ''}`}
+          onClick={() => setActiveView('schedule')}
+        >
+          Schedule
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'backlog' ? 'active' : ''}`}
+          onClick={() => setActiveView('backlog')}
+        >
+          Backlog
+        </button>
+      </div>
+
+      {/* Calendar View - Schedule Only */}
+      {activeView === 'schedule' && showCalendar && (
         <div className="calendar-container">
           <div className="calendar-header">
             <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}>
@@ -662,7 +765,8 @@ export default function TodoPage() {
         </div>
       )}
 
-      {/* Date Strip */}
+      {/* Date Strip - Schedule Only */}
+      {activeView === 'schedule' && (
       <div className="date-strip">
         {getWeekDates().map((date) => (
           <button
@@ -676,6 +780,7 @@ export default function TodoPage() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Tasks List */}
       <div className="tasks-container">
@@ -692,6 +797,59 @@ export default function TodoPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : activeView === 'backlog' ? (
+          <div className="tasks-list">
+            {backlogTasksByMonth.map((group) => {
+              const isCollapsed = collapsedMonths.has(group.monthKey);
+              return (
+                <div key={group.monthKey} className="backlog-month-group">
+                  <div 
+                    className="backlog-month-header-row"
+                    onClick={() => toggleMonthCollapsed(group.monthKey)}
+                  >
+                    <button className="backlog-collapse-btn">
+                      <IoChevronForward 
+                        size={18} 
+                        className={`chevron ${!isCollapsed ? 'expanded' : ''}`}
+                      />
+                    </button>
+                    <h3 className="backlog-month-header">{group.month}</h3>
+                    <button 
+                      className="backlog-add-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddModalForMonth(group.monthKey);
+                      }}
+                      title="Add task to this month"
+                    >
+                      <IoAdd size={18} />
+                    </button>
+                  </div>
+                  {!isCollapsed && (
+                    <>
+                      {group.tasks.length > 0 ? (
+                        <div className="backlog-month-tasks">
+                          {group.tasks.map((todo) => (
+                            <SortableTaskItem
+                              key={todo.id}
+                              todo={todo}
+                              completed={false}
+                              currentUserId={user?.id}
+                              onToggle={() => toggleComplete(todo)}
+                              onEdit={() => openEditModal(todo)}
+                              onDelete={() => deleteModal.open(todo)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="backlog-empty-month">No tasks planned for this month</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : todaysTasks.length === 0 ? (
           <EmptyState
@@ -815,17 +973,55 @@ export default function TodoPage() {
 
         <FormRow>
           <FormGroup label="Date">
-            <input
-              type="date"
-              value={taskDate}
-              onChange={e => setTaskDate(e.target.value)}
-            />
+            <div className="date-input-wrapper">
+              <input
+                type="date"
+                value={taskDate}
+                onChange={e => {
+                  setTaskDate(e.target.value);
+                  setIsBacklogTask(!e.target.value);
+                }}
+                disabled={isBacklogTask}
+              />
+              <label className="backlog-checkbox">
+                <input
+                  type="checkbox"
+                  checked={isBacklogTask}
+                  onChange={e => {
+                    setIsBacklogTask(e.target.checked);
+                    if (e.target.checked) {
+                      setTaskDate('');
+                      setRecurrence('none');
+                    } else {
+                      setTaskDate(formatDateInput(selectedDate));
+                      setBacklogMonthSelection('');
+                    }
+                  }}
+                />
+                <span>Add to backlog</span>
+              </label>
+              {isBacklogTask && (
+                <select
+                  className="backlog-month-select"
+                  value={backlogMonthSelection}
+                  onChange={e => setBacklogMonthSelection(e.target.value)}
+                >
+                  <option value="">Select month...</option>
+                  {backlogTasksByMonth.map(group => (
+                    <option key={group.monthKey} value={group.monthKey}>
+                      {group.month}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </FormGroup>
           <FormGroup label="Time (optional)">
             <input
               type="time"
               value={time}
               onChange={e => setTime(e.target.value)}
+              disabled={isBacklogTask}
             />
           </FormGroup>
         </FormRow>
@@ -850,9 +1046,11 @@ export default function TodoPage() {
           <OptionPills options={PRIORITY_OPTIONS} value={priority} onChange={setPriority} />
         </FormGroup>
 
-        <FormGroup label="Repeat">
-          <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
-        </FormGroup>
+        {!isBacklogTask && (
+          <FormGroup label="Repeat">
+            <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+          </FormGroup>
+        )}
 
         <FormGroup label="Assign to (optional)">
           <select

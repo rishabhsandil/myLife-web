@@ -57,6 +57,33 @@
   padding: 8px;
 }
 
+/* View Tabs */
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  background: #FDFCF5;
+}
+
+.view-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1.5px solid #E5E1D0;
+  border-radius: 12px;
+  color: #6B7C6D;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.view-tab.active {
+  background: #7AA05A;
+  border-color: #7AA05A;
+  color: white;
+}
+
 /* Calendar */
 .calendar-container {
   background: white;
@@ -498,6 +525,78 @@
   gap: 8px;
 }
 
+.date-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.date-input-wrapper input[type="date"] {
+  width: 100%;
+}
+
+.date-input-wrapper input[type="date"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.backlog-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #F9F8F3;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #3D4A3E;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.backlog-checkbox:hover {
+  background: #F5F3E8;
+}
+
+.backlog-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: #7AA05A;
+  flex-shrink: 0;
+}
+
+.backlog-checkbox span {
+  user-select: none;
+  font-weight: 500;
+}
+
+.backlog-month-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #E5E1D0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #3D4A3E;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.backlog-month-select:hover {
+  border-color: #7AA05A;
+}
+
+.backlog-month-select:focus {
+  outline: none;
+  border-color: #7AA05A;
+}
+
 .category-chip {
   padding: 8px 12px;
   background: #F5F3E8;
@@ -515,7 +614,7 @@
 .category-chip.active {
   background: #E8F3E0;
   border-color: #8CB369;
-  color: #8CB369;
+  color: white;
 }
 
 /* Mobile responsive */
@@ -726,6 +825,94 @@
   font-size: 12px;
   color: #6B7C6D;
   font-style: italic;
+}
+
+/* Backlog Month Grouping */
+.backlog-month-group {
+  margin-bottom: 24px;
+}
+
+.backlog-month-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px 12px;
+  border-bottom: 1px solid #E5E1D0;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.backlog-month-header-row:hover {
+  background: rgba(122, 160, 90, 0.05);
+}
+
+.backlog-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  color: #7AA05A;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.backlog-collapse-btn .chevron {
+  transition: transform 0.2s ease;
+}
+
+.backlog-collapse-btn .chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.backlog-month-header {
+  padding: 0;
+  margin: 0 8px;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7AA05A;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.backlog-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: rgba(122, 160, 90, 0.1);
+  border: 1px solid #E5E1D0;
+  border-radius: 8px;
+  color: #7AA05A;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backlog-add-btn:hover {
+  background: rgba(122, 160, 90, 0.2);
+  border-color: #7AA05A;
+}
+
+.backlog-month-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.backlog-empty-month {
+  padding: 16px 20px;
+  margin: 0;
+  font-size: 13px;
+  color: #A8B5AA;
+  font-style: italic;
+  text-align: center;
 }
 
 .search-result-email {

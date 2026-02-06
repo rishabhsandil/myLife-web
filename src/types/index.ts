@@ -21,6 +21,7 @@ export interface TodoItem {
   assignedToUserId?: string; // User assigned to complete the task
   assigneeName?: string;
   assigneeEmail?: string;
+  backlogMonth?: string; // YYYY-MM format for backlog organization
 }
 
 export type Priority = 'low' | 'medium' | 'high';
