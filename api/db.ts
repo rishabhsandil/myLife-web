@@ -297,6 +297,14 @@ export async function initDb() {
     )
   `;
 
+  // Migration: Add 'notes' to existing user_settings if not present
+  await sql`
+    UPDATE user_settings
+    SET enabled_modules = array_append(enabled_modules, 'notes'),
+        updated_at = NOW()
+    WHERE NOT ('notes' = ANY(enabled_modules))
+  `;
+
   // Push notification subscriptions
   await sql`
     CREATE TABLE IF NOT EXISTS push_subscriptions (
