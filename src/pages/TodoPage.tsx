@@ -197,7 +197,24 @@ export default function TodoPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [activeView, setActiveView] = useState<'schedule' | 'backlog'>('schedule');
-  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  
+  // Initialize collapsed months with all except current month collapsed
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(() => {
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const collapsed = new Set<string>();
+    
+    // Add all 6 months except current month to collapsed set
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (key !== currentMonthKey) {
+        collapsed.add(key);
+      }
+    }
+    
+    return collapsed;
+  });
   
   const taskModal = useModal<TodoItem>();
   const deleteModal = useModal<TodoItem>();
@@ -440,6 +457,9 @@ export default function TodoPage() {
     if (activeView === 'backlog') {
       setIsBacklogTask(true);
       setTaskDate('');
+    } else {
+      setIsBacklogTask(false);
+      setTaskDate(formatDateInput(selectedDate));
     }
     taskModal.open();
   };
@@ -814,7 +834,10 @@ export default function TodoPage() {
                         className={`chevron ${!isCollapsed ? 'expanded' : ''}`}
                       />
                     </button>
-                    <h3 className="backlog-month-header">{group.month}</h3>
+                    <h3 className="backlog-month-header">
+                      {group.month}
+                      <span className="count-badge">{group.tasks.length}</span>
+                    </h3>
                     <button 
                       className="backlog-add-btn"
                       onClick={(e) => {
@@ -973,48 +996,15 @@ export default function TodoPage() {
 
         <FormRow>
           <FormGroup label="Date">
-            <div className="date-input-wrapper">
-              <input
-                type="date"
-                value={taskDate}
-                onChange={e => {
-                  setTaskDate(e.target.value);
-                  setIsBacklogTask(!e.target.value);
-                }}
-                disabled={isBacklogTask}
-              />
-              <label className="backlog-checkbox">
-                <input
-                  type="checkbox"
-                  checked={isBacklogTask}
-                  onChange={e => {
-                    setIsBacklogTask(e.target.checked);
-                    if (e.target.checked) {
-                      setTaskDate('');
-                      setRecurrence('none');
-                    } else {
-                      setTaskDate(formatDateInput(selectedDate));
-                      setBacklogMonthSelection('');
-                    }
-                  }}
-                />
-                <span>Add to backlog</span>
-              </label>
-              {isBacklogTask && (
-                <select
-                  className="backlog-month-select"
-                  value={backlogMonthSelection}
-                  onChange={e => setBacklogMonthSelection(e.target.value)}
-                >
-                  <option value="">Select month...</option>
-                  {backlogTasksByMonth.map(group => (
-                    <option key={group.monthKey} value={group.monthKey}>
-                      {group.month}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+            <input
+              type="date"
+              value={taskDate}
+              onChange={e => {
+                setTaskDate(e.target.value);
+                setIsBacklogTask(!e.target.value);
+              }}
+              disabled={isBacklogTask}
+            />
           </FormGroup>
           <FormGroup label="Time (optional)">
             <input
@@ -1025,6 +1015,38 @@ export default function TodoPage() {
             />
           </FormGroup>
         </FormRow>
+
+        <label className="backlog-checkbox">
+          <input
+            type="checkbox"
+            checked={isBacklogTask}
+            onChange={e => {
+              setIsBacklogTask(e.target.checked);
+              if (e.target.checked) {
+                setTaskDate('');
+                setRecurrence('none');
+              } else {
+                setTaskDate(formatDateInput(selectedDate));
+                setBacklogMonthSelection('');
+              }
+            }}
+          />
+          <span>Add to backlog</span>
+          {isBacklogTask && (
+            <select
+              className="backlog-month-select"
+              value={backlogMonthSelection}
+              onChange={e => setBacklogMonthSelection(e.target.value)}
+            >
+              <option value="">Select month...</option>
+              {backlogTasksByMonth.map(group => (
+                <option key={group.monthKey} value={group.monthKey}>
+                  {group.month}
+                </option>
+              ))}
+            </select>
+          )}
+        </label>
 
         <FormGroup label="Category (optional)">
           <div className="category-chips">

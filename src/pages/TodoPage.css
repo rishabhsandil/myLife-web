@@ -544,15 +544,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px;
   background: #F9F8F3;
   border-radius: 10px;
   font-size: 14px;
   color: #3D4A3E;
   cursor: pointer;
   transition: background 0.2s ease;
-  margin-top: 4px;
-  white-space: nowrap;
+  margin-bottom: 1rem;
+  flex-wrap: nowrap;
 }
 
 .backlog-checkbox:hover {
@@ -574,18 +574,21 @@
 .backlog-checkbox span {
   user-select: none;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .backlog-month-select {
-  width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1.5px solid #E5E1D0;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 6px;
+  font-size: 13px;
   color: #3D4A3E;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s ease;
+  flex: 1;
+  max-width: 200px;
+  box-sizing: border-box;
 }
 
 .backlog-month-select:hover {
@@ -878,6 +881,25 @@
   color: #7AA05A;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 6px;
+  background: #5a84a0;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .backlog-add-btn {
