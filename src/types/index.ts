@@ -87,6 +87,8 @@ export interface BodyPart {
   color: string;
 }
 
+export type WeightUnit = 'kg' | 'lbs';
+
 export interface PeriodCycle {
   id: string;
   startDate: string;

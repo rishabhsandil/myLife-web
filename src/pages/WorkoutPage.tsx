@@ -20,11 +20,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Exercise, BodyPart } from '../types';
+import { Exercise, BodyPart, WeightUnit } from '../types';
 import { 
   getExercises, saveExercise, updateExercise, deleteExercise as apiDeleteExercise,
   getBodyParts, saveBodyPart, updateBodyPart, deleteBodyPart as apiDeleteBodyPart
 } from '../utils/api.ts';
+import { getWeightUnit, saveWeightUnit } from '../utils/storage.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, NumberControl, ColorPicker, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
@@ -34,11 +35,13 @@ import './WorkoutPage.css';
 interface SortableExerciseItemProps {
   exercise: Exercise;
   bodyPartColor: string;
+  weightUnit: WeightUnit;
+  displayWeight: (kg: number) => string;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: SortableExerciseItemProps) {
+function SortableExerciseItem({ exercise, bodyPartColor, weightUnit, displayWeight, onEdit, onDelete }: SortableExerciseItemProps) {
   const {
     attributes,
     listeners,
@@ -120,7 +123,7 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
             </span>
             {exercise.weight > 0 && (
               <span className="exercise-pr">
-                <IoTrophy size={11} /> {exercise.weight} kg
+                <IoTrophy size={11} /> {displayWeight(exercise.weight)} {weightUnit}
               </span>
             )}
           </div>
@@ -136,6 +139,7 @@ export default function WorkoutPage() {
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>('');
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
   
   const exerciseModal = useModal<Exercise>();
   const settingsModal = useModal();
@@ -162,6 +166,9 @@ export default function WorkoutPage() {
 
   useEffect(() => {
     loadData();
+    // Load weight unit preference
+    const savedUnit = getWeightUnit();
+    setWeightUnit(savedUnit);
   }, []);
 
   async function loadData() {
@@ -208,12 +215,17 @@ export default function WorkoutPage() {
     setExerciseName(exercise.name);
     setFormSets(exercise.sets);
     setFormReps(exercise.reps);
-    setFormWeight(exercise.weight);
+    // Convert weight to current unit for display
+    const displayWeightValue = weightUnit === 'lbs' ? kgToLbs(exercise.weight) : exercise.weight;
+    setFormWeight(Number(displayWeightValue.toFixed(1)));
     exerciseModal.open(exercise);
   };
 
   const handleSave = async () => {
     if (!exerciseName.trim()) return;
+
+    // Convert weight to kg for storage if currently in lbs
+    const weightInKg = weightUnit === 'lbs' ? lbsToKg(formWeight) : formWeight;
 
     if (exerciseModal.data) {
       // Update existing
@@ -222,7 +234,7 @@ export default function WorkoutPage() {
         name: exerciseName.trim(),
         sets: formSets,
         reps: formReps,
-        weight: formWeight,
+        weight: weightInKg,
       };
       await updateExercise(updated);
       setExercises(exercises.map(e => e.id === updated.id ? updated : e));
@@ -234,7 +246,7 @@ export default function WorkoutPage() {
         bodyPart: selectedBodyPart,
         sets: formSets,
         reps: formReps,
-        weight: formWeight,
+        weight: weightInKg,
       };
       await saveExercise(newExercise);
       setExercises([...exercises, newExercise]);
@@ -278,6 +290,22 @@ export default function WorkoutPage() {
 
   const getBodyPartColor = (partId: string) => {
     return bodyParts.find(b => b.id === partId)?.color || colors.primary;
+  };
+
+  // Weight conversion helpers
+  const kgToLbs = (kg: number): number => kg * 2.20462;
+  const lbsToKg = (lbs: number): number => lbs / 2.20462;
+  
+  const displayWeight = (kg: number): string => {
+    if (weightUnit === 'lbs') {
+      return kgToLbs(kg).toFixed(1);
+    }
+    return kg.toFixed(1);
+  };
+
+  const handleWeightUnitChange = (unit: WeightUnit) => {
+    setWeightUnit(unit);
+    saveWeightUnit(unit);
   };
 
   // Body part management
@@ -326,10 +354,6 @@ export default function WorkoutPage() {
     }
   };
 
-  const getTotalVolume = () => {
-    return filteredExercises.reduce((sum, e) => sum + (e.sets * e.reps * e.weight), 0);
-  };
-
   return (
     <div className="workout-page">
       {/* Header */}
@@ -361,8 +385,6 @@ export default function WorkoutPage() {
       {filteredExercises.length > 0 && (
         <div className="workout-summary">
           <span>{filteredExercises.length} exercises</span>
-          <span>•</span>
-          <span>Total volume: {getTotalVolume() > 1000 ? `${(getTotalVolume() / 1000).toFixed(1)}k` : getTotalVolume()} kg</span>
         </div>
       )}
 
@@ -409,6 +431,8 @@ export default function WorkoutPage() {
                     key={exercise.id}
                     exercise={exercise}
                     bodyPartColor={getBodyPartColor(exercise.bodyPart)}
+                    weightUnit={weightUnit}
+                    displayWeight={displayWeight}
                     onEdit={() => openEditModal(exercise)}
                     onDelete={() => deleteModal.open(exercise)}
                   />
@@ -455,11 +479,12 @@ export default function WorkoutPage() {
           </FormGroup>
         </FormRow>
 
-        <FormGroup label="PR Weight (kg)">
+        <FormGroup label={`PR Weight (${weightUnit})`}>
           <input
             type="number"
-            value={formWeight}
-            onChange={e => setFormWeight(Number(e.target.value))}
+            value={formWeight === 0 ? '' : formWeight}
+            onChange={e => setFormWeight(Number(e.target.value) || 0)}
+            onFocus={e => e.target.select()}
             placeholder="0"
             min="0"
             step="2.5"
@@ -483,7 +508,6 @@ export default function WorkoutPage() {
             }}
             submitText="Delete"
             cancelText="Cancel"
-            submitDestructive
           />
         }
       >
@@ -498,6 +522,25 @@ export default function WorkoutPage() {
         className="settings-modal"
         footer={<button className="btn secondary" onClick={settingsModal.close}>Done</button>}
       >
+        {/* Weight Unit Toggle */}
+        <div className="weight-unit-toggle">
+          <label className="setting-label">Weight Unit</label>
+          <div className="unit-buttons">
+            <button
+              className={`unit-btn ${weightUnit === 'kg' ? 'active' : ''}`}
+              onClick={() => handleWeightUnitChange('kg')}
+            >
+              kg
+            </button>
+            <button
+              className={`unit-btn ${weightUnit === 'lbs' ? 'active' : ''}`}
+              onClick={() => handleWeightUnitChange('lbs')}
+            >
+              lbs
+            </button>
+          </div>
+        </div>
+
         {/* Existing body parts */}
         <div className="body-parts-list">
           {bodyParts.map(bp => (

@@ -213,6 +213,50 @@
   overflow-y: auto;
 }
 
+/* Weight Unit Toggle */
+.weight-unit-toggle {
+  padding: 16px;
+  background: #FDFCF5;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.setting-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  margin-bottom: 10px;
+}
+
+.unit-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.unit-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748B;
+  transition: all 0.2s;
+}
+
+.unit-btn.active {
+  background: #5B8E7D;
+  border-color: #5B8E7D;
+  color: white;
+}
+
+.unit-btn:hover:not(.active) {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
 .body-parts-list {
   display: flex;
   flex-direction: column;
