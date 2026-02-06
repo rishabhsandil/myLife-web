@@ -113,23 +113,22 @@ function AppContent() {
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toISOString().split('T')[0];
         
-        // Count overdue tasks (past date, not completed, not recurring completed for today)
+        // Count overdue tasks (past date, not completed, not recurring)
         const overdueTasks = todos.filter((todo: TodoItem) => {
           // Skip completed tasks
           if (todo.completed === true) return false;
+          
+          // Skip recurring tasks - they're never considered overdue
+          if (todo.recurrence !== 'none') return false;
+          
+          // Skip backlog tasks (no date or date='backlog')
+          if (!todo.date || todo.date === 'backlog' || todo.date.startsWith('backlog-')) return false;
           
           // Get the task date string (YYYY-MM-DD format)
           const todoDateStr = todo.date.split('T')[0];
           
           // Check if it's overdue (before today)
-          if (todoDateStr >= todayStr) return false;
-          
-          // For recurring tasks, check if completed for this specific date
-          if (todo.recurrence !== 'none' && todo.completedDates?.length) {
-            if (todo.completedDates.includes(todoDateStr)) return false;
-          }
-          
-          return true;
+          return todoDateStr < todayStr;
         });
         
         await updateBadgeWithOverdueTasks(overdueTasks.length);
