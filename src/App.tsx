@@ -111,26 +111,28 @@ function AppContent() {
         const todos = await getTodos();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
         
         // Count overdue tasks (past date, not completed, not recurring completed for today)
-        const overdueCount = todos.filter((todo: TodoItem) => {
-          if (todo.completed) return false;
+        const overdueTasks = todos.filter((todo: TodoItem) => {
+          // Skip completed tasks
+          if (todo.completed === true) return false;
           
-          const todoDate = new Date(todo.date);
-          todoDate.setHours(0, 0, 0, 0);
+          // Get the task date string (YYYY-MM-DD format)
+          const todoDateStr = todo.date.split('T')[0];
           
           // Check if it's overdue (before today)
-          if (todoDate >= today) return false;
+          if (todoDateStr >= todayStr) return false;
           
-          // For recurring tasks, check if completed for the original date
-          if (todo.recurrence !== 'none' && todo.completedDates) {
-            if (todo.completedDates.includes(todo.date)) return false;
+          // For recurring tasks, check if completed for this specific date
+          if (todo.recurrence !== 'none' && todo.completedDates?.length) {
+            if (todo.completedDates.includes(todoDateStr)) return false;
           }
           
           return true;
-        }).length;
+        });
         
-        await updateBadgeWithOverdueTasks(overdueCount);
+        await updateBadgeWithOverdueTasks(overdueTasks.length);
       } catch (error) {
         console.error('Failed to update badge:', error);
       }

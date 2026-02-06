@@ -69,7 +69,7 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
           className="exercise-icon"
           style={{ background: bodyPartColor + '20', color: bodyPartColor }}
         >
-          <IoBarbell size={20} />
+          <IoBarbell size={18} />
         </div>
         <div className="exercise-info">
           <span className="exercise-name">{exercise.name}</span>
@@ -79,15 +79,14 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
             </span>
             {exercise.weight > 0 && (
               <span className="exercise-pr">
-                <IoTrophy size={12} /> {exercise.weight} kg
+                <IoTrophy size={11} /> {exercise.weight} kg
               </span>
             )}
           </div>
         </div>
-        <IoPencil size={18} color={colors.textMuted} />
       </div>
-      <button className="exercise-delete" onClick={onDelete}>
-        <IoTrash size={16} color={colors.error} />
+      <button className="icon-btn delete" onClick={onDelete}>
+        <IoTrash size={16} />
       </button>
     </div>
   );

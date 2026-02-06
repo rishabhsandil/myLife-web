@@ -98,63 +98,52 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
         {...attributes}
         {...listeners}
       >
-        <IoReorderTwo size={20} color={colors.textMuted} />
+        <IoReorderTwo size={18} color={colors.textMuted} />
       </button>
       <button
         className="task-checkbox"
         onClick={onToggle}
       >
         {completed ? (
-          <IoCheckmarkCircle size={24} color={colors.success} />
+          <IoCheckmarkCircle size={22} color={colors.success} />
         ) : (
-          <IoEllipseOutline size={24} color={colors.textMuted} />
+          <IoEllipseOutline size={22} color={colors.textMuted} />
         )}
       </button>
-      <div className="task-content">
-        <div className="task-title-row">
-          <span className="task-title">{todo.title}</span>
-          <div className="task-badges">
-            {todo.assignedToUserId && (
-              <span className="badge assigned" title={`Assigned to: ${todo.assigneeName}`}>
-                <IoPersonAdd size={12} /> {todo.assigneeName}
-              </span>
-            )}
-            {todo.ownerId && todo.ownerId !== currentUserId && todo.ownerName && (
-              <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
-                From {todo.ownerName}
-              </span>
-            )}
-            {todo.overdue && !completed && (
-              <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
-                <IoTime size={12} /> Overdue
-              </span>
-            )}
-            {todo.recurrence !== 'none' && (
-              <span className="badge recurring">
-                <IoRepeat size={12} />
-              </span>
-            )}
-            {todo.isEvent && (
-              <span className="badge event">
-                <IoCalendar size={12} />
-              </span>
-            )}
-          </div>
-        </div>
-        {todo.description && <p className="task-description">{todo.description}</p>}
-        <div className="task-meta">
-          {todo.time && <span className="task-time"><IoTime size={14} /> {todo.time}</span>}
-          {todo.category && <span className="task-category">{todo.category}</span>}
+      <div className="task-content" onClick={onEdit}>
+        <span className="task-title">{todo.title}</span>
+        <div className="task-info">
+          {(todo.time || todo.category || todo.recurrence !== 'none' || (todo.overdue && !completed)) && (
+            <div className="task-meta">
+              {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
+              {todo.category && <span className="task-category">{todo.category}</span>}
+              {todo.recurrence !== 'none' && <span title="Recurring"><IoRepeat size={11} /></span>}
+              {todo.overdue && !completed && (
+                <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
+                  Overdue
+                </span>
+              )}
+            </div>
+          )}
+          {(todo.assignedToUserId || (todo.ownerId && todo.ownerId !== currentUserId)) && (
+            <div className="task-badges">
+              {todo.assignedToUserId && (
+                <span className="badge assigned" title={`Assigned to: ${todo.assigneeName}`}>
+                  <IoPersonAdd size={10} /> {todo.assigneeName}
+                </span>
+              )}
+              {todo.ownerId && todo.ownerId !== currentUserId && todo.ownerName && (
+                <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
+                  From {todo.ownerName}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      <div className="task-actions">
-        <button className="icon-btn" onClick={onEdit}>
-          <IoPencil size={18} />
-        </button>
-        <button className="icon-btn delete" onClick={onDelete}>
-          <IoTrash size={18} />
-        </button>
-      </div>
+      <button className="icon-btn delete" onClick={onDelete}>
+        <IoTrash size={16} />
+      </button>
     </div>
   );
 }
@@ -167,6 +156,7 @@ export default function TodoPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   
   const taskModal = useModal<TodoItem>();
   const deleteModal = useModal<TodoItem>();
@@ -318,6 +308,32 @@ export default function TodoPage() {
       });
   }, [todos, selectedDate]);
 
+  const overdueTasks = useMemo(() => {
+    const selectedStr = formatDateKey(selectedDate);
+    
+    return todaysTasks.filter(todo => {
+      if (isCompletedOnDate(todo, selectedDate)) return false;
+      const todoDateStr = todo.date.split('T')[0];
+      // Task is overdue if its date is before the selected date
+      return todoDateStr < selectedStr;
+    });
+  }, [todaysTasks, selectedDate]);
+
+  const incompleteTasks = useMemo(() => {
+    const selectedStr = formatDateKey(selectedDate);
+    
+    return todaysTasks.filter(todo => {
+      if (isCompletedOnDate(todo, selectedDate)) return false;
+      const todoDateStr = todo.date.split('T')[0];
+      // Task is for today (not overdue)
+      return todoDateStr >= selectedStr;
+    });
+  }, [todaysTasks, selectedDate]);
+
+  const completedTasks = useMemo(() => {
+    return todaysTasks.filter(todo => isCompletedOnDate(todo, selectedDate));
+  }, [todaysTasks, selectedDate]);
+
   const resetForm = () => {
     setTitle('');
     setTaskDate(formatDateInput(selectedDate));
@@ -373,6 +389,13 @@ export default function TodoPage() {
       assignedToUserId: selectedAssignee?.id || undefined,
       assigneeName: selectedAssignee?.name || undefined,
       assigneeEmail: selectedAssignee?.email || undefined,
+      // Preserve additional properties when editing
+      overdue: taskModal.data?.overdue,
+      originalDate: taskModal.data?.originalDate,
+      sortOrder: taskModal.data?.sortOrder,
+      ownerId: taskModal.data?.ownerId,
+      ownerName: taskModal.data?.ownerName,
+      ownerEmail: taskModal.data?.ownerEmail,
     };
 
     if (taskModal.data) {
@@ -638,33 +661,89 @@ export default function TodoPage() {
             action={{ label: 'Add Task', icon: IoAdd, onClick: openAddModal }}
           />
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={todaysTasks.map(t => t.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="tasks-list">
-                {todaysTasks.map((todo) => {
-                  const completed = isCompletedOnDate(todo, selectedDate);
-                  return (
+          <>
+            {/* Overdue Tasks */}
+            {overdueTasks.length > 0 && (
+              <div className="overdue-section">
+                <div className="section-label overdue-label">
+                  <span>Overdue ({overdueTasks.length})</span>
+                </div>
+                <div className="tasks-list">
+                  {overdueTasks.map((todo) => (
                     <SortableTaskItem
                       key={todo.id}
                       todo={todo}
-                      completed={completed}
+                      completed={false}
                       currentUserId={user?.id}
                       onToggle={() => toggleComplete(todo)}
                       onEdit={() => openEditModal(todo)}
                       onDelete={() => deleteModal.open(todo)}
                     />
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </SortableContext>
-          </DndContext>
+            )}
+
+            {/* Incomplete Tasks (Today's tasks) */}
+            {incompleteTasks.length > 0 && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={incompleteTasks.map(t => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="tasks-list">
+                    {incompleteTasks.map((todo) => (
+                      <SortableTaskItem
+                        key={todo.id}
+                        todo={todo}
+                        completed={false}
+                        currentUserId={user?.id}
+                        onToggle={() => toggleComplete(todo)}
+                        onEdit={() => openEditModal(todo)}
+                        onDelete={() => deleteModal.open(todo)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+
+            {/* Completed Tasks */}
+            {completedTasks.length > 0 && (
+              <div className="completed-section">
+                <button 
+                  className="completed-header"
+                  onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                >
+                  <IoCheckmarkCircle size={20} />
+                  <span>Completed ({completedTasks.length})</span>
+                  <IoChevronForward 
+                    size={18} 
+                    className={`chevron ${showCompletedTasks ? 'expanded' : ''}`}
+                  />
+                </button>
+                {showCompletedTasks && (
+                  <div className="tasks-list completed-tasks">
+                    {completedTasks.map((todo) => (
+                      <SortableTaskItem
+                        key={todo.id}
+                        todo={todo}
+                        completed={true}
+                        currentUserId={user?.id}
+                        onToggle={() => toggleComplete(todo)}
+                        onEdit={() => openEditModal(todo)}
+                        onDelete={() => deleteModal.open(todo)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

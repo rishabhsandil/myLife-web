@@ -71,12 +71,12 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
       </button>
       <button className="item-checkbox" onClick={onToggle}>
         {item.completed ? (
-          <IoCheckmarkCircle size={24} color={colors.success} />
+          <IoCheckmarkCircle size={22} color={colors.success} />
         ) : (
-          <IoEllipseOutline size={24} color={colors.textMuted} />
+          <IoEllipseOutline size={22} color={colors.textMuted} />
         )}
       </button>
-      <div className="item-content">
+      <div className="item-content" onClick={onEdit}>
         <div className="item-name">
           {item.name}
           {isSharedItem && (
@@ -87,14 +87,9 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
           <span className="item-qty">×{item.quantity}</span>
         </div>
       </div>
-      <div className="item-actions">
-        <button className="icon-btn" onClick={onEdit}>
-          <IoPencil size={16} />
-        </button>
-        <button className="icon-btn delete" onClick={onDelete}>
-          <IoTrash size={16} />
-        </button>
-      </div>
+      <button className="icon-btn delete" onClick={onDelete}>
+        <IoTrash size={16} />
+      </button>
     </div>
   );
 }

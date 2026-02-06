@@ -169,10 +169,10 @@
 
 .item-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 10px;
   background: white;
-  padding: 14px;
+  padding: 12px;
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -205,12 +205,18 @@
 .item-content {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
+}
+
+.item-content:active {
+  opacity: 0.7;
 }
 
 .item-name {
   font-size: 14px;
   font-weight: 600;
   color: #3D4A3E;
+  line-height: 1.3;
 }
 
 .item-card.completed .item-name {
@@ -220,12 +226,12 @@
 .item-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 3px;
 }
 
 .item-qty {
-  font-size: 12px;
+  font-size: 11px;
   color: #6B7C6D;
   font-weight: 500;
 }
@@ -260,27 +266,19 @@
   color: #6B7C6D;
 }
 
-.item-actions {
-  display: flex;
-  gap: 4px;
+.icon-btn.delete {
   flex-shrink: 0;
-}
-
-.item-actions .icon-btn {
   padding: 6px;
   border-radius: 6px;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: all 0.2s;
+  margin-top: 2px;
 }
 
-.item-actions .icon-btn:hover {
+.icon-btn.delete:hover {
   opacity: 1;
-  background: #FEF2E8;
-}
-
-.item-actions .icon-btn.delete:hover {
-  background: #F9E5E6;
-  color: #BC4B51;
+  background: #FEF2F2;
+  color: #DC2626;
 }
 
 .item-edit,
