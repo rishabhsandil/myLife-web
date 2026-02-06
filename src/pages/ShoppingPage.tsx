@@ -4,6 +4,7 @@ import {
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
   IoTime, IoPencil, IoSettings, IoReorderTwo
 } from 'react-icons/io5';
+import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
   closestCenter,
@@ -49,9 +50,45 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
     transition,
   } = useSortable({ id: item.id });
 
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const resetSwipe = () => {
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (eventData.dir === 'Left') {
+        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
+        setSwipeOffset(offset);
+        setIsSwiping(true);
+      }
+    },
+    onSwiped: (eventData) => {
+      if (eventData.dir === 'Left' && swipeOffset < -70) {
+        // Call delete and reset immediately - modal will handle confirmation
+        onDelete();
+        // Reset after a short delay to allow modal to open
+        setTimeout(resetSwipe, 300);
+      } else {
+        resetSwipe();
+      }
+      setIsSwiping(false);
+    },
+    trackMouse: false,
+    preventScrollOnSwipe: false,
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isSwiping ? 'none' : transition,
+  };
+
+  const contentStyle = {
+    transform: `translateX(${swipeOffset}px)`,
+    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
   };
 
   const isSharedItem = item.isOwn === false;
@@ -62,14 +99,18 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
       style={style}
       className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}
     >
-      <button
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-      >
-        <IoReorderTwo size={20} color={colors.textMuted} />
-      </button>
-      <button className="item-checkbox" onClick={onToggle}>
+      <div className="swipe-delete-bg">
+        <IoTrash size={20} />
+      </div>
+      <div className="item-card-content" style={contentStyle} {...swipeHandlers}>
+        <button
+          className="drag-handle"
+          {...attributes}
+          {...listeners}
+        >
+          <IoReorderTwo size={20} color={colors.textMuted} />
+        </button>
+        <button className="item-checkbox" onClick={onToggle}>
         {item.completed ? (
           <IoCheckmarkCircle size={22} color={colors.success} />
         ) : (
@@ -87,9 +128,7 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
           <span className="item-qty">×{item.quantity}</span>
         </div>
       </div>
-      <button className="icon-btn delete" onClick={onDelete}>
-        <IoTrash size={16} />
-      </button>
+      </div>
     </div>
   );
 }
@@ -108,6 +147,7 @@ export default function ShoppingPage() {
   const shareModal = useModal();
   const historyModal = useModal();
   const settingsModal = useModal();
+  const deleteModal = useModal<ShoppingItem>();
 
   // Form state
   const [name, setName] = useState('');
@@ -547,7 +587,7 @@ export default function ShoppingPage() {
                     item={item}
                     onToggle={() => toggleComplete(item)}
                     onEdit={() => openEditModal(item)}
-                    onDelete={() => deleteItem(item.id)}
+                    onDelete={() => deleteModal.open(item)}
                   />
                 ))}
               </div>
@@ -594,6 +634,29 @@ export default function ShoppingPage() {
             </button>
           </div>
         </FormGroup>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.close}
+        title="Delete Item"
+        footer={
+          <ModalFooter
+            onCancel={deleteModal.close}
+            onSubmit={() => {
+              if (deleteModal.data) {
+                deleteItem(deleteModal.data.id);
+                deleteModal.close();
+              }
+            }}
+            submitText="Delete"
+            cancelText="Cancel"
+            submitDestructive
+          />
+        }
+      >
+        <p>Are you sure you want to delete "{deleteModal.data?.name}"?</p>
       </Modal>
 
       {/* Settings Modal - Manage Stores */}

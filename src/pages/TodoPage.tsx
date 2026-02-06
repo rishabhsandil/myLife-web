@@ -4,6 +4,7 @@ import {
   IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
   IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline, IoPersonAdd
 } from 'react-icons/io5';
+import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
   closestCenter,
@@ -82,9 +83,45 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
     transition,
   } = useSortable({ id: todo.id });
 
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const resetSwipe = () => {
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (eventData.dir === 'Left') {
+        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
+        setSwipeOffset(offset);
+        setIsSwiping(true);
+      }
+    },
+    onSwiped: (eventData) => {
+      if (eventData.dir === 'Left' && swipeOffset < -70) {
+        // Call delete and reset immediately - modal will handle confirmation
+        onDelete();
+        // Reset after a short delay to allow modal to open
+        setTimeout(resetSwipe, 300);
+      } else {
+        resetSwipe();
+      }
+      setIsSwiping(false);
+    },
+    trackMouse: false,
+    preventScrollOnSwipe: false,
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isSwiping ? 'none' : transition,
+  };
+
+  const contentStyle = {
+    transform: `translateX(${swipeOffset}px)`,
+    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
   };
 
   return (
@@ -93,24 +130,28 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
       style={style} 
       className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''}`}
     >
-      <button
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-      >
-        <IoReorderTwo size={18} color={colors.textMuted} />
-      </button>
-      <button
-        className="task-checkbox"
-        onClick={onToggle}
-      >
-        {completed ? (
-          <IoCheckmarkCircle size={22} color={colors.success} />
-        ) : (
-          <IoEllipseOutline size={22} color={colors.textMuted} />
-        )}
-      </button>
-      <div className="task-content" onClick={onEdit}>
+      <div className="swipe-delete-bg">
+        <IoTrash size={20} />
+      </div>
+      <div className="task-item-content" style={contentStyle} {...swipeHandlers}>
+        <button
+          className="drag-handle"
+          {...attributes}
+          {...listeners}
+        >
+          <IoReorderTwo size={18} color={colors.textMuted} />
+        </button>
+        <button
+          className="task-checkbox"
+          onClick={onToggle}
+        >
+          {completed ? (
+            <IoCheckmarkCircle size={22} color={colors.success} />
+          ) : (
+            <IoEllipseOutline size={22} color={colors.textMuted} />
+          )}
+        </button>
+        <div className="task-content" onClick={onEdit}>
         <span className="task-title">{todo.title}</span>
         <div className="task-info">
           {(todo.time || todo.category || todo.recurrence !== 'none' || (todo.overdue && !completed)) && (
@@ -141,9 +182,7 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
           )}
         </div>
       </div>
-      <button className="icon-btn delete" onClick={onDelete}>
-        <IoTrash size={16} />
-      </button>
+      </div>
     </div>
   );
 }

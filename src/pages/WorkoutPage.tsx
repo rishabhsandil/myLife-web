@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   IoAdd, IoBarbell, IoTrophy, IoTrash, IoPencil, IoSettings, IoReorderTwo
 } from 'react-icons/io5';
+import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
   closestCenter,
@@ -46,9 +47,45 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
     transition,
   } = useSortable({ id: exercise.id });
 
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const resetSwipe = () => {
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (eventData.dir === 'Left') {
+        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
+        setSwipeOffset(offset);
+        setIsSwiping(true);
+      }
+    },
+    onSwiped: (eventData) => {
+      if (eventData.dir === 'Left' && swipeOffset < -70) {
+        // Call delete and reset immediately - modal will handle confirmation
+        onDelete();
+        // Reset after a short delay to allow modal to open
+        setTimeout(resetSwipe, 300);
+      } else {
+        resetSwipe();
+      }
+      setIsSwiping(false);
+    },
+    trackMouse: false,
+    preventScrollOnSwipe: false,
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isSwiping ? 'none' : transition,
+  };
+
+  const contentStyle = {
+    transform: `translateX(${swipeOffset}px)`,
+    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
   };
 
   return (
@@ -57,14 +94,18 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
       style={style}
       className="exercise-card"
     >
-      <button
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-      >
-        <IoReorderTwo size={20} color={colors.textMuted} />
-      </button>
-      <div className="exercise-content" onClick={onEdit}>
+      <div className="swipe-delete-bg">
+        <IoTrash size={20} />
+      </div>
+      <div className="exercise-card-content" style={contentStyle} {...swipeHandlers}>
+        <button
+          className="drag-handle"
+          {...attributes}
+          {...listeners}
+        >
+          <IoReorderTwo size={20} color={colors.textMuted} />
+        </button>
+        <div className="exercise-content" onClick={onEdit}>
         <div
           className="exercise-icon"
           style={{ background: bodyPartColor + '20', color: bodyPartColor }}
@@ -85,9 +126,7 @@ function SortableExerciseItem({ exercise, bodyPartColor, onEdit, onDelete }: Sor
           </div>
         </div>
       </div>
-      <button className="icon-btn delete" onClick={onDelete}>
-        <IoTrash size={16} />
-      </button>
+      </div>
     </div>
   );
 }
@@ -100,6 +139,7 @@ export default function WorkoutPage() {
   
   const exerciseModal = useModal<Exercise>();
   const settingsModal = useModal();
+  const deleteModal = useModal<Exercise>();
 
   // Exercise form state
   const [exerciseName, setExerciseName] = useState('');
@@ -370,7 +410,7 @@ export default function WorkoutPage() {
                     exercise={exercise}
                     bodyPartColor={getBodyPartColor(exercise.bodyPart)}
                     onEdit={() => openEditModal(exercise)}
-                    onDelete={() => handleDeleteExercise(exercise.id)}
+                    onDelete={() => deleteModal.open(exercise)}
                   />
                 ))}
               </div>
@@ -425,6 +465,29 @@ export default function WorkoutPage() {
             step="2.5"
           />
         </FormGroup>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.close}
+        title="Delete Exercise"
+        footer={
+          <ModalFooter
+            onCancel={deleteModal.close}
+            onSubmit={() => {
+              if (deleteModal.data) {
+                handleDeleteExercise(deleteModal.data.id);
+                deleteModal.close();
+              }
+            }}
+            submitText="Delete"
+            cancelText="Cancel"
+            submitDestructive
+          />
+        }
+      >
+        <p>Are you sure you want to delete "{deleteModal.data?.name}"?</p>
       </Modal>
 
       {/* Settings Modal - Manage Body Parts */}

@@ -92,6 +92,32 @@
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  position: relative;
+}
+
+.swipe-delete-bg {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 24px;
+  color: #EF4444;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.exercise-card-content {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  background: white;
+  position: relative;
+  z-index: 1;
+  will-change: transform;
 }
 
 .exercise-card .drag-handle {
@@ -168,20 +194,6 @@
   background: #FEF9E7;
   padding: 2px 6px;
   border-radius: 6px;
-}
-
-.icon-btn.delete {
-  flex-shrink: 0;
-  padding: 12px;
-  border-radius: 0;
-  opacity: 0.5;
-  transition: all 0.2s;
-}
-
-.icon-btn.delete:hover {
-  opacity: 1;
-  background: #FEF2F2;
-  color: #DC2626;
 }
 
 /* Page-specific FAB color */
