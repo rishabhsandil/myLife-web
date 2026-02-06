@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType } from '../types';
+import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -83,6 +83,7 @@ const shoppingApi = createCrudApi<ShoppingItem>('shopping', 'almostadult_shoppin
 const shoppingStoresApi = createCrudApi<ShoppingStore>('shopping-stores', 'almostadult_shopping_stores');
 const exercisesApi = createCrudApi<Exercise>('exercises', 'almostadult_exercises');
 const bodyPartsApi = createCrudApi<BodyPart>('bodyparts', 'almostadult_bodyparts');
+const notesApi = createCrudApi<Note>('notes', 'almostadult_notes');
 
 // ============ TODOS ============
 export const getTodos = todosApi.getAll;
@@ -169,6 +170,13 @@ export const saveBodyPart = bodyPartsApi.create;
 export const updateBodyPart = bodyPartsApi.update;
 export const deleteBodyPart = bodyPartsApi.delete;
 
+// ============ NOTES ============
+export const getNotes = notesApi.getAll;
+export const saveNote = notesApi.create;
+export const updateNote = notesApi.update;
+export const deleteNote = notesApi.delete;
+export const saveNotesLocal = notesApi.saveToLocalStorage;
+
 // ============ TODO CATEGORIES ============
 const todoCategoriesApi = createCrudApi<{ id: string; name: string; color: string; sortOrder: number }>('todo-categories', 'almostadult_todo_categories');
 
@@ -213,7 +221,7 @@ export async function savePeriodSettings(settings: PeriodSettings): Promise<void
 }
 
 // ============ USER SETTINGS (Module Configuration) ============
-const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'period'];
+const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'period', 'notes'];
 
 export async function getUserSettings(): Promise<UserSettings> {
   try {

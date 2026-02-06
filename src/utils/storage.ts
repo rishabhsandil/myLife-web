@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, WeightUnit } from '../types';
+import { TodoItem, ShoppingItem, Exercise, WeightUnit, Note } from '../types';
 
 const STORAGE_KEYS = {
   TODOS: 'almostadult_todos',
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   EXERCISES: 'almostadult_exercises',
   LAST_BACKUP: 'almostadult_last_backup',
   WEIGHT_UNIT: 'almostadult_weight_unit',
+  NOTES: 'almostadult_notes',
 };
 
 // Todos
@@ -48,6 +49,16 @@ export const saveWeightUnit = (unit: WeightUnit): void => {
   localStorage.setItem(STORAGE_KEYS.WEIGHT_UNIT, unit);
 };
 
+// Notes
+export const getNotes = (): Note[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.NOTES);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveNotes = (notes: Note[]): void => {
+  localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notes));
+};
+
 // Backup functions
 export const exportBackup = (): void => {
   const backupData = {
@@ -57,6 +68,7 @@ export const exportBackup = (): void => {
       todos: getTodos(),
       shopping: getShoppingItems(),
       exercises: getExercises(),
+      notes: getNotes(),
     },
   };
   
@@ -81,6 +93,7 @@ export const importBackup = (file: File): Promise<boolean> => {
           saveTodos(data.data.todos || []);
           saveShoppingItems(data.data.shopping || []);
           saveExercises(data.data.exercises || []);
+          saveNotes(data.data.notes || []);
           resolve(true);
         } else {
           resolve(false);

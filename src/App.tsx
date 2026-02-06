@@ -1,11 +1,12 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoWaterOutline, IoWater, IoSettingsOutline, IoSettings } from 'react-icons/io5';
+import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoWaterOutline, IoWater, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';
 import PeriodPage from './pages/PeriodPage';
+import NotesPage from './pages/NotesPage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
@@ -56,6 +57,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
     { path: '/shopping', module: 'shopping' as ModuleType, label: 'Shopping', iconActive: IoCart, iconInactive: IoCartOutline },
     { path: '/workout', module: 'workout' as ModuleType, label: 'Workout', iconActive: IoFitness, iconInactive: IoFitnessOutline },
     { path: '/period', module: 'period' as ModuleType, label: 'Period', iconActive: IoWater, iconInactive: IoWaterOutline },
+    { path: '/notes', module: 'notes' as ModuleType, label: 'Notes', iconActive: IoDocumentText, iconInactive: IoDocumentTextOutline },
   ];
 
   // Filter tabs based on enabled modules
@@ -92,7 +94,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
 function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [enabledModules, setEnabledModules] = useState<ModuleType[]>(['todos', 'shopping', 'workout', 'period']);
+  const [enabledModules, setEnabledModules] = useState<ModuleType[]>(['todos', 'shopping', 'workout', 'period', 'notes']);
 
   useEffect(() => {
     // Show splash screen for minimum time
@@ -174,6 +176,7 @@ function AppContent() {
     if (enabledModules.includes('shopping')) return '/shopping';
     if (enabledModules.includes('workout')) return '/workout';
     if (enabledModules.includes('period')) return '/period';
+    if (enabledModules.includes('notes')) return '/notes';
     return '/settings';
   };
 
@@ -185,6 +188,7 @@ function AppContent() {
           {enabledModules.includes('shopping') && <Route path="/shopping" element={<ShoppingPage />} />}
           {enabledModules.includes('workout') && <Route path="/workout" element={<WorkoutPage />} />}
           {enabledModules.includes('period') && <Route path="/period" element={<PeriodPage />} />}
+          {enabledModules.includes('notes') && <Route path="/notes" element={<NotesPage />} />}
           <Route path="/settings" element={<SettingsPage enabledModules={enabledModules} onModulesChange={setEnabledModules} />} />
           <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
         </Routes>

@@ -102,7 +102,17 @@ export interface PeriodSettings {
   notifyDaysBefore: number; // days before predicted period, default 2
 }
 
-export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period';
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+  sortOrder?: number; // For manual drag-drop reordering
+}
+
+export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period' | 'notes';
 
 export interface ModuleConfig {
   id: ModuleType;

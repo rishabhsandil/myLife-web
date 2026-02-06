@@ -193,6 +193,19 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS notes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      content TEXT DEFAULT '',
+      color TEXT DEFAULT '#FFFFFF',
+      sort_order INTEGER,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS todo_categories (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -279,7 +292,7 @@ export async function initDb() {
   await sql`
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'period'],
+      enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'period', 'notes'],
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
@@ -302,6 +315,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bodyparts_user ON body_parts(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id)`;
 }
 
