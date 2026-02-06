@@ -113,3 +113,13 @@
   background: #F5F3E8;
   color: #6B7C6D;
 }
+
+.btn.destructive {
+  background: #E63946;
+  color: white;
+}
+
+.btn.destructive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

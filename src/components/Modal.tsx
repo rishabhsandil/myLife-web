@@ -43,6 +43,7 @@ interface ModalFooterProps {
   cancelText?: string;
   submitText?: string;
   submitDisabled?: boolean;
+  submitDestructive?: boolean;
 }
 
 export function ModalFooter({ 
@@ -50,12 +51,17 @@ export function ModalFooter({
   onSubmit, 
   cancelText = 'Cancel', 
   submitText = 'Save',
-  submitDisabled = false 
+  submitDisabled = false,
+  submitDestructive = false
 }: ModalFooterProps) {
   return (
     <>
       <button className="btn secondary" onClick={onCancel}>{cancelText}</button>
-      <button className="btn primary" onClick={onSubmit} disabled={submitDisabled}>
+      <button 
+        className={`btn ${submitDestructive ? 'destructive' : 'primary'}`} 
+        onClick={onSubmit} 
+        disabled={submitDisabled}
+      >
         {submitText}
       </button>
     </>

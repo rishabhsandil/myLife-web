@@ -5,7 +5,7 @@
   "framework": "vite",
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -61,7 +61,7 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/assets/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -70,7 +70,7 @@
       ]
     },
     {
-      "source": "/(.*\\.(js|css))",
+      "source": "/:file*.(js|css)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -79,7 +79,7 @@
       ]
     },
     {
-      "source": "/(.*\\.(png|jpg|jpeg|gif|ico|svg|webp))",
+      "source": "/:file*.(png|jpg|jpeg|gif|ico|svg|webp)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -88,7 +88,7 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -100,6 +100,6 @@
   "rewrites": [
     { "source": "/api/cron", "destination": "/api/cron" },
     { "source": "/api/:route*", "destination": "/api?route=:route*" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/:path*", "destination": "/" }
   ]
 }
