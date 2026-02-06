@@ -38,7 +38,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return permission;
 }
 
-// Register service worker
+// Register service worker and setup auto-updates
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) {
     console.log('Service workers not supported');
@@ -46,12 +46,68 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
   
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js');
+    const registration = await navigator.serviceWorker.register('/sw.js', {
+      updateViaCache: 'none' // Always check for updates, bypass cache
+    });
     console.log('Service Worker registered:', registration.scope);
+    
+    // Check for updates immediately
+    registration.update();
+    
+    // Check for updates every 60 seconds
+    setInterval(() => {
+      registration.update();
+    }, 60000);
+    
+    // Listen for updates
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      console.log('Service Worker update found');
+      
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New service worker available, will activate on next visit or refresh
+            console.log('New service worker installed, updating...');
+          }
+        });
+      }
+    });
+    
+    // Reload page when new service worker takes control
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('New service worker activated, reloading...');
+        window.location.reload();
+      }
+    });
+    
     return registration;
   } catch (error) {
     console.error('Service Worker registration failed:', error);
     return null;
+  }
+}
+
+// Manually check for service worker updates
+export async function checkForUpdates(): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) {
+    return false;
+  }
+  
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration) {
+      await registration.update();
+      console.log('Checked for service worker updates');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Failed to check for updates:', error);
+    return false;
   }
 }
 
