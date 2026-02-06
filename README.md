@@ -117,6 +117,14 @@ Create a `.env` file in the root directory:
 ```env
 DATABASE_URL=your_neon_postgres_url
 JWT_SECRET=your_secret_key_here
+CRON_SECRET=your_cron_secret_here
+VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
+```
+
+To generate VAPID keys for push notifications:
+```bash
+npx web-push generate-vapid-keys
 ```
 
 4. Initialize the database:
@@ -182,11 +190,39 @@ The app uses PostgreSQL with the following main tables:
 
 1. Push your code to GitHub
 2. Import project in Vercel
-3. Add environment variables (DATABASE_URL, JWT_SECRET)
+3. Add environment variables:
+   - `DATABASE_URL` (from Neon)
+   - `JWT_SECRET` (random secure string)
+   - `CRON_SECRET` (optional, for securing cron endpoint)
+   - `VAPID_PUBLIC_KEY` (for push notifications)
+   - `VAPID_PRIVATE_KEY` (for push notifications)
 4. Deploy
 5. Visit `/api/init` to initialize database
 
 **Note**: The API has been optimized to use only 1 serverless function, staying within Vercel's Hobby plan limit of 12 functions.
+
+### ⏰ Setting Up Reminders (Cron Jobs)
+
+The app includes a cron job for sending reminder notifications at specific times. **Vercel Hobby accounts only support daily cron jobs**, which run once per day at midnight UTC. For precise minute-level reminders, you have two options:
+
+#### Option 1: Upgrade to Vercel Pro
+Upgrade your Vercel account to unlock all cron job frequencies (including per-minute execution).
+
+#### Option 2: Use External Cron Service (Free)
+Set up a free external cron service like [cron-job.org](https://cron-job.org) to trigger your endpoint every minute:
+
+1. Create a free account at [cron-job.org](https://cron-job.org)
+2. Create a new cron job with:
+   - **URL**: `https://your-app.vercel.app/api/cron?secret=YOUR_CRON_SECRET`
+   - **Schedule**: Every 1 minute (`* * * * *`)
+   - **Method**: GET
+3. Set `CRON_SECRET` environment variable in Vercel to protect your endpoint
+4. The cron handler accepts authentication via:
+   - Query parameter: `?secret=YOUR_SECRET`
+   - Header: `X-Cron-Secret: YOUR_SECRET`
+   - Header: `Authorization: Bearer YOUR_SECRET`
+
+This setup allows reminders to fire at their exact scheduled times throughout the day.
 
 ## 📱 Browser Support & Mobile Features
 

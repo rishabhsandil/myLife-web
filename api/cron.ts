@@ -52,8 +52,13 @@ async function sendNotificationToUser(userId: string, notification: { title: str
   }
 }
 
-// Main cron handler - runs every minute
-// Called by external cron service (cron-job.org) or Vercel Cron
+// Main cron handler
+// IMPORTANT: Vercel Hobby accounts only support daily cron jobs (default: runs at midnight UTC)
+// For minute-level precision (to send reminders at exact times):
+//   1. Upgrade to Vercel Pro, OR
+//   2. Use an external service like cron-job.org to call this endpoint every minute
+//      with ?secret=YOUR_CRON_SECRET query parameter
+// Called by Vercel Cron or external cron service
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Allow CORS for cron service
   res.setHeader('Access-Control-Allow-Origin', '*');
