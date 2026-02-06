@@ -270,8 +270,17 @@ export default function TodoPage() {
       let hasUpdates = false;
       
       const updatedTodos = todos.map(todo => {
-        // Skip if completed, recurring, or already processed today
-        if (todo.completed || todo.recurrence !== 'none' || todo.date >= today) {
+        // Skip if completed or already processed today
+        if (todo.completed || todo.date >= today) {
+          return todo;
+        }
+        
+        // Clear overdue flag for recurring tasks (they should never be marked as overdue)
+        if (todo.recurrence !== 'none') {
+          if (todo.overdue) {
+            hasUpdates = true;
+            return { ...todo, overdue: false };
+          }
           return todo;
         }
         
@@ -286,9 +295,13 @@ export default function TodoPage() {
       });
 
       if (hasUpdates) {
-        // Update all overdue tasks
+        // Update all modified tasks
         for (const todo of updatedTodos) {
-          if (todo.overdue && todos.find(t => t.id === todo.id)?.date !== today) {
+          const originalTodo = todos.find(t => t.id === todo.id);
+          if (!originalTodo) continue;
+          
+          // Update if overdue status changed or date changed
+          if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date) {
             await updateTodo(todo);
           }
         }
@@ -373,6 +386,10 @@ export default function TodoPage() {
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
+      
+      // Recurring tasks are never overdue - they appear fresh on each day
+      if (todo.recurrence !== 'none') return false;
+      
       const todoDateStr = todo.date.split('T')[0];
       // Task is overdue if its date is before the selected date
       return todoDateStr < selectedStr;
@@ -384,6 +401,10 @@ export default function TodoPage() {
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
+      
+      // Recurring tasks always go in incomplete (not overdue)
+      if (todo.recurrence !== 'none') return true;
+      
       const todoDateStr = todo.date.split('T')[0];
       // Task is for today (not overdue)
       return todoDateStr >= selectedStr;
