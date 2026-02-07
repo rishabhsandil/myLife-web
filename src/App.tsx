@@ -97,10 +97,16 @@ function AppContent() {
   const [enabledModules, setEnabledModules] = useState<ModuleType[]>(['todos', 'shopping', 'workout', 'period', 'notes']);
 
   useEffect(() => {
+    // Hide HTML splash screen when React loads
+    const htmlSplash = document.getElementById('splash-screen');
+    if (htmlSplash) {
+      htmlSplash.style.display = 'none';
+    }
+
     // Show splash screen for minimum time
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 3500);
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
