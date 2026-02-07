@@ -942,3 +942,53 @@
   color: #6B7C6D;
   margin-top: 2px;
 }
+
+/* Category View */
+.category-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px;
+}
+
+.category-chip {
+  padding: 8px 16px;
+  border: 2px solid;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.category-chip:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.category-chip.active {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.category-tasks-list {
+  padding: 0 20px 100px;
+}
+
+.category-task-item {
+  margin-bottom: 12px;
+}
+
+.category-task-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7C6D;
+  margin-bottom: 6px;
+  padding-left: 4px;
+}

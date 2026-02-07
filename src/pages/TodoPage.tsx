@@ -197,7 +197,8 @@ export default function TodoPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
-  const [activeView, setActiveView] = useState<'schedule' | 'backlog'>('schedule');
+  const [activeView, setActiveView] = useState<'schedule' | 'backlog' | 'categories'>('schedule');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   // Initialize collapsed months with all except current month collapsed
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(() => {
@@ -520,6 +521,34 @@ export default function TodoPage() {
     return backlogTasksByMonth.flatMap(group => group.tasks);
   }, [backlogTasksByMonth]);
 
+  // Get tasks by category (upcoming only)
+  const categoryTasks = useMemo(() => {
+    if (!selectedCategory) return [];
+    
+    // Get the category name from the ID
+    const selectedCategoryName = categories.find(c => c.id === selectedCategory)?.name;
+    if (!selectedCategoryName) return [];
+    
+    const today = formatDateKey(new Date());
+    return todos
+      .filter(todo => todo.category === selectedCategoryName && !todo.completed)
+      .filter(todo => {
+        // Include scheduled tasks (today or future)
+        if (todo.date && todo.date !== 'backlog') {
+          return todo.date >= today;
+        }
+        // Include backlog tasks
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by date, backlog items go to end
+        if (a.date === 'backlog' && b.date !== 'backlog') return 1;
+        if (b.date === 'backlog' && a.date !== 'backlog') return -1;
+        if (a.date && b.date) return a.date.localeCompare(b.date);
+        return 0;
+      });
+  }, [todos, selectedCategory, categories]);
+
   const resetForm = () => {
     setTitle('');
     setTaskDate(formatDateInput(selectedDate));
@@ -797,7 +826,11 @@ export default function TodoPage() {
             <p className="header-subtitle">
               {activeView === 'schedule' 
                 ? `${isToday(selectedDate) ? 'Today' : formatDate(selectedDate)} • ${todaysTasks.length} tasks`
-                : `Backlog • ${backlogTasks.length} tasks`
+                : activeView === 'backlog'
+                ? `Backlog • ${backlogTasks.length} tasks`
+                : selectedCategory
+                ? `${categories.find(c => c.id === selectedCategory)?.name || 'Category'} • ${categoryTasks.length} tasks`
+                : 'Select a category'
               }
             </p>
           </div>
@@ -830,6 +863,17 @@ export default function TodoPage() {
           onClick={() => setActiveView('backlog')}
         >
           Backlog
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'categories' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveView('categories');
+            if (!selectedCategory && categories.length > 0) {
+              setSelectedCategory(categories[0].id);
+            }
+          }}
+        >
+          Categories
         </button>
       </div>
 
@@ -896,6 +940,65 @@ export default function TodoPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : activeView === 'categories' ? (
+          <div className="category-view">
+            {/* Category Filter */}
+            <div className="category-filter">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  className={`category-chip ${selectedCategory === cat.id ? 'active' : ''}`}
+                  style={{
+                    borderColor: cat.color,
+                    backgroundColor: selectedCategory === cat.id ? cat.color : 'transparent',
+                    color: selectedCategory === cat.id ? '#fff' : cat.color,
+                  }}
+                  onClick={() => setSelectedCategory(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Category Tasks List */}
+            {!selectedCategory ? (
+              <EmptyState
+                icon={IoCalendarOutline}
+                message="Select a category to view tasks"
+              />
+            ) : categoryTasks.length === 0 ? (
+              <EmptyState
+                icon={IoCalendarOutline}
+                message="No upcoming tasks in this category"
+                action={{ label: 'Add Task', icon: IoAdd, onClick: openAddModal }}
+              />
+            ) : (
+              <div className="tasks-list category-tasks-list">
+                {categoryTasks.map((todo) => {
+                  const taskDate = todo.date && todo.date !== 'backlog' ? todo.date : null;
+                  const dateLabel = taskDate
+                    ? isToday(new Date(taskDate + 'T00:00:00'))
+                      ? 'Today'
+                      : formatDate(new Date(taskDate + 'T00:00:00'))
+                    : 'Backlog';
+
+                  return (
+                    <div key={todo.id} className="category-task-item">
+                      <div className="category-task-date">{dateLabel}</div>
+                      <SortableTaskItem
+                        todo={todo}
+                        completed={false}
+                        currentUserId={user?.id}
+                        onToggle={() => toggleComplete(todo)}
+                        onEdit={() => openEditModal(todo)}
+                        onDelete={() => deleteModal.open(todo)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : activeView === 'backlog' ? (
           <div className="tasks-list">
