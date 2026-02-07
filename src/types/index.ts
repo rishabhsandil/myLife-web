@@ -25,7 +25,7 @@ export interface TodoItem {
 }
 
 export type Priority = 'low' | 'medium' | 'high';
-export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
 export interface ShoppingItem {
   id: string;

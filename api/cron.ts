@@ -141,8 +141,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Always applies
           } else if (task.recurrence === 'weekly') {
             if (taskDate.getDay() !== today.getDay()) continue;
+          } else if (task.recurrence === 'biweekly') {
+            const daysDiff = Math.floor((today.getTime() - taskDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysDiff < 0 || daysDiff % 14 !== 0) continue;
           } else if (task.recurrence === 'monthly') {
-            if (taskDate.getDate() !== today.getDate()) continue;
+            const originalDay = taskDate.getDate();
+            const todayDay = today.getDate();
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            // If original day doesn't exist in current month, trigger on last day of month
+            const shouldTrigger = originalDay > lastDayOfMonth 
+              ? todayDay === lastDayOfMonth 
+              : todayDay === originalDay;
+            if (!shouldTrigger) continue;
           } else if (task.recurrence === 'yearly') {
             if (taskDate.getMonth() !== today.getMonth() || taskDate.getDate() !== today.getDate()) continue;
           }

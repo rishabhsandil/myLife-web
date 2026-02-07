@@ -38,6 +38,7 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: 'none', label: 'Once' },
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
+  { key: 'biweekly', label: 'Biweekly' },
   { key: 'monthly', label: 'Monthly' },
   { key: 'yearly', label: 'Yearly' },
 ];
@@ -266,12 +267,14 @@ export default function TodoPage() {
   // Check for overdue tasks and carry them forward
   useEffect(() => {
     const checkOverdueTasks = async () => {
-      const today = formatDateKey(new Date());
+      const now = new Date();
+      const today = formatDateKey(now);
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       let hasUpdates = false;
       
       const updatedTodos = todos.map(todo => {
-        // Skip if completed or already processed today
-        if (todo.completed || todo.date >= today) {
+        // Skip if completed
+        if (todo.completed) {
           return todo;
         }
         
@@ -284,14 +287,33 @@ export default function TodoPage() {
           return todo;
         }
         
-        // Task is from the past and not completed - mark as overdue and move to today
-        hasUpdates = true;
-        return {
-          ...todo,
-          originalDate: todo.originalDate || todo.date, // Preserve original date
-          date: today,
-          overdue: true,
-        };
+        // Check if task is overdue based on date and time
+        const isOverdue = todo.date < today || (todo.date === today && todo.time && todo.time < currentTime);
+        
+        // Task from the past - mark as overdue and move to today
+        if (todo.date < today) {
+          hasUpdates = true;
+          return {
+            ...todo,
+            originalDate: todo.originalDate || todo.date, // Preserve original date
+            date: today,
+            overdue: true,
+          };
+        }
+        
+        // Task is today with a time that has passed
+        if (isOverdue && todo.overdue !== true) {
+          hasUpdates = true;
+          return { ...todo, overdue: true };
+        }
+        
+        // Task is not overdue but was marked as overdue
+        if (!isOverdue && todo.overdue === true) {
+          hasUpdates = true;
+          return { ...todo, overdue: false };
+        }
+        
+        return todo;
       });
 
       if (hasUpdates) {
@@ -335,7 +357,20 @@ export default function TodoPage() {
     switch (todo.recurrence) {
       case 'daily': return true;
       case 'weekly': return checkDate.getDay() === todoDate.getDay();
-      case 'monthly': return checkDate.getDate() === todoDate.getDate();
+      case 'biweekly': {
+        const daysDiff = Math.floor((checkDate.getTime() - todoDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 0 && daysDiff % 14 === 0;
+      }
+      case 'monthly': {
+        const originalDay = todoDate.getDate();
+        const checkDay = checkDate.getDate();
+        const lastDayOfCheckMonth = new Date(checkDate.getFullYear(), checkDate.getMonth() + 1, 0).getDate();
+        // If original day doesn't exist in check month, show on last day of month
+        if (originalDay > lastDayOfCheckMonth) {
+          return checkDay === lastDayOfCheckMonth;
+        }
+        return checkDay === originalDay;
+      }
       case 'yearly':
         return checkDate.getDate() === todoDate.getDate() && checkDate.getMonth() === todoDate.getMonth();
       default: return false;
@@ -383,6 +418,9 @@ export default function TodoPage() {
 
   const overdueTasks = useMemo(() => {
     const selectedStr = formatDateKey(selectedDate);
+    const now = new Date();
+    const isSelectedToday = selectedStr === formatDateKey(now);
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
@@ -391,13 +429,24 @@ export default function TodoPage() {
       if (todo.recurrence !== 'none') return false;
       
       const todoDateStr = todo.date.split('T')[0];
+      
       // Task is overdue if its date is before the selected date
-      return todoDateStr < selectedStr;
+      if (todoDateStr < selectedStr) return true;
+      
+      // If selected date is today and task has a time, check if time has passed
+      if (isSelectedToday && todoDateStr === selectedStr && todo.time && todo.time < currentTime) {
+        return true;
+      }
+      
+      return false;
     });
   }, [todaysTasks, selectedDate]);
 
   const incompleteTasks = useMemo(() => {
     const selectedStr = formatDateKey(selectedDate);
+    const now = new Date();
+    const isSelectedToday = selectedStr === formatDateKey(now);
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
@@ -406,7 +455,16 @@ export default function TodoPage() {
       if (todo.recurrence !== 'none') return true;
       
       const todoDateStr = todo.date.split('T')[0];
-      // Task is for today (not overdue)
+      
+      // Task is overdue if its date is before the selected date
+      if (todoDateStr < selectedStr) return false;
+      
+      // If selected date is today and task has a time that has passed, it's overdue (not incomplete)
+      if (isSelectedToday && todoDateStr === selectedStr && todo.time && todo.time < currentTime) {
+        return false;
+      }
+      
+      // Task is for today or future (not overdue)
       return todoDateStr >= selectedStr;
     });
   }, [todaysTasks, selectedDate]);

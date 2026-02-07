@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
-import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline } from 'react-icons/io5';
+import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Image from '@tiptap/extension-image';
 import { Note } from '../types';
 import { getNotes as apiGetNotes, saveNote, updateNote, deleteNote as apiDeleteNote } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
@@ -31,6 +35,44 @@ export default function NotesPage() {
     { name: 'Green', value: '#AED581' },
     { name: 'Orange', value: '#FFB74D' },
   ];
+
+  // Tiptap editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'note-image',
+        },
+      }),
+    ],
+    content: noteContent,
+    onUpdate: ({ editor }) => {
+      setNoteContent(editor.getHTML());
+    },
+  });
+
+  // Update editor content when noteContent changes externally
+  useEffect(() => {
+    if (editor && editor.getHTML() !== noteContent) {
+      editor.commands.setContent(noteContent);
+    }
+  }, [noteContent, editor]);
 
   useEffect(() => {
     loadData();
@@ -63,6 +105,31 @@ export default function NotesPage() {
     setNoteContent(note.content);
     setNoteColor(note.color || '#FFFFFF');
     noteModal.open(note);
+  };
+
+  const handleImageAdd = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target?.result as string;
+          editor?.chain().focus().setImage({ src: base64 }).run();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleImageUrl = () => {
+    const url = window.prompt('Enter image URL:');
+    if (url) {
+      editor?.chain().focus().setImage({ src: url }).run();
+    }
   };
 
   const handleSave = async () => {
@@ -228,23 +295,106 @@ export default function NotesPage() {
         </FormGroup>
 
         <FormGroup label="Content">
-          <ReactQuill
-            value={noteContent}
-            onChange={setNoteContent}
-            placeholder="Start typing..."
-            className="note-editor"
-            modules={{
-              toolbar: [
-                ['bold', 'italic', 'underline', 'strike'],
-                ['blockquote', 'code-block'],
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                [{ 'list': 'check' }],
-                ['link'],
-                ['clean']
-              ]
-            }}
-            formats={['bold', 'italic', 'underline', 'strike', 'blockquote', 'code-block', 'list', 'link']}
-          />
+          <div className="note-editor">
+            <div className="editor-toolbar">
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                className={editor?.isActive('bold') ? 'is-active' : ''}
+                title="Bold"
+              >
+                <strong>B</strong>
+              </button>
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                className={editor?.isActive('italic') ? 'is-active' : ''}
+                title="Italic"
+              >
+                <em>I</em>
+              </button>
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleStrike().run()}
+                className={editor?.isActive('strike') ? 'is-active' : ''}
+                title="Strikethrough"
+              >
+                <span style={{ textDecoration: 'line-through' }}>S</span>
+              </button>
+              <div className="toolbar-separator" />
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                className={editor?.isActive('bulletList') ? 'is-active' : ''}
+                title="Bullet List"
+              >
+                <IoList />
+              </button>
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                className={editor?.isActive('orderedList') ? 'is-active' : ''}
+                title="Numbered List"
+              >
+                <span style={{ fontWeight: 'bold' }}>1.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleTaskList().run()}
+                className={editor?.isActive('taskList') ? 'is-active' : ''}
+                title="Task List"
+              >
+                <IoCheckboxOutline />
+              </button>
+              <div className="toolbar-separator" />
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                className={editor?.isActive('blockquote') ? 'is-active' : ''}
+                title="Quote"
+              >
+                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>"</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+                className={editor?.isActive('codeBlock') ? 'is-active' : ''}
+                title="Code Block"
+              >
+                <IoCode />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const url = window.prompt('Enter URL:');
+                  if (url) {
+                    editor?.chain().focus().setLink({ href: url }).run();
+                  }
+                }}
+                className={editor?.isActive('link') ? 'is-active' : ''}
+                title="Link"
+              >
+                <IoLink />
+              </button>
+              <div className="toolbar-separator" />
+              <button
+                type="button"
+                onClick={handleImageAdd}
+                title="Upload Image"
+              >
+                <IoImage />
+              </button>
+              <button
+                type="button"
+                onClick={handleImageUrl}
+                title="Image from URL"
+                style={{ fontSize: '12px', fontWeight: 'bold' }}
+              >
+                URL
+              </button>
+            </div>
+            <EditorContent editor={editor} className="editor-content" />
+          </div>
         </FormGroup>
 
         <FormGroup label="Color">

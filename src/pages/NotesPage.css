@@ -71,13 +71,13 @@
 .notes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  gap: 16px;
+  padding: 4px;
 }
 
 /* Note Card Wrapper */
 .note-card-wrapper {
   position: relative;
-  overflow: hidden;
   border-radius: 14px;
 }
 
@@ -94,6 +94,8 @@
   color: #EF4444;
   pointer-events: none;
   opacity: 0.8;
+  z-index: 0;
+  border-radius: 14px;
 }
 
 /* Note Card */
@@ -109,6 +111,7 @@
   display: flex;
   flex-direction: column;
   will-change: transform;
+  overflow: hidden;
 }
 
 .note-card:active {
@@ -175,91 +178,167 @@
   max-height: 70vh;
 }
 
+/* Tiptap Editor Styles */
 .note-editor {
   background: white;
   border-radius: 8px;
   border: 1px solid #E2E8F0;
+  overflow: hidden;
 }
 
-.note-editor .ql-toolbar {
-  border: 1px solid #E2E8F0;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: #F8FAFC;
-  padding: 8px;
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
+  padding: 8px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
 }
 
-.note-editor .ql-toolbar.ql-snow .ql-formats {
-  margin-right: 8px;
+.editor-toolbar button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #6B7C6D;
+  font-size: 16px;
+  transition: all 0.2s;
 }
 
-.note-editor .ql-toolbar.ql-snow .ql-stroke {
-  stroke: #6B7C6D;
+.editor-toolbar button:hover {
+  background: #E2E8F0;
+  color: #3D4A3E;
 }
 
-.note-editor .ql-toolbar button {
-  width: 28px;
-  height: 28px;
-  padding: 4px;
+.editor-toolbar button.is-active {
+  background: #F59E0B;
+  color: white;
 }
 
-.note-editor .ql-toolbar button svg {
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background: #E2E8F0;
+  margin: 4px 4px;
+}
+
+.editor-content {
+  min-height: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.editor-content .ProseMirror {
+  padding: 16px;
+  outline: none;
+  min-height: 300px;
+  color: #3D4A3E;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: 'Start typing...';
+  color: #94A3B8;
+  font-style: italic;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.editor-content .ProseMirror p {
+  margin: 0 0 0.5em 0;
+}
+
+.editor-content .ProseMirror ul,
+.editor-content .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.editor-content .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.editor-content .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.editor-content .ProseMirror ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.editor-content .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.editor-content .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  cursor: pointer;
   width: 16px;
   height: 16px;
 }
 
-.note-editor .ql-container {
-  border: none;
-  border-radius: 0 0 8px 8px;
-  min-height: 300px;
-  font-size: 14px;
-}
-
-.note-editor .ql-editor {
-  padding: 16px;
-  line-height: 1.6;
-  color: #3D4A3E;
-}
-
-.note-editor .ql-editor.ql-blank::before {
-  color: #94A3B8;
-  font-style: italic;
-}
-
-.note-editor .ql-editor ol li::before,
-.note-editor .ql-editor ul li::before {
+.editor-content .ProseMirror blockquote {
+  border-left: 3px solid #F59E0B;
+  padding-left: 1em;
+  margin: 0.5em 0;
   color: #6B7C6D;
 }
 
-.note-editor .ql-toolbar button:hover,
-.note-editor .ql-toolbar button:focus,
-.note-editor .ql-toolbar button.ql-active,
-.note-editor .ql-toolbar.ql-snow .ql-picker-label:hover,
-.note-editor .ql-toolbar.ql-snow .ql-picker-item:hover,
-.note-editor .ql-toolbar.ql-snow .ql-picker-item.ql-selected {
+.editor-content .ProseMirror pre {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.editor-content .ProseMirror code {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.editor-content .ProseMirror pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.editor-content .ProseMirror a {
   color: #F59E0B;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
-.note-editor .ql-toolbar.ql-snow .ql-stroke {
-  stroke: #6B7C6D;
+.editor-content .ProseMirror a:hover {
+  color: #D97706;
 }
 
-.note-editor .ql-toolbar.ql-snow .ql-stroke.ql-active,
-.note-editor .ql-toolbar.ql-snow .ql-stroke:hover {
-  stroke: #F59E0B;
+.editor-content .ProseMirror img.note-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+  display: block;
+  cursor: pointer;
 }
 
-.note-editor .ql-toolbar.ql-snow .ql-fill,
-.note-editor .ql-toolbar.ql-snow .ql-stroke.ql-fill {
-  fill: #6B7C6D;
-}
-
-.note-editor .ql-toolbar.ql-snow .ql-fill.ql-active,
-.note-editor .ql-toolbar.ql-snow .ql-fill:hover,
-.note-editor .ql-toolbar.ql-snow .ql-stroke.ql-fill.ql-active,
-.note-editor .ql-toolbar.ql-snow .ql-stroke.ql-fill:hover {
-  fill: #F59E0B;
+.editor-content .ProseMirror img.note-image:hover {
+  opacity: 0.9;
 }
 
 /* Color Picker Grid */
@@ -319,7 +398,8 @@
 
   .notes-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
+    gap: 12px;
+    padding: 4px;
   }
 }
 
@@ -358,7 +438,8 @@
 
   .notes-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
+    gap: 20px;
+    padding: 4px;
   }
 }
 
@@ -372,6 +453,7 @@
   }
 
   .notes-grid {
+    gap: 20px;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
