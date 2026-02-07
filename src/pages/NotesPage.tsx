@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage } from 'react-icons/io5';
+import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage, IoExpand, IoContract } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -25,6 +25,7 @@ export default function NotesPage() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteColor, setNoteColor] = useState('#FFFFFF');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const noteColors = [
     { name: 'White', value: '#FFFFFF' },
@@ -61,11 +62,11 @@ export default function NotesPage() {
         },
       }),
     ],
-    content: noteContent,
+    content: '',
     onUpdate: ({ editor }) => {
       setNoteContent(editor.getHTML());
     },
-  });
+  }, []);
 
   // Update editor content when noteContent changes externally
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function NotesPage() {
     setNoteTitle('');
     setNoteContent('');
     setNoteColor('#FFFFFF');
+    setIsFullscreen(false);
   };
 
   const openAddModal = () => {
@@ -275,7 +277,7 @@ export default function NotesPage() {
         isOpen={noteModal.isOpen}
         onClose={noteModal.close}
         title={noteModal.data ? 'Edit Note' : 'New Note'}
-        className="note-modal"
+        className={`note-modal ${isFullscreen ? 'note-modal-fullscreen' : ''}`}
         footer={
           <ModalFooter
             onCancel={noteModal.close}
@@ -391,6 +393,15 @@ export default function NotesPage() {
                 style={{ fontSize: '12px', fontWeight: 'bold' }}
               >
                 URL
+              </button>
+              <div className="toolbar-separator" />
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className={isFullscreen ? 'is-active' : ''}
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              >
+                {isFullscreen ? <IoContract /> : <IoExpand />}
               </button>
             </div>
             <EditorContent editor={editor} className="editor-content" />
