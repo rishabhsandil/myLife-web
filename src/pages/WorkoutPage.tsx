@@ -158,7 +158,12 @@ export default function WorkoutPage() {
 
   // Drag and drop sensors
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -508,6 +513,7 @@ export default function WorkoutPage() {
             }}
             submitText="Delete"
             cancelText="Cancel"
+            submitDestructive
           />
         }
       >

@@ -441,6 +441,7 @@ export default function NotesPage() {
             }}
             submitText="Delete"
             cancelText="Cancel"
+            submitDestructive
           />
         }
       >

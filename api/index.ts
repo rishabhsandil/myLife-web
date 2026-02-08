@@ -443,6 +443,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
         SELECT si.id, si.name, si.quantity, si.store_id as "storeId", si.completed, 
           si.created_at as "createdAt", si.user_id as "ownerId",
           u.name as "ownerName", ss.name as "storeName",
+          si.sort_order as "sortOrder",
           CASE WHEN si.user_id = ${userId} THEN true ELSE false END as "isOwn"
         FROM shopping_items si
         JOIN users u ON si.user_id = u.id
@@ -451,7 +452,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
            OR si.user_id IN (
              SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
            )
-        ORDER BY si.completed ASC, si.created_at DESC
+        ORDER BY si.completed ASC, si.sort_order ASC NULLS LAST, si.created_at DESC
       `;
       return res.status(200).json(rows);
     }
@@ -751,8 +752,8 @@ async function handleExercises(req: VercelRequest, res: VercelResponse, userId: 
   switch (req.method) {
     case 'GET': {
       const rows = await sql`
-        SELECT id, name, body_part as "bodyPart", sets, reps, weight
-        FROM exercises WHERE user_id = ${userId} ORDER BY body_part, name
+        SELECT id, name, body_part as "bodyPart", sets, reps, weight, sort_order as "sortOrder"
+        FROM exercises WHERE user_id = ${userId} ORDER BY body_part, sort_order ASC NULLS LAST, name
       `;
       return res.status(200).json(rows);
     }

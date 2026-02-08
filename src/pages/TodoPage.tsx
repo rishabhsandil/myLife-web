@@ -82,6 +82,7 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id: todo.id });
 
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -129,7 +130,7 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''}`}
+      className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`}
     >
       <div className="swipe-delete-bg">
         <IoTrash size={20} />
@@ -243,7 +244,12 @@ export default function TodoPage() {
 
   // Drag and drop sensors
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -1189,12 +1195,24 @@ export default function TodoPage() {
             />
           </FormGroup>
           <FormGroup label="Time (optional)">
-            <input
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-              disabled={isBacklogTask}
-            />
+            <div className="time-input-wrapper">
+              <input
+                type="time"
+                value={time}
+                onChange={e => setTime(e.target.value)}
+                disabled={isBacklogTask}
+              />
+              {time && !isBacklogTask && (
+                <button
+                  type="button"
+                  className="time-clear-btn"
+                  onClick={() => setTime('')}
+                  aria-label="Clear time"
+                >
+                  <IoClose size={16} />
+                </button>
+              )}
+            </div>
           </FormGroup>
         </FormRow>
 

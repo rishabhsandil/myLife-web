@@ -5,6 +5,64 @@
   background: #FDFCF5;
 }
 
+/* Time input wrapper with clear button */
+.time-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.time-input-wrapper input[type="time"] {
+  width: 100%;
+  padding-right: 50px;
+}
+
+.time-clear-btn {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #94A3B8;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .time-clear-btn:hover {
+    background: #64748B;
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.time-clear-btn:active {
+  transform: translateY(-50%) scale(0.92);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Dragging state */
+.task-item.dragging {
+  opacity: 0.5;
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+  background: #FFFFFF;
+  border: 2px dashed #8CB369;
+}
+
+.task-item.dragging .task-item-content {
+  background: rgba(140, 179, 105, 0.05);
+}
+
 /* Header */
 .todo-header {
   display: flex;
@@ -581,7 +639,7 @@
   padding: 8px 10px;
   border: 1.5px solid #E5E1D0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 16px;
   color: #3D4A3E;
   background: white;
   cursor: pointer;
@@ -769,7 +827,7 @@
   padding: 10px 12px;
   border: 1px solid #E0DCC8;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .store-edit-actions {
@@ -791,7 +849,7 @@
   padding: 10px 12px;
   border: 1px solid #E0DCC8;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .add-store-form .btn {
@@ -807,7 +865,7 @@
   padding: 12px;
   border: 2px solid #EBE8D5;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   background: white;
   color: #3D4A3E;
   cursor: pointer;
