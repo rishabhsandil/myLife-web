@@ -95,6 +95,7 @@ export interface WorkoutSession {
   id: string;
   bodyPartId: string;
   bodyPartName: string;
+  date: string; // YYYY-MM-DD format
   startTime: string;
   endTime?: string;
   duration?: number; // seconds

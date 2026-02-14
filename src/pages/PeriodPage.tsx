@@ -30,6 +30,7 @@ export default function PeriodPage() {
 
   const cycleModal = useModal<PeriodCycle>();
   const settingsModal = useModal();
+  const deleteModal = useModal<PeriodCycle>();
 
   // Form state
   const [startDate, setStartDate] = useState(formatDateInput(new Date()));
@@ -303,7 +304,7 @@ export default function PeriodPage() {
                   <button className="cycle-edit" onClick={() => openEditModal(cycle)}>
                     <IoPencil size={18} color={colors.primary} />
                   </button>
-                  <button className="cycle-delete" onClick={() => handleDelete(cycle.id)}>
+                  <button className="cycle-delete" onClick={() => deleteModal.open(cycle)}>
                     <IoTrash size={18} color={colors.error} />
                   </button>
                 </div>
@@ -395,6 +396,31 @@ export default function PeriodPage() {
           />
           <p className="form-hint">Get alerted {notifyDays} day{notifyDays !== 1 ? 's' : ''} before your predicted period</p>
         </FormGroup>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.close}
+        title="Delete Period Cycle"
+        footer={
+          <ModalFooter
+            onCancel={deleteModal.close}
+            onSubmit={() => {
+              if (deleteModal.data) {
+                handleDelete(deleteModal.data.id);
+                deleteModal.close();
+              }
+            }}
+            submitText="Delete"
+            submitDestructive={true}
+          />
+        }
+      >
+        <p>Are you sure you want to delete this period cycle?</p>
+        {deleteModal.data && (
+          <p><strong>{new Date(deleteModal.data.startDate).toLocaleDateString()} - {deleteModal.data.endDate ? new Date(deleteModal.data.endDate).toLocaleDateString() : 'Ongoing'}</strong></p>
+        )}
       </Modal>
     </div>
   );

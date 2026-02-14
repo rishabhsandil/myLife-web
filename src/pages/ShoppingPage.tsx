@@ -149,6 +149,7 @@ export default function ShoppingPage() {
   const historyModal = useModal();
   const settingsModal = useModal();
   const deleteModal = useModal<ShoppingItem>();
+  const deleteStoreModal = useModal<ShoppingStore>();
 
   // Form state
   const [name, setName] = useState('');
@@ -702,7 +703,7 @@ export default function ShoppingPage() {
                     <button className="edit-store-btn" onClick={() => openEditStore(store)}>
                       <IoPencil size={16} />
                     </button>
-                    <button className="delete-store-btn" onClick={() => handleDeleteStore(store.id)}>
+                    <button className="delete-store-btn" onClick={() => deleteStoreModal.open(store)}>
                       <IoTrash size={16} />
                     </button>
                   </div>
@@ -816,6 +817,34 @@ export default function ShoppingPage() {
             ))
           )}
         </div>
+      </Modal>
+
+      {/* Delete Store Confirmation Modal */}
+      <Modal
+        isOpen={deleteStoreModal.isOpen}
+        onClose={deleteStoreModal.close}
+        title="Delete Store"
+        footer={
+          <ModalFooter
+            onCancel={deleteStoreModal.close}
+            onSubmit={() => {
+              if (deleteStoreModal.data) {
+                handleDeleteStore(deleteStoreModal.data.id);
+                deleteStoreModal.close();
+              }
+            }}
+            submitText="Delete"
+            submitDestructive={true}
+          />
+        }
+      >
+        <p>Are you sure you want to delete this store?</p>
+        {deleteStoreModal.data && (
+          <>
+            <p><strong>{deleteStoreModal.data.name}</strong></p>
+            <p>This will also delete all {items.filter(i => i.storeId === deleteStoreModal.data!.id).length} item{items.filter(i => i.storeId === deleteStoreModal.data!.id).length !== 1 ? 's' : ''} in this store.</p>
+          </>
+        )}
       </Modal>
     </div>
   );

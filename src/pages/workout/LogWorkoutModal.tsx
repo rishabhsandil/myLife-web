@@ -128,6 +128,7 @@ export function LogWorkoutModal({
       id: `ws_${Date.now()}`,
       bodyPartId: selectedBodyPartId,
       bodyPartName: selectedBodyPart.name,
+      date: workoutDate,
       startTime: startDate.toISOString(),
       endTime: new Date(startDate.getTime() + durationMinutes * 60000).toISOString(),
       duration: durationMinutes * 60,

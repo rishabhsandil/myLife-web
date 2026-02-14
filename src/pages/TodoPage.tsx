@@ -247,6 +247,7 @@ export default function TodoPage() {
   const taskModal = useModal<TodoItem>();
   const deleteModal = useModal<TodoItem>();
   const categoryModal = useModal();
+  const deleteCategoryModal = useModal<{ id: string; name: string; color: string }>();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -1528,7 +1529,7 @@ export default function TodoPage() {
                     <button className="edit-store-btn" onClick={() => openEditCategory(cat)}>
                       <IoPencil size={16} />
                     </button>
-                    <button className="delete-store-btn" onClick={() => handleDeleteCategory(cat.id)}>
+                    <button className="delete-store-btn" onClick={() => deleteCategoryModal.open(cat)}>
                       <IoTrash size={16} />
                     </button>
                   </div>
@@ -1559,6 +1560,34 @@ export default function TodoPage() {
               <IoAdd size={18} /> Add Category
             </button>
           </div>
+        )}
+      </Modal>
+
+      {/* Delete Category Confirmation Modal */}
+      <Modal
+        isOpen={deleteCategoryModal.isOpen}
+        onClose={deleteCategoryModal.close}
+        title="Delete Category"
+        footer={
+          <ModalFooter
+            onCancel={deleteCategoryModal.close}
+            onSubmit={() => {
+              if (deleteCategoryModal.data) {
+                handleDeleteCategory(deleteCategoryModal.data.id);
+                deleteCategoryModal.close();
+              }
+            }}
+            submitText="Delete"
+            submitDestructive={true}
+          />
+        }
+      >
+        <p>Are you sure you want to delete this category?</p>
+        {deleteCategoryModal.data && (
+          <>
+            <p><strong>{deleteCategoryModal.data.name}</strong></p>
+            <p>Tasks with this category will not be deleted, but will lose their category assignment.</p>
+          </>
         )}
       </Modal>
     </div>

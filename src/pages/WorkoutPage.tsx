@@ -60,6 +60,8 @@ export default function WorkoutPage() {
   const exerciseModal = useModal<Exercise>();
   const settingsModal = useModal();
   const deleteModal = useModal<Exercise>();
+  const deleteBodyPartModal = useModal<BodyPart>();
+  const deleteSessionModal = useModal<WorkoutSession>();
   const startWorkoutModal = useModal();
   const summaryModal = useModal<WorkoutSession>();
   const logWorkoutModal = useModal();
@@ -222,13 +224,15 @@ export default function WorkoutPage() {
     if (!bp) return;
 
     const sessionExercises = buildSessionExercises(exercises, bodyPartId);
+    const now = new Date();
     const session: WorkoutSession = {
       id: `ws_${Date.now()}`,
       bodyPartId: bp.id,
       bodyPartName: bp.name,
-      startTime: new Date().toISOString(),
+      date: now.toISOString().split('T')[0], // YYYY-MM-DD
+      startTime: now.toISOString(),
       exercises: sessionExercises,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
     };
 
     setActiveSession(session);
@@ -369,7 +373,10 @@ export default function WorkoutPage() {
           bodyParts={bodyParts}
           weightUnit={weightUnit}
           displayWeight={displayWeight}
-          onDeleteSession={handleDeleteSession}
+          onDeleteSession={(id) => {
+            const session = workoutHistory.find(s => s.id === id);
+            if (session) deleteSessionModal.open(session);
+          }}
           onStartWorkout={() => { setShowHistory(false); startWorkoutModal.open(); }}
         />
       ) : (
@@ -552,7 +559,7 @@ export default function WorkoutPage() {
                   <span className="body-part-name">{bp.name}</span>
                   <span className="body-part-exercise-count">{exercises.filter(e => e.bodyPart === bp.id).length} exercises</span>
                   <button className="edit-bp-btn" onClick={() => openEditBodyPart(bp)}><IoPencil size={16} /></button>
-                  <button className="delete-bp-btn" onClick={() => handleDeleteBodyPart(bp.id)}><IoTrash size={16} /></button>
+                  <button className="delete-bp-btn" onClick={() => deleteBodyPartModal.open(bp)}><IoTrash size={16} /></button>
                 </>
               )}
             </div>
@@ -588,6 +595,59 @@ export default function WorkoutPage() {
         weightUnit={weightUnit}
         onSave={handleLogWorkout}
       />
+
+      {/* Delete Body Part Confirmation Modal */}
+      <Modal
+        isOpen={deleteBodyPartModal.isOpen}
+        onClose={deleteBodyPartModal.close}
+        title="Delete Split"
+        footer={
+          <ModalFooter
+            onCancel={deleteBodyPartModal.close}
+            onSubmit={() => {
+              if (deleteBodyPartModal.data) {
+                handleDeleteBodyPart(deleteBodyPartModal.data.id);
+                deleteBodyPartModal.close();
+              }
+            }}
+            submitText="Delete"
+            submitDestructive={true}
+          />
+        }
+      >
+        <p>Are you sure you want to delete this split?</p>
+        {deleteBodyPartModal.data && (
+          <>
+            <p><strong>{deleteBodyPartModal.data.name}</strong></p>
+            <p>This will also delete all {exercises.filter(e => e.bodyPart === deleteBodyPartModal.data!.id).length} exercise{exercises.filter(e => e.bodyPart === deleteBodyPartModal.data!.id).length !== 1 ? 's' : ''} in this split.</p>
+          </>
+        )}
+      </Modal>
+
+      {/* Delete Session Confirmation Modal */}
+      <Modal
+        isOpen={deleteSessionModal.isOpen}
+        onClose={deleteSessionModal.close}
+        title="Delete Workout"
+        footer={
+          <ModalFooter
+            onCancel={deleteSessionModal.close}
+            onSubmit={() => {
+              if (deleteSessionModal.data) {
+                handleDeleteSession(deleteSessionModal.data.id);
+                deleteSessionModal.close();
+              }
+            }}
+            submitText="Delete"
+            submitDestructive={true}
+          />
+        }
+      >
+        <p>Are you sure you want to delete this workout?</p>
+        {deleteSessionModal.data && (
+          <p><strong>{deleteSessionModal.data.bodyPartName} - {new Date(deleteSessionModal.data.date).toLocaleDateString()}</strong></p>
+        )}
+      </Modal>
     </div>
   );
 }
