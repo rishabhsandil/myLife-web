@@ -875,7 +875,7 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
     case 'GET': {
       const rows = await sql`
         SELECT id, body_part_id as "bodyPartId", body_part_name as "bodyPartName",
-               start_time as "startTime", end_time as "endTime", duration,
+               date, start_time as "startTime", end_time as "endTime", duration,
                exercises, created_at as "createdAt"
         FROM workout_sessions WHERE user_id = ${userId} ORDER BY created_at DESC
       `;
