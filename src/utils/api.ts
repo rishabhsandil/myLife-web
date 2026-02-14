@@ -19,7 +19,11 @@ async function api<T>(endpoint: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const errorMsg = errorData.error || errorData.details || `API error: ${res.status}`;
+    throw new Error(errorMsg);
+  }
   return res.json();
 }
 
@@ -189,6 +193,8 @@ export async function saveWorkoutSession(session: WorkoutSession): Promise<void>
     });
   } catch (error) {
     console.error('Failed to save workout session:', error);
+    console.error('Session data:', session);
+    throw error; // Re-throw so the caller knows it failed
   }
 }
 

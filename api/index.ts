@@ -887,16 +887,23 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
       return res.status(200).json(parsed);
     }
     case 'POST': {
-      const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
-      await sql`
-        INSERT INTO workout_sessions (id, user_id, body_part_id, body_part_name, start_time, end_time, duration, exercises)
-        VALUES (${id}, ${userId}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
-        ON CONFLICT (id) DO UPDATE SET 
-          body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
-          start_time = ${startTime}, end_time = ${endTime || null},
-          duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
-      `;
-      return res.status(201).json({ success: true });
+      try {
+        console.log('POST /api/workouts - Request body:', JSON.stringify(req.body, null, 2));
+        const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
+        console.log('Extracted fields:', { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercisesCount: exercises?.length });
+        await sql`
+          INSERT INTO workout_sessions (id, user_id, body_part_id, body_part_name, start_time, end_time, duration, exercises)
+          VALUES (${id}, ${userId}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
+          ON CONFLICT (id) DO UPDATE SET 
+            body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
+            start_time = ${startTime}, end_time = ${endTime || null},
+            duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
+        `;
+        return res.status(201).json({ success: true });
+      } catch (error) {
+        console.error('Error saving workout session:', error);
+        return res.status(500).json({ error: 'Failed to save workout session', details: error instanceof Error ? error.message : String(error) });
+      }
     }
     case 'PUT': {
       const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;

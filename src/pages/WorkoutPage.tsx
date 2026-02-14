@@ -278,22 +278,28 @@ export default function WorkoutPage() {
   };
 
   const handleLogWorkout = async (session: WorkoutSession) => {
-    await saveWorkoutSession(session);
+    try {
+      await saveWorkoutSession(session);
 
-    // Update PRs from logged workout
-    for (const sessionEx of session.exercises) {
-      const exercise = exercises.find(e => e.id === sessionEx.exerciseId);
-      if (!exercise) continue;
-      const maxWeight = Math.max(...sessionEx.sets.filter(s => s.completed).map(s => s.weight), 0);
-      if (maxWeight > exercise.weight) {
-        const updated = { ...exercise, weight: maxWeight };
-        await updateExercise(updated);
-        setExercises(prev => prev.map(e => e.id === updated.id ? updated : e));
+      // Update PRs from logged workout
+      for (const sessionEx of session.exercises) {
+        const exercise = exercises.find(e => e.id === sessionEx.exerciseId);
+        if (!exercise) continue;
+        const maxWeight = Math.max(...sessionEx.sets.filter(s => s.completed).map(s => s.weight), 0);
+        if (maxWeight > exercise.weight) {
+          const updated = { ...exercise, weight: maxWeight };
+          await updateExercise(updated);
+          setExercises(prev => prev.map(e => e.id === updated.id ? updated : e));
+        }
       }
-    }
 
-    // Refresh history if visible
-    if (showHistory) { await loadHistory(); }
+      // Refresh history if visible
+      if (showHistory) { await loadHistory(); }
+    } catch (error) {
+      console.error('Error logging workout:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to save workout: ${errorMsg}`);
+    }
   };
 
   // ============ RENDER: ACTIVE SESSION ============
