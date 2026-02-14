@@ -90,6 +90,33 @@ export interface BodyPart {
 
 export type WeightUnit = 'kg' | 'lbs';
 
+// Workout Session Tracking
+export interface WorkoutSession {
+  id: string;
+  bodyPartId: string;
+  bodyPartName: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number; // seconds
+  exercises: WorkoutSessionExercise[];
+  createdAt: string;
+}
+
+export interface WorkoutSessionExercise {
+  exerciseId: string;
+  exerciseName: string;
+  sets: WorkoutSetLog[];
+  completed: boolean;
+}
+
+export interface WorkoutSetLog {
+  setNumber: number;
+  targetReps: number;
+  actualReps: number;
+  weight: number; // in kg always
+  completed: boolean;
+}
+
 export interface PeriodCycle {
   id: string;
   startDate: string;

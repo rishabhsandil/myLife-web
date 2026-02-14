@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note } from '../types';
+import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note, WorkoutSession } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -169,6 +169,36 @@ export const getBodyParts = bodyPartsApi.getAll;
 export const saveBodyPart = bodyPartsApi.create;
 export const updateBodyPart = bodyPartsApi.update;
 export const deleteBodyPart = bodyPartsApi.delete;
+
+// ============ WORKOUT SESSIONS ============
+export async function getWorkoutSessions(): Promise<WorkoutSession[]> {
+  try {
+    return await api<WorkoutSession[]>('workouts');
+  } catch (error) {
+    console.error('Failed to fetch workout sessions:', error);
+    const data = localStorage.getItem('almostadult_workout_sessions');
+    return data ? JSON.parse(data) : [];
+  }
+}
+
+export async function saveWorkoutSession(session: WorkoutSession): Promise<void> {
+  try {
+    await api('workouts', {
+      method: 'POST',
+      body: JSON.stringify(session),
+    });
+  } catch (error) {
+    console.error('Failed to save workout session:', error);
+  }
+}
+
+export async function deleteWorkoutSession(id: string): Promise<void> {
+  try {
+    await api(`workouts?id=${id}`, { method: 'DELETE' });
+  } catch (error) {
+    console.error('Failed to delete workout session:', error);
+  }
+}
 
 // ============ NOTES ============
 export const getNotes = notesApi.getAll;

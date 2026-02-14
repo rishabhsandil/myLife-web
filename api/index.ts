@@ -874,23 +874,37 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
   switch (req.method) {
     case 'GET': {
       const rows = await sql`
-        SELECT id, date, exercises FROM workout_sessions WHERE user_id = ${userId} ORDER BY date DESC
+        SELECT id, body_part_id as "bodyPartId", body_part_name as "bodyPartName",
+               start_time as "startTime", end_time as "endTime", duration,
+               exercises, created_at as "createdAt"
+        FROM workout_sessions WHERE user_id = ${userId} ORDER BY created_at DESC
       `;
-      return res.status(200).json(rows);
+      // Parse exercises JSON
+      const parsed = rows.map((r: Record<string, unknown>) => ({
+        ...r,
+        exercises: typeof r.exercises === 'string' ? JSON.parse(r.exercises as string) : r.exercises,
+      }));
+      return res.status(200).json(parsed);
     }
     case 'POST': {
-      const { id, date, exercises } = req.body;
+      const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
       await sql`
-        INSERT INTO workout_sessions (id, user_id, date, exercises)
-        VALUES (${id}, ${userId}, ${date}, ${JSON.stringify(exercises)})
-        ON CONFLICT (id) DO UPDATE SET exercises = ${JSON.stringify(exercises)}
+        INSERT INTO workout_sessions (id, user_id, body_part_id, body_part_name, start_time, end_time, duration, exercises)
+        VALUES (${id}, ${userId}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
+        ON CONFLICT (id) DO UPDATE SET 
+          body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
+          start_time = ${startTime}, end_time = ${endTime || null},
+          duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
       `;
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, date, exercises } = req.body;
+      const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
       await sql`
-        UPDATE workout_sessions SET date = ${date}, exercises = ${JSON.stringify(exercises)}
+        UPDATE workout_sessions SET 
+          body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
+          start_time = ${startTime}, end_time = ${endTime || null},
+          duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
         WHERE id = ${id} AND user_id = ${userId}
       `;
       return res.status(200).json({ success: true });

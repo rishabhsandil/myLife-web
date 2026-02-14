@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, Exercise, WeightUnit, Note } from '../types';
+import { TodoItem, ShoppingItem, Exercise, WeightUnit, Note, WorkoutSession } from '../types';
 
 const STORAGE_KEYS = {
   TODOS: 'almostadult_todos',
@@ -57,6 +57,22 @@ export const getNotes = (): Note[] => {
 
 export const saveNotes = (notes: Note[]): void => {
   localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notes));
+};
+
+// Active Workout Session (persisted in localStorage for crash recovery)
+const ACTIVE_SESSION_KEY = 'almostadult_active_workout_session';
+
+export const getActiveWorkoutSession = (): WorkoutSession | null => {
+  const data = localStorage.getItem(ACTIVE_SESSION_KEY);
+  return data ? JSON.parse(data) : null;
+};
+
+export const saveActiveWorkoutSession = (session: WorkoutSession): void => {
+  localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+};
+
+export const clearActiveWorkoutSession = (): void => {
+  localStorage.removeItem(ACTIVE_SESSION_KEY);
 };
 
 // Backup functions

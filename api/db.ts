@@ -318,6 +318,39 @@ export async function initDb() {
     WHERE NOT ('notes' = ANY(enabled_modules))
   `;
 
+  // Workout sessions table
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body_part_id TEXT,
+      body_part_name TEXT,
+      start_time TEXT,
+      end_time TEXT,
+      duration INTEGER DEFAULT 0,
+      exercises JSONB DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id)`;
+
+  // Migration: Add new columns to workout_sessions if they don't exist
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'workout_sessions' AND column_name = 'body_part_id'
+      ) THEN
+        ALTER TABLE workout_sessions ADD COLUMN body_part_id TEXT;
+        ALTER TABLE workout_sessions ADD COLUMN body_part_name TEXT;
+        ALTER TABLE workout_sessions ADD COLUMN start_time TEXT;
+        ALTER TABLE workout_sessions ADD COLUMN end_time TEXT;
+        ALTER TABLE workout_sessions ADD COLUMN duration INTEGER DEFAULT 0;
+      END IF;
+    END $$;
+  `;
+
   // Push notification subscriptions
   await sql`
     CREATE TABLE IF NOT EXISTS push_subscriptions (
