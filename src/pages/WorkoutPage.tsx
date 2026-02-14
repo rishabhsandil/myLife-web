@@ -339,11 +339,11 @@ export default function WorkoutPage() {
         <div className="header-actions">
           {bodyParts.length > 0 && (
             <>
-              <button className="header-icon-btn log-btn" onClick={() => logWorkoutModal.open()} title="Log past workout">
-                <IoClipboard size={20} />
-              </button>
               <button className="header-icon-btn start-btn" onClick={() => startWorkoutModal.open()}>
                 <IoPlay size={20} />
+              </button>
+               <button className="header-icon-btn log-btn" onClick={() => logWorkoutModal.open()} title="Log past workout">
+                <IoClipboard size={20} />
               </button>
             </>
           )}

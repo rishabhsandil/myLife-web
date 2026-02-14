@@ -1,13 +1,91 @@
+import { useState, useMemo } from 'react';
 import {
   IoBarbell, IoTrash, IoTime, IoFlame, IoCalendar, IoPlay,
-  IoCheckmarkCircle,
+  IoCheckmarkCircle, IoChevronBack, IoChevronForward,
 } from 'react-icons/io5';
+import { useSwipeable } from 'react-swipeable';
 import { BodyPart, WeightUnit, WorkoutSession } from '../../types';
 import { formatDuration, getSessionStats, getBodyPartColor } from './helpers';
 import { Modal } from '../../components';
 import { EmptyState } from '../../components';
 import { useModal } from '../../hooks';
 import { colors } from '../../utils/theme';
+
+interface SwipeableHistoryCardProps {
+  session: WorkoutSession;
+  bodyPartColor: string;
+  onDelete: () => void;
+  onClick: () => void;
+}
+
+function SwipeableHistoryCard({ session, bodyPartColor, onDelete, onClick }: SwipeableHistoryCardProps) {
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const resetSwipe = () => {
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (eventData.dir === 'Left') {
+        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
+        setSwipeOffset(offset);
+        setIsSwiping(true);
+      }
+    },
+    onSwiped: (eventData) => {
+      if (eventData.dir === 'Left' && swipeOffset < -70) {
+        onDelete();
+        setTimeout(resetSwipe, 300);
+      } else {
+        resetSwipe();
+      }
+      setIsSwiping(false);
+    },
+    trackMouse: false,
+    preventScrollOnSwipe: false,
+  });
+
+  const contentStyle = {
+    transform: `translateX(${swipeOffset}px)`,
+    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  };
+
+  const st = getSessionStats(session);
+  const date = new Date(session.startTime);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  return (
+    <div className="history-card-wrapper">
+      <div className="swipe-delete-bg">
+        <IoTrash size={20} />
+      </div>
+      <div className="history-card" style={contentStyle} {...swipeHandlers} onClick={onClick}>
+        <div className="history-card-header">
+          <div
+            className="history-split-badge"
+            style={{ background: bodyPartColor + '20', color: bodyPartColor }}
+          >
+            {session.bodyPartName}
+          </div>
+        </div>
+        <div className="history-card-date">
+          {dateStr} · {timeStr}
+        </div>
+        <div className="history-card-stats">
+          <span><IoFlame size={12} /> {st.completedExercises} exercises</span>
+          <span><IoBarbell size={12} /> {st.completedSets} sets</span>
+          {(session.duration ?? 0) > 0 && (
+            <span><IoTime size={12} /> {formatDuration(session.duration || 0)}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface WorkoutHistoryProps {
   sessions: WorkoutSession[];
@@ -27,8 +105,54 @@ export function WorkoutHistory({
   onStartWorkout,
 }: WorkoutHistoryProps) {
   const detailModal = useModal<WorkoutSession>();
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
 
   const bpColor = (partId: string) => getBodyPartColor(bodyParts, partId, colors.primary);
+
+  // Get the start of the week for display
+  const getWeekDays = (offset: number) => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek + offset * 7);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      return day;
+    });
+  };
+
+  const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+
+  // Group sessions by date
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, WorkoutSession[]>();
+    sessions.forEach(session => {
+      const date = new Date(session.startTime);
+      const dateKey = date.toISOString().split('T')[0];
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(session);
+    });
+    return map;
+  }, [sessions]);
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  const getMonthYearLabel = () => {
+    const firstDay = weekDays[0];
+    const lastDay = weekDays[6];
+    if (firstDay.getMonth() === lastDay.getMonth()) {
+      return firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    return `${firstDay.toLocaleDateString('en-US', { month: 'short' })} - ${lastDay.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+  };
 
   return (
     <>
@@ -40,42 +164,64 @@ export function WorkoutHistory({
             action={{ label: 'Start Workout', icon: IoPlay, onClick: onStartWorkout }}
           />
         ) : (
-          <div className="history-list">
-            {sessions.map(session => {
-              const st = getSessionStats(session);
-              const date = new Date(session.startTime);
-              const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-              const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-              return (
-                <div key={session.id} className="history-card" onClick={() => detailModal.open(session)}>
-                  <div className="history-card-header">
+          <>
+            {/* Week Calendar View */}
+            <div className="week-calendar">
+              <div className="week-calendar-header">
+                <button className="week-nav-btn" onClick={() => setWeekOffset(weekOffset - 1)}>
+                  <IoChevronBack size={18} />
+                </button>
+                <span className="week-month-label">{getMonthYearLabel()}</span>
+                <button className="week-nav-btn" onClick={() => setWeekOffset(weekOffset + 1)} disabled={weekOffset >= 0}>
+                  <IoChevronForward size={18} />
+                </button>
+              </div>
+              <div className="week-days-grid">
+                {weekDays.map((day, index) => {
+                  const dateKey = day.toISOString().split('T')[0];
+                  const daySessions = sessionsByDate.get(dateKey) || [];
+                  const hasWorkout = daySessions.length > 0;
+                  const isCurrentDay = isToday(day);
+                  const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
+                  const dayNum = day.getDate();
+
+                  return (
                     <div
-                      className="history-split-badge"
-                      style={{ background: bpColor(session.bodyPartId) + '20', color: bpColor(session.bodyPartId) }}
+                      key={index}
+                      className={`week-day ${hasWorkout ? 'has-workout' : ''} ${isCurrentDay ? 'today' : ''}`}
                     >
-                      {session.bodyPartName}
+                      <div className="week-day-name">{dayName}</div>
+                      <div className="week-day-num">{dayNum}</div>
+                      {hasWorkout && (
+                        <div className="workout-indicators">
+                          {daySessions.map((session) => (
+                            <div
+                              key={session.id}
+                              className="workout-dot"
+                              style={{ background: bpColor(session.bodyPartId) }}
+                              title={session.bodyPartName}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button
-                      className="history-delete-btn"
-                      onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
-                    >
-                      <IoTrash size={14} />
-                    </button>
-                  </div>
-                  <div className="history-card-date">
-                    {dateStr} · {timeStr}
-                  </div>
-                  <div className="history-card-stats">
-                    <span><IoFlame size={12} /> {st.completedExercises} exercises</span>
-                    <span><IoBarbell size={12} /> {st.completedSets} sets</span>
-                    {(session.duration ?? 0) > 0 && (
-                      <span><IoTime size={12} /> {formatDuration(session.duration || 0)}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="history-list">
+              {sessions.map(session => (
+                <SwipeableHistoryCard
+                  key={session.id}
+                  session={session}
+                  bodyPartColor={bpColor(session.bodyPartId)}
+                  onDelete={() => onDeleteSession(session.id)}
+                  onClick={() => detailModal.open(session)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

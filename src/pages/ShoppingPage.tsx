@@ -48,6 +48,7 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id: item.id });
 
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -97,7 +98,7 @@ function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShop
     <div
       ref={setNodeRef}
       style={style}
-      className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''}`}
+      className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''} ${isDragging ? 'dragging' : ''}`}
     >
       <div className="swipe-delete-bg">
         <IoTrash size={20} />

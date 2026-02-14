@@ -22,6 +22,7 @@ export function SortableExerciseItem({ exercise, bodyPartColor, weightUnit, disp
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id: exercise.id });
 
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -64,7 +65,7 @@ export function SortableExerciseItem({ exercise, bodyPartColor, weightUnit, disp
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="exercise-card">
+    <div ref={setNodeRef} style={style} className={`exercise-card ${isDragging ? 'dragging' : ''}`}>
       <div className="swipe-delete-bg">
         <IoTrash size={20} />
       </div>
