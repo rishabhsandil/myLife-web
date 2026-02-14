@@ -110,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // We check for both the task owner and assigned user
     const dueTasks = await sql`
       SELECT t.id, t.title, t.time, t.date, t.user_id, t.assigned_to_user_id,
-             t.recurrence, t.completed, t.completed_dates, t.excluded_dates
+             t.recurrence, t.completed, t.completed_dates, t.excluded_dates, t.recurrence_days
       FROM todos t
       WHERE t.time IS NOT NULL 
         AND t.time IN (${timeNow}, ${timeNext})
@@ -155,6 +155,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!shouldTrigger) continue;
           } else if (task.recurrence === 'yearly') {
             if (taskDate.getMonth() !== today.getMonth() || taskDate.getDate() !== today.getDate()) continue;
+          } else if (task.recurrence === 'custom') {
+            const days = task.recurrence_days || [];
+            if (!days.includes(today.getDay())) continue;
           }
         }
         
@@ -179,6 +182,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       } catch (error) {
         results.errors.push(`Task ${task.id}: ${String(error)}`);
+      }
+    }
+
+    // ============ MOVE OVERDUE TASKS FORWARD ============
+    // Server-side: move non-recurring past-date tasks to today
+    const overdueTasks = await sql`
+      SELECT id, date, original_date, overdue
+      FROM todos
+      WHERE completed = false
+        AND date < ${currentDate}
+        AND date != 'backlog'
+        AND (recurrence = 'none' OR recurrence IS NULL)
+    `;
+
+    for (const task of overdueTasks) {
+      try {
+        await sql`
+          UPDATE todos
+          SET original_date = COALESCE(original_date, date),
+              date = ${currentDate},
+              overdue = true
+          WHERE id = ${task.id}
+        `;
+      } catch (error) {
+        results.errors.push(`Overdue task ${task.id}: ${String(error)}`);
       }
     }
 

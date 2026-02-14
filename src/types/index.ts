@@ -22,10 +22,11 @@ export interface TodoItem {
   assigneeName?: string;
   assigneeEmail?: string;
   backlogMonth?: string; // YYYY-MM format for backlog organization
+  recurrenceDays?: number[]; // Days of week for custom recurrence (0=Sun, 1=Mon, ..., 6=Sat)
 }
 
 export type Priority = 'low' | 'medium' | 'high';
-export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
 
 export interface ShoppingItem {
   id: string;

@@ -41,7 +41,11 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: 'biweekly', label: 'Biweekly' },
   { key: 'monthly', label: 'Monthly' },
   { key: 'yearly', label: 'Yearly' },
+  { key: 'custom', label: 'Custom' },
 ];
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const PRIORITY_OPTIONS: { key: Priority; label: string; color: string }[] = [
   { key: 'low', label: 'Low', color: colors.success },
@@ -160,7 +164,28 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
             <div className="task-meta">
               {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
               {todo.category && <span className="task-category">{todo.category}</span>}
-              {todo.recurrence !== 'none' && <span title="Recurring"><IoRepeat size={11} /></span>}
+              {todo.recurrence !== 'none' && (
+                <span className="recurrence-badge" title={
+                  todo.recurrence === 'custom' && todo.recurrenceDays 
+                    ? `Repeats: ${todo.recurrenceDays.map(d => DAY_NAMES[d]).join(', ')}`
+                    : todo.recurrence === 'daily' ? 'Repeats every day'
+                    : todo.recurrence === 'weekly' ? `Repeats every ${DAY_NAMES[new Date(todo.date + 'T00:00:00').getDay()]}`
+                    : todo.recurrence === 'biweekly' ? `Repeats every other ${DAY_NAMES[new Date(todo.date + 'T00:00:00').getDay()]}`
+                    : todo.recurrence === 'monthly' ? `Repeats monthly on the ${new Date(todo.date + 'T00:00:00').getDate()}${['th','st','nd','rd'][(new Date(todo.date + 'T00:00:00').getDate() % 100 > 10 && new Date(todo.date + 'T00:00:00').getDate() % 100 < 14) ? 0 : new Date(todo.date + 'T00:00:00').getDate() % 10 < 4 ? new Date(todo.date + 'T00:00:00').getDate() % 10 : 0]}`
+                    : todo.recurrence === 'yearly' ? 'Repeats yearly'
+                    : 'Recurring'
+                }>
+                  <IoRepeat size={11} />
+                  {todo.recurrence === 'daily' && <span className="recurrence-label">Daily</span>}
+                  {todo.recurrence === 'weekly' && <span className="recurrence-label">Wk</span>}
+                  {todo.recurrence === 'biweekly' && <span className="recurrence-label">2Wk</span>}
+                  {todo.recurrence === 'monthly' && <span className="recurrence-label">Mo</span>}
+                  {todo.recurrence === 'yearly' && <span className="recurrence-label">Yr</span>}
+                  {todo.recurrence === 'custom' && todo.recurrenceDays && (
+                    <span className="recurrence-label">{todo.recurrenceDays.map(d => DAY_LABELS[d]).join('')}</span>
+                  )}
+                </span>
+              )}
               {todo.overdue && !completed && (
                 <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
                   Overdue
@@ -232,6 +257,7 @@ export default function TodoPage() {
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   
   // Category management state
   const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; color: string } | null>(null);
@@ -276,61 +302,59 @@ export default function TodoPage() {
     const checkOverdueTasks = async () => {
       const now = new Date();
       const today = formatDateKey(now);
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       let hasUpdates = false;
       
       const updatedTodos = todos.map(todo => {
-        // Skip if completed
-        if (todo.completed) {
+        // Skip completed tasks and backlog/unscheduled tasks
+        if (todo.completed || !todo.date || todo.date === 'backlog') {
           return todo;
         }
         
-        // Clear overdue flag for recurring tasks (they should never be marked as overdue)
+        // Recurring tasks are never overdue - clear flag if somehow set
         if (todo.recurrence !== 'none') {
           if (todo.overdue) {
             hasUpdates = true;
-            return { ...todo, overdue: false };
+            return { ...todo, overdue: false, originalDate: undefined };
           }
           return todo;
         }
         
-        // Check if task is overdue based on date and time
-        const isOverdue = todo.date < today || (todo.date === today && todo.time && todo.time < currentTime);
-        
-        // Task from the past - mark as overdue and move to today
+        // Task date is in the past - move to today and mark overdue
         if (todo.date < today) {
           hasUpdates = true;
           return {
             ...todo,
-            originalDate: todo.originalDate || todo.date, // Preserve original date
+            originalDate: todo.originalDate || todo.date,
             date: today,
             overdue: true,
           };
         }
         
-        // Task is today with a time that has passed
-        if (isOverdue && todo.overdue !== true) {
-          hasUpdates = true;
-          return { ...todo, overdue: true };
+        // Task is on today - check if it was moved forward (has originalDate from the past)
+        if (todo.date === today) {
+          if (todo.originalDate && todo.originalDate < today && !todo.overdue) {
+            // Restore overdue flag (e.g. after app restart)
+            hasUpdates = true;
+            return { ...todo, overdue: true };
+          }
+          // Otherwise, keep current state (overdue flag is already correct)
+          return todo;
         }
         
-        // Task is not overdue but was marked as overdue
-        if (!isOverdue && todo.overdue === true) {
+        // Task is in the future - should not be overdue
+        if (todo.date > today && (todo.overdue || todo.originalDate)) {
           hasUpdates = true;
-          return { ...todo, overdue: false };
+          return { ...todo, overdue: false, originalDate: undefined };
         }
         
         return todo;
       });
 
       if (hasUpdates) {
-        // Update all modified tasks
         for (const todo of updatedTodos) {
           const originalTodo = todos.find(t => t.id === todo.id);
           if (!originalTodo) continue;
-          
-          // Update if overdue status changed or date changed
-          if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date) {
+          if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date || todo.originalDate !== originalTodo.originalDate) {
             await updateTodo(todo);
           }
         }
@@ -380,6 +404,10 @@ export default function TodoPage() {
       }
       case 'yearly':
         return checkDate.getDate() === todoDate.getDate() && checkDate.getMonth() === todoDate.getMonth();
+      case 'custom': {
+        const days = todo.recurrenceDays || [];
+        return days.includes(checkDate.getDay());
+      }
       default: return false;
     }
   };
@@ -425,25 +453,19 @@ export default function TodoPage() {
 
   const overdueTasks = useMemo(() => {
     const selectedStr = formatDateKey(selectedDate);
-    const now = new Date();
-    const isSelectedToday = selectedStr === formatDateKey(now);
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
       
-      // Recurring tasks are never overdue - they appear fresh on each day
+      // Recurring tasks are never overdue
       if (todo.recurrence !== 'none') return false;
       
+      // Task has the overdue flag set (moved forward from a past date)
+      if (todo.overdue) return true;
+      
+      // Task date is before the selected date (shouldn't normally happen after checkOverdueTasks, but safety)
       const todoDateStr = todo.date.split('T')[0];
-      
-      // Task is overdue if its date is before the selected date
       if (todoDateStr < selectedStr) return true;
-      
-      // If selected date is today and task has a time, check if time has passed
-      if (isSelectedToday && todoDateStr === selectedStr && todo.time && todo.time < currentTime) {
-        return true;
-      }
       
       return false;
     });
@@ -451,28 +473,20 @@ export default function TodoPage() {
 
   const incompleteTasks = useMemo(() => {
     const selectedStr = formatDateKey(selectedDate);
-    const now = new Date();
-    const isSelectedToday = selectedStr === formatDateKey(now);
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
     return todaysTasks.filter(todo => {
       if (isCompletedOnDate(todo, selectedDate)) return false;
       
-      // Recurring tasks always go in incomplete (not overdue)
+      // Recurring tasks always go in incomplete
       if (todo.recurrence !== 'none') return true;
       
-      const todoDateStr = todo.date.split('T')[0];
+      // Overdue tasks go in the overdue section, not here
+      if (todo.overdue) return false;
       
-      // Task is overdue if its date is before the selected date
+      const todoDateStr = todo.date.split('T')[0];
       if (todoDateStr < selectedStr) return false;
       
-      // If selected date is today and task has a time that has passed, it's overdue (not incomplete)
-      if (isSelectedToday && todoDateStr === selectedStr && todo.time && todo.time < currentTime) {
-        return false;
-      }
-      
-      // Task is for today or future (not overdue)
-      return todoDateStr >= selectedStr;
+      return true;
     });
   }, [todaysTasks, selectedDate]);
 
@@ -498,16 +512,9 @@ export default function TodoPage() {
     // Filter unscheduled tasks
     const unscheduledTasks = todos
       .filter(todo => !todo.date || todo.date === 'backlog')
-      .filter(todo => !todo.completed)
-      .sort((a, b) => {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        if (a.priority !== b.priority) {
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
-        }
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      .filter(todo => !todo.completed);
 
-    // Group tasks by month
+    // Group tasks by month first
     const grouped: { [key: string]: TodoItem[] } = {};
     monthKeys.forEach(({ key }) => {
       grouped[key] = [];
@@ -518,6 +525,26 @@ export default function TodoPage() {
       if (grouped[monthKey]) {
         grouped[monthKey].push(task);
       }
+    });
+
+    // Sort tasks within each month group
+    monthKeys.forEach(({ key }) => {
+      grouped[key].sort((a, b) => {
+        // First sort by sortOrder if both have it
+        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+          return a.sortOrder - b.sortOrder;
+        }
+        // If only one has sortOrder, it comes first
+        if (a.sortOrder !== undefined) return -1;
+        if (b.sortOrder !== undefined) return 1;
+        
+        // Fall back to priority and creation date
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        if (a.priority !== b.priority) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
     });
 
     return monthKeys.map(({ display, key }) => ({ month: display, monthKey: key, tasks: grouped[key] }));
@@ -562,6 +589,7 @@ export default function TodoPage() {
     setPriority('medium');
     setCategory('');
     setRecurrence('none');
+    setRecurrenceDays([]);
     setSelectedAssignee(null);
     setBacklogMonthSelection('');
   };
@@ -596,6 +624,7 @@ export default function TodoPage() {
     setPriority(todo.priority);
     setCategory(todo.category || '');
     setRecurrence(todo.recurrence);
+    setRecurrenceDays(todo.recurrenceDays || []);
     
     // Load assignee if exists
     if (todo.assignedToUserId && todo.assigneeName && todo.assigneeEmail) {
@@ -623,6 +652,7 @@ export default function TodoPage() {
       priority,
       category: category || undefined,
       recurrence: isBacklogTask ? 'none' : recurrence,
+      recurrenceDays: recurrence === 'custom' ? recurrenceDays : undefined,
       completedDates: taskModal.data?.completedDates || [],
       excludedDates: taskModal.data?.excludedDates || [],
       createdAt: taskModal.data?.createdAt || new Date().toISOString(),
@@ -630,9 +660,9 @@ export default function TodoPage() {
       assigneeName: selectedAssignee?.name || undefined,
       assigneeEmail: selectedAssignee?.email || undefined,
       backlogMonth: isBacklogTask ? backlogMonthSelection || undefined : undefined,
-      // Preserve additional properties when editing
-      overdue: taskModal.data?.overdue,
-      originalDate: taskModal.data?.originalDate,
+      // Clear overdue if user changed the date, otherwise preserve
+      overdue: (taskModal.data && taskDate !== taskModal.data.date) ? false : taskModal.data?.overdue,
+      originalDate: (taskModal.data && taskDate !== taskModal.data.date) ? undefined : taskModal.data?.originalDate,
       sortOrder: taskModal.data?.sortOrder,
       ownerId: taskModal.data?.ownerId,
       ownerName: taskModal.data?.ownerName,
@@ -715,6 +745,37 @@ export default function TodoPage() {
       const reorderedTasks = arrayMove(todaysTasks, oldIndex, newIndex);
       
       // Assign sortOrder to all tasks for this date
+      const updatedTasks = reorderedTasks.map((task, index) => ({
+        ...task,
+        sortOrder: index,
+      }));
+
+      // Optimistically update UI
+      setTodos(todos.map(t => {
+        const updatedTask = updatedTasks.find(ut => ut.id === t.id);
+        return updatedTask || t;
+      }));
+
+      // Update all reordered tasks in backend
+      for (const task of updatedTasks) {
+        await updateTodo(task);
+      }
+    }
+  };
+
+  const handleBacklogDragEnd = async (event: DragEndEvent, monthKey: string) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Get tasks for this specific month
+      const monthTasks = backlogTasksByMonth.find(g => g.monthKey === monthKey)?.tasks || [];
+      
+      const oldIndex = monthTasks.findIndex((task) => task.id === active.id);
+      const newIndex = monthTasks.findIndex((task) => task.id === over.id);
+
+      const reorderedTasks = arrayMove(monthTasks, oldIndex, newIndex);
+      
+      // Assign sortOrder to all tasks in this month
       const updatedTasks = reorderedTasks.map((task, index) => ({
         ...task,
         sortOrder: index,
@@ -1040,19 +1101,30 @@ export default function TodoPage() {
                   {!isCollapsed && (
                     <>
                       {group.tasks.length > 0 ? (
-                        <div className="backlog-month-tasks">
-                          {group.tasks.map((todo) => (
-                            <SortableTaskItem
-                              key={todo.id}
-                              todo={todo}
-                              completed={false}
-                              currentUserId={user?.id}
-                              onToggle={() => toggleComplete(todo)}
-                              onEdit={() => openEditModal(todo)}
-                              onDelete={() => deleteModal.open(todo)}
-                            />
-                          ))}
-                        </div>
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event) => handleBacklogDragEnd(event, group.monthKey)}
+                        >
+                          <SortableContext
+                            items={group.tasks.map(t => t.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="backlog-month-tasks">
+                              {group.tasks.map((todo) => (
+                                <SortableTaskItem
+                                  key={todo.id}
+                                  todo={todo}
+                                  completed={false}
+                                  currentUserId={user?.id}
+                                  onToggle={() => toggleComplete(todo)}
+                                  onEdit={() => openEditModal(todo)}
+                                  onDelete={() => deleteModal.open(todo)}
+                                />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
                       ) : (
                         <p className="backlog-empty-month">No tasks planned for this month</p>
                       )}
@@ -1270,7 +1342,38 @@ export default function TodoPage() {
 
         {!isBacklogTask && (
           <FormGroup label="Repeat">
-            <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+            <OptionPills options={RECURRENCE_OPTIONS} value={recurrence} onChange={(val) => {
+              setRecurrence(val);
+              if (val === 'custom' && recurrenceDays.length === 0) {
+                // Default to the day of the task date
+                const d = taskDate ? new Date(taskDate + 'T00:00:00') : new Date();
+                setRecurrenceDays([d.getDay()]);
+              }
+            }} />
+            {recurrence === 'custom' && (
+              <div className="custom-days-picker">
+                {DAY_LABELS.map((label, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`day-chip ${recurrenceDays.includes(index) ? 'active' : ''}`}
+                    onClick={() => {
+                      setRecurrenceDays(prev => {
+                        if (prev.includes(index)) {
+                          // Don't allow deselecting the last day
+                          if (prev.length === 1) return prev;
+                          return prev.filter(d => d !== index);
+                        }
+                        return [...prev, index].sort();
+                      });
+                    }}
+                    title={DAY_NAMES[index]}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </FormGroup>
         )}
 

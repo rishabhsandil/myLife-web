@@ -409,7 +409,7 @@
   touch-action: none;
   opacity: 0.3;
   transition: opacity 0.2s;
-  align-self: flex-start;
+  align-self: center;
   margin-top: 2px;
 }
 
@@ -857,6 +857,58 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+/* Custom Day-of-Week Picker */
+.custom-days-picker {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.day-chip {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid #EBE8D5;
+  background: white;
+  color: #6B7C6D;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.day-chip:hover {
+  border-color: #6B8F71;
+  color: #3D4A3E;
+}
+
+.day-chip.active {
+  background: #6B8F71;
+  border-color: #6B8F71;
+  color: white;
+}
+
+.recurrence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(107, 143, 113, 0.12);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #6B8F71;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.recurrence-label {
+  font-size: 10px;
 }
 
 /* Assignment Styles */

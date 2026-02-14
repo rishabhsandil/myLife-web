@@ -253,7 +253,7 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
           t.completed_dates as "completedDates", t.excluded_dates as "excludedDates", 
           t.created_at as "createdAt", t.category, t.original_date as "originalDate", t.overdue,
           t.sort_order as "sortOrder", t.user_id as "ownerId", t.assigned_to_user_id as "assignedToUserId",
-          t.backlog_month as "backlogMonth",
+          t.backlog_month as "backlogMonth", t.recurrence_days as "recurrenceDays",
           owner.name as "ownerName", owner.email as "ownerEmail",
           assignee.name as "assigneeName", assignee.email as "assigneeEmail"
         FROM todos t
@@ -265,10 +265,10 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
       return res.status(200).json(rows);
     }
     case 'POST': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId, backlogMonth } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId, backlogMonth, recurrenceDays } = req.body;
       await sql`
-        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order, assigned_to_user_id, backlog_month)
-        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null}, ${assignedToUserId || null}, ${backlogMonth || null})
+        INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order, assigned_to_user_id, backlog_month, recurrence_days)
+        VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null}, ${assignedToUserId || null}, ${backlogMonth || null}, ${recurrenceDays || null})
       `;
       
       // Send notification if task is assigned to someone else
@@ -285,14 +285,15 @@ async function handleTodos(req: VercelRequest, res: VercelResponse, userId: stri
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
-      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId, backlogMonth } = req.body;
+      const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId, backlogMonth, recurrenceDays } = req.body;
       await sql`
         UPDATE todos SET title = ${title}, completed = ${completed}, 
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
           completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null},
           original_date = ${originalDate || null}, overdue = ${overdue || false}, sort_order = ${sortOrder !== undefined ? sortOrder : null},
           assigned_to_user_id = ${assignedToUserId !== undefined ? assignedToUserId : null},
-          backlog_month = ${backlogMonth !== undefined ? backlogMonth : null}
+          backlog_month = ${backlogMonth !== undefined ? backlogMonth : null},
+          recurrence_days = ${recurrenceDays || null}
         WHERE id = ${id} AND (user_id = ${userId} OR assigned_to_user_id = ${userId})
       `;
       return res.status(200).json({ success: true });
@@ -983,7 +984,7 @@ async function handleUserSettings(req: VercelRequest, res: VercelResponse, userI
     }
     case 'POST': {
       const { enabledModules } = req.body;
-      const validModules = ['todos', 'shopping', 'workout', 'period'];
+      const validModules = ['todos', 'shopping', 'workout', 'period', 'notes'];
       const filteredModules = (enabledModules || []).filter((m: string) => validModules.includes(m));
       if (filteredModules.length === 0) {
         return res.status(400).json({ error: 'At least one module must be enabled' });

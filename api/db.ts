@@ -115,6 +115,19 @@ export async function initDb() {
     END $$;
   `;
 
+  // Migration: Add recurrence_days column for custom day-of-week recurrence
+  await sql`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'todos' AND column_name = 'recurrence_days'
+      ) THEN
+        ALTER TABLE todos ADD COLUMN recurrence_days INTEGER[];
+      END IF;
+    END $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,
