@@ -94,7 +94,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
 function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [enabledModules, setEnabledModules] = useState<ModuleType[]>(['todos', 'shopping', 'workout', 'period', 'notes']);
+  const [enabledModules, setEnabledModules] = useState<ModuleType[]>([]);
 
   useEffect(() => {
     // Hide HTML splash screen when React loads

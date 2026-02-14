@@ -193,8 +193,7 @@ export async function saveWorkoutSession(session: WorkoutSession): Promise<void>
     });
   } catch (error) {
     console.error('Failed to save workout session:', error);
-    console.error('Session data:', session);
-    throw error; // Re-throw so the caller knows it failed
+    throw error;
   }
 }
 

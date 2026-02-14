@@ -323,6 +323,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS workout_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
       body_part_id TEXT,
       body_part_name TEXT,
       start_time TEXT,
@@ -347,6 +348,15 @@ export async function initDb() {
         ALTER TABLE workout_sessions ADD COLUMN start_time TEXT;
         ALTER TABLE workout_sessions ADD COLUMN end_time TEXT;
         ALTER TABLE workout_sessions ADD COLUMN duration INTEGER DEFAULT 0;
+      END IF;
+      
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'workout_sessions' AND column_name = 'date'
+      ) THEN
+        ALTER TABLE workout_sessions ADD COLUMN date TEXT;
+        UPDATE workout_sessions SET date = COALESCE(start_time, created_at::TEXT) WHERE date IS NULL;
+        ALTER TABLE workout_sessions ALTER COLUMN date SET NOT NULL;
       END IF;
     END $$;
   `;

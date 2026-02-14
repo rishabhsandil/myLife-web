@@ -888,13 +888,13 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'POST': {
       try {
-        console.log('POST /api/workouts - Request body:', JSON.stringify(req.body, null, 2));
         const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
-        console.log('Extracted fields:', { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercisesCount: exercises?.length });
+        const date = startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
         await sql`
-          INSERT INTO workout_sessions (id, user_id, body_part_id, body_part_name, start_time, end_time, duration, exercises)
-          VALUES (${id}, ${userId}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
+          INSERT INTO workout_sessions (id, user_id, date, body_part_id, body_part_name, start_time, end_time, duration, exercises)
+          VALUES (${id}, ${userId}, ${date}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
           ON CONFLICT (id) DO UPDATE SET 
+            date = ${date},
             body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
             start_time = ${startTime}, end_time = ${endTime || null},
             duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
@@ -907,8 +907,10 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'PUT': {
       const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
+      const date = startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       await sql`
         UPDATE workout_sessions SET 
+          date = ${date},
           body_part_id = ${bodyPartId}, body_part_name = ${bodyPartName},
           start_time = ${startTime}, end_time = ${endTime || null},
           duration = ${duration || 0}, exercises = ${JSON.stringify(exercises)}
