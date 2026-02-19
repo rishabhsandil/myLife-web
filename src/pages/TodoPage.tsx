@@ -430,14 +430,20 @@ export default function TodoPage() {
         if (aCompleted && !bCompleted) return 1;
         if (!aCompleted && bCompleted) return -1;
         
-        // Both completed or both incomplete - prioritize sortOrder if set
+        // Overdue incomplete tasks always go to the top
+        const selectedStr = formatDateKey(selectedDate);
+        const aOverdue = !aCompleted && a.recurrence === 'none' && (a.overdue || a.date.split('T')[0] < selectedStr);
+        const bOverdue = !bCompleted && b.recurrence === 'none' && (b.overdue || b.date.split('T')[0] < selectedStr);
+        if (aOverdue && !bOverdue) return -1;
+        if (!aOverdue && bOverdue) return 1;
+        
+        // Within same group: prioritize sortOrder if set (custom drag-drop ordering)
         if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
           return a.sortOrder - b.sortOrder;
         }
         if (a.sortOrder !== undefined) return -1;
         if (b.sortOrder !== undefined) return 1;
         
-        // Sort by time
         // Tasks with time come before tasks without time
         if (a.time && !b.time) return -1;
         if (!a.time && b.time) return 1;
@@ -740,12 +746,14 @@ export default function TodoPage() {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = todaysTasks.findIndex((task) => task.id === active.id);
-      const newIndex = todaysTasks.findIndex((task) => task.id === over.id);
+      const oldIndex = incompleteTasks.findIndex((task) => task.id === active.id);
+      const newIndex = incompleteTasks.findIndex((task) => task.id === over.id);
 
-      const reorderedTasks = arrayMove(todaysTasks, oldIndex, newIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedTasks = arrayMove(incompleteTasks, oldIndex, newIndex);
       
-      // Assign sortOrder to all tasks for this date
+      // Assign sortOrder only to incomplete (non-overdue) tasks
       const updatedTasks = reorderedTasks.map((task, index) => ({
         ...task,
         sortOrder: index,
