@@ -1007,7 +1007,7 @@ async function handleUserSettings(req: VercelRequest, res: VercelResponse, userI
     }
     case 'POST': {
       const { enabledModules } = req.body;
-      const validModules = ['todos', 'shopping', 'workout', 'period', 'notes'];
+      const validModules = ['todos', 'shopping', 'workout', 'period', 'notes', 'recipes'];
       const filteredModules = (enabledModules || []).filter((m: string) => validModules.includes(m));
       if (filteredModules.length === 0) {
         return res.status(400).json({ error: 'At least one module must be enabled' });
