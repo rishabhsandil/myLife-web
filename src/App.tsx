@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoWaterOutline, IoWater, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText } from 'react-icons/io5';
+import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoWaterOutline, IoWater, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';
 import PeriodPage from './pages/PeriodPage';
 import NotesPage from './pages/NotesPage';
+import RecipePage from './pages/RecipePage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
@@ -58,6 +59,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
     { path: '/workout', module: 'workout' as ModuleType, label: 'Workout', iconActive: IoFitness, iconInactive: IoFitnessOutline },
     { path: '/period', module: 'period' as ModuleType, label: 'Period', iconActive: IoWater, iconInactive: IoWaterOutline },
     { path: '/notes', module: 'notes' as ModuleType, label: 'Notes', iconActive: IoDocumentText, iconInactive: IoDocumentTextOutline },
+    { path: '/recipes', module: 'recipes' as ModuleType, label: 'Recipes', iconActive: IoRestaurant, iconInactive: IoRestaurantOutline },
   ];
 
   // Filter tabs based on enabled modules
@@ -190,6 +192,7 @@ function AppContent() {
     if (enabledModules.includes('workout')) return '/workout';
     if (enabledModules.includes('period')) return '/period';
     if (enabledModules.includes('notes')) return '/notes';
+    if (enabledModules.includes('recipes')) return '/recipes';
     return '/settings';
   };
 
@@ -202,6 +205,7 @@ function AppContent() {
           {enabledModules.includes('workout') && <Route path="/workout" element={<WorkoutPage />} />}
           {enabledModules.includes('period') && <Route path="/period" element={<PeriodPage />} />}
           {enabledModules.includes('notes') && <Route path="/notes" element={<NotesPage />} />}
+          {enabledModules.includes('recipes') && <Route path="/recipes" element={<RecipePage />} />}
           <Route path="/settings" element={<SettingsPage enabledModules={enabledModules} onModulesChange={setEnabledModules} />} />
           <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
         </Routes>

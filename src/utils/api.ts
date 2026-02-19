@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note, WorkoutSession } from '../types';
+import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note, WorkoutSession, Recipe } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -325,4 +325,35 @@ export async function removeConnection(userId: string): Promise<void> {
   } catch (error) {
     console.error('Failed to remove connection:', error);
   }
+}
+// ============ RECIPES ============
+const recipesApi = createCrudApi<Recipe>('recipes', 'almostadult_recipes');
+
+export const getRecipes = recipesApi.getAll;
+export const saveRecipe = recipesApi.create;
+export const updateRecipe = recipesApi.update;
+export const deleteRecipe = recipesApi.delete;
+
+export interface RecipeExtractResult {
+  title: string;
+  description?: string;
+  ingredients?: Array<{ amount?: string; unit?: string; name: string }>;
+  instructions?: string[];
+  prepTime?: number;
+  cookTime?: number;
+  servings?: number;
+  tags?: string[];
+  sourceUrl?: string;
+  sourcePlatform?: 'youtube' | 'manual';
+  thumbnail?: string;
+  channelName?: string;
+  error?: string;
+}
+
+export async function extractRecipeFromUrl(url: string): Promise<RecipeExtractResult> {
+  const result = await api<RecipeExtractResult>('recipes/extract', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
+  return result;
 }

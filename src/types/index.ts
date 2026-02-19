@@ -141,13 +141,40 @@ export interface Note {
   sortOrder?: number; // For manual drag-drop reordering
 }
 
-export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period' | 'notes';
+export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period' | 'notes' | 'recipes';
 
 export interface ModuleConfig {
   id: ModuleType;
   name: string;
   description: string;
   enabled: boolean;
+}
+
+// ============ RECIPES ============
+export interface RecipeIngredient {
+  amount?: string;
+  unit?: string;
+  name: string;
+}
+
+export interface Recipe {
+  id: string;
+  title: string;
+  description?: string;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
+  prepTime?: number;   // minutes
+  cookTime?: number;   // minutes
+  servings?: number;
+  tags?: string[];
+  sourceUrl?: string;
+  sourcePlatform?: 'youtube' | 'manual';
+  thumbnail?: string;
+  channelName?: string;
+  isFavorite?: boolean;
+  sortOrder?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserSettings {

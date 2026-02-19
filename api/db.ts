@@ -170,6 +170,27 @@ export async function initDb() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS recipes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      ingredients JSONB DEFAULT '[]',
+      instructions JSONB DEFAULT '[]',
+      prep_time INTEGER,
+      cook_time INTEGER,
+      servings INTEGER,
+      tags TEXT[] DEFAULT '{}',
+      source_url TEXT,
+      source_platform TEXT DEFAULT 'manual',
+      thumbnail TEXT,
+      channel_name TEXT,
+      is_favorite BOOLEAN DEFAULT FALSE,
+      sort_order INTEGER,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+
     -- All indexes in one batch
     CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id);
     CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id);
@@ -184,6 +205,7 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id);
+    CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id);
   `;
   // NOTE: All column migrations (todos.category, sort_order, assigned_to_user_id, etc.)
   // have already been applied and are baked into the CREATE TABLE definitions above.
