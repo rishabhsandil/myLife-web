@@ -471,28 +471,27 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'PUT': {
       const { id, name, quantity, storeId, completed, sortOrder } = req.body;
-      const [currentItem] = await sql`SELECT si.name, si.completed, si.user_id as "ownerId", u.name as "ownerName" 
-        FROM shopping_items si 
-        JOIN users u ON si.user_id = u.id 
-        WHERE si.id = ${id}`;
-      
-      await sql`
+      // Fetch current state and update in sequence, but combine audit in one flow
+      const [currentItem] = await sql`
         UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
           SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
         ))
+        RETURNING (SELECT completed FROM shopping_items WHERE id = ${id}) as prev_completed,
+                  (SELECT user_id FROM shopping_items WHERE id = ${id}) as owner_id
       `;
       
-      if (currentItem && currentItem.completed !== completed) {
-        await sql`
+      if (currentItem && currentItem.prev_completed !== completed) {
+        // Fire audit + notification without awaiting (fire-and-forget for non-critical)
+        sql`
           INSERT INTO shopping_audit (id, user_id, action, item_name, details)
           VALUES (${Date.now().toString()}, ${userId}, ${completed ? 'completed' : 'uncompleted'}, ${name}, NULL)
-        `;
+        `.catch(() => {});
         
         // Notify item owner if someone else completed their item
-        if (completed && currentItem.ownerId && currentItem.ownerId !== userId) {
+        if (completed && currentItem.owner_id && currentItem.owner_id !== userId) {
           const [completedBy] = await sql`SELECT name FROM users WHERE id = ${userId}`;
-          sendNotificationToUser(currentItem.ownerId, {
+          sendNotificationToUser(currentItem.owner_id, {
             title: '✅ Item Completed',
             body: `${completedBy?.name || 'Someone'} marked "${name}" as done`,
             tag: `shopping-${id}`,
@@ -570,25 +569,20 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
 async function handleShoppingStores(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      // Check if user has their own stores, create defaults if not
-      let ownStores = await sql`
-        SELECT id, name, color, sort_order as "sortOrder"
-        FROM shopping_stores WHERE user_id = ${userId} ORDER BY sort_order, created_at
+      // Seed defaults if user has no stores (single query with INSERT...SELECT)
+      await sql`
+        INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
+        SELECT id, ${userId}, name, color, sort_order FROM (
+          VALUES 
+            ('store_def_' || ${userId} || '_0', 'FreshCo', '#22C55E', 0),
+            ('store_def_' || ${userId} || '_1', 'Costco', '#6366F1', 1),
+            ('store_def_' || ${userId} || '_2', 'Amazon', '#F59E0B', 2),
+            ('store_def_' || ${userId} || '_3', 'Other', '#64748B', 3)
+        ) AS defaults(id, name, color, sort_order)
+        WHERE NOT EXISTS (SELECT 1 FROM shopping_stores WHERE user_id = ${userId} LIMIT 1)
+        ON CONFLICT (id) DO NOTHING
       `;
-      if (ownStores.length === 0) {
-        for (let i = 0; i < DEFAULT_SHOPPING_STORES.length; i++) {
-          const store = DEFAULT_SHOPPING_STORES[i];
-          await sql`
-            INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
-            VALUES (${`store_${Date.now()}_${i}`}, ${userId}, ${store.name}, ${store.color}, ${i})
-          `;
-        }
-        ownStores = await sql`
-          SELECT id, name, color, sort_order as "sortOrder"
-          FROM shopping_stores WHERE user_id = ${userId} ORDER BY sort_order, created_at
-        `;
-      }
-      // Also get stores from shared users, deduplicated by name
+      // Get stores from user + shared users, deduplicated by name
       const rows = await sql`
         SELECT DISTINCT ON (ss.name) ss.id, ss.name, ss.color, ss.sort_order as "sortOrder"
         FROM shopping_stores ss
@@ -630,24 +624,25 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
 async function handleTodoCategories(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      // Check if user has their own categories, create defaults if not
-      let ownCategories = await sql`
+      // Seed defaults if user has no categories (single query)
+      await sql`
+        INSERT INTO todo_categories (id, user_id, name, color, sort_order)
+        SELECT id, ${userId}, name, color, sort_order FROM (
+          VALUES 
+            ('cat_def_' || ${userId} || '_0', '🎂 Birthday', '#EC4899', 0),
+            ('cat_def_' || ${userId} || '_1', '💊 Medicine', '#EF4444', 1),
+            ('cat_def_' || ${userId} || '_2', '💪 Workout', '#6366F1', 2),
+            ('cat_def_' || ${userId} || '_3', '📞 Call', '#22C55E', 3),
+            ('cat_def_' || ${userId} || '_4', '💼 Work', '#F59E0B', 4),
+            ('cat_def_' || ${userId} || '_5', '🏠 Home', '#8B5CF6', 5)
+        ) AS defaults(id, name, color, sort_order)
+        WHERE NOT EXISTS (SELECT 1 FROM todo_categories WHERE user_id = ${userId} LIMIT 1)
+        ON CONFLICT (id) DO NOTHING
+      `;
+      const ownCategories = await sql`
         SELECT id, name, color, sort_order as "sortOrder"
         FROM todo_categories WHERE user_id = ${userId} ORDER BY sort_order, created_at
       `;
-      if (ownCategories.length === 0) {
-        for (let i = 0; i < DEFAULT_TODO_CATEGORIES.length; i++) {
-          const category = DEFAULT_TODO_CATEGORIES[i];
-          await sql`
-            INSERT INTO todo_categories (id, user_id, name, color, sort_order)
-            VALUES (${`category_${Date.now()}_${i}`}, ${userId}, ${category.name}, ${category.color}, ${i})
-          `;
-        }
-        ownCategories = await sql`
-          SELECT id, name, color, sort_order as "sortOrder"
-          FROM todo_categories WHERE user_id = ${userId} ORDER BY sort_order, created_at
-        `;
-      }
       return res.status(200).json(ownCategories);
     }
     case 'POST': {
@@ -788,23 +783,23 @@ async function handleExercises(req: VercelRequest, res: VercelResponse, userId: 
 async function handleBodyParts(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      let rows = await sql`
+      // Seed defaults if user has no body parts (single query)
+      await sql`
+        INSERT INTO body_parts (id, user_id, name, color, sort_order)
+        SELECT id, ${userId}, name, color, sort_order FROM (
+          VALUES 
+            ('bp_def_' || ${userId} || '_0', 'Chest/Tri', '#EF4444', 0),
+            ('bp_def_' || ${userId} || '_1', 'Back/Bi', '#6366F1', 1),
+            ('bp_def_' || ${userId} || '_2', 'Shoulders', '#F59E0B', 2),
+            ('bp_def_' || ${userId} || '_3', 'Legs/Core', '#EC4899', 3)
+        ) AS defaults(id, name, color, sort_order)
+        WHERE NOT EXISTS (SELECT 1 FROM body_parts WHERE user_id = ${userId} LIMIT 1)
+        ON CONFLICT (id) DO NOTHING
+      `;
+      const rows = await sql`
         SELECT id, name, color, sort_order as "sortOrder"
         FROM body_parts WHERE user_id = ${userId} ORDER BY sort_order, created_at
       `;
-      if (rows.length === 0) {
-        for (let i = 0; i < DEFAULT_BODY_PARTS.length; i++) {
-          const bp = DEFAULT_BODY_PARTS[i];
-          await sql`
-            INSERT INTO body_parts (id, user_id, name, color, sort_order)
-            VALUES (${`bp_${Date.now()}_${i}`}, ${userId}, ${bp.name}, ${bp.color}, ${i})
-          `;
-        }
-        rows = await sql`
-          SELECT id, name, color, sort_order as "sortOrder"
-          FROM body_parts WHERE user_id = ${userId} ORDER BY sort_order, created_at
-        `;
-      }
       return res.status(200).json(rows);
     }
     case 'POST': {
@@ -1003,7 +998,7 @@ async function handleUserSettings(req: VercelRequest, res: VercelResponse, userI
       if (result.length === 0) {
         return res.json({ enabledModules: DEFAULT_MODULES });
       }
-      return res.json({ enabledModules: result[0].enabled_modules || DEFAULT_MODULES });
+      return res.json({ enabledModules: Array.isArray(result[0].enabled_modules) ? result[0].enabled_modules : DEFAULT_MODULES });
     }
     case 'POST': {
       const { enabledModules } = req.body;

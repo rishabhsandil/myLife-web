@@ -110,9 +110,16 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Update badge when app is opened/focused (show overdue count)
+  // Update badge when app is opened/focused (show overdue count) - debounced
   useEffect(() => {
+    let lastBadgeUpdate = 0;
+    const BADGE_DEBOUNCE_MS = 60000; // Only update badge once per minute
+
     const updateBadge = async () => {
+      const now = Date.now();
+      if (now - lastBadgeUpdate < BADGE_DEBOUNCE_MS) return;
+      lastBadgeUpdate = now;
+
       if (!user) return;
       
       try {

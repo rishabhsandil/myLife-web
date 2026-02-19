@@ -11,20 +11,18 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable must be configured');
 }
 
-// Initialize database tables
+// Initialize database tables - batched into a single SQL call to minimize compute usage
 export async function initDb() {
-  // Users table
   await sql`
+    -- Users table
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  await sql`
     CREATE TABLE IF NOT EXISTS todos (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -40,95 +38,8 @@ export async function initDb() {
       excluded_dates TEXT[] DEFAULT '{}',
       is_event BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  // Migration: Add category column if it doesn't exist
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'category'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN category TEXT;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add original_date and overdue columns for overdue task tracking
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'original_date'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN original_date TEXT;
-      END IF;
-      
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'overdue'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN overdue BOOLEAN DEFAULT FALSE;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add sort_order column for drag-drop reordering
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'sort_order'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN sort_order INTEGER;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add assigned_to field for task assignments
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'assigned_to_user_id'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN assigned_to_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add backlog_month column for backlog task month grouping
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'backlog_month'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN backlog_month TEXT;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add recurrence_days column for custom day-of-week recurrence
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'todos' AND column_name = 'recurrence_days'
-      ) THEN
-        ALTER TABLE todos ADD COLUMN recurrence_days INTEGER[];
-      END IF;
-    END $$;
-  `;
-
-  await sql`
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -136,11 +47,10 @@ export async function initDb() {
       quantity INTEGER DEFAULT 1,
       store_id TEXT,
       completed BOOLEAN DEFAULT FALSE,
+      sort_order INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  await sql`
     CREATE TABLE IF NOT EXISTS shopping_stores (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -148,40 +58,8 @@ export async function initDb() {
       color TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_stores_user ON shopping_stores(user_id)`;
+    );
 
-  // Migration: Rename category to store_id if needed
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'shopping_items' AND column_name = 'category'
-      ) AND NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'shopping_items' AND column_name = 'store_id'
-      ) THEN
-        ALTER TABLE shopping_items RENAME COLUMN category TO store_id;
-      END IF;
-    END $$;
-  `;
-
-  // Migration: Add sort_order column for drag-drop reordering
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'shopping_items' AND column_name = 'sort_order'
-      ) THEN
-        ALTER TABLE shopping_items ADD COLUMN sort_order INTEGER;
-      END IF;
-    END $$;
-  `;
-
-  await sql`
     CREATE TABLE IF NOT EXISTS exercises (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -190,11 +68,10 @@ export async function initDb() {
       sets INTEGER DEFAULT 3,
       reps INTEGER DEFAULT 10,
       weight REAL DEFAULT 0,
+      sort_order INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  await sql`
     CREATE TABLE IF NOT EXISTS body_parts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -202,10 +79,8 @@ export async function initDb() {
       color TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  await sql`
     CREATE TABLE IF NOT EXISTS notes (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -215,10 +90,8 @@ export async function initDb() {
       sort_order INTEGER,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  await sql`
     CREATE TABLE IF NOT EXISTS todo_categories (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -226,49 +99,24 @@ export async function initDb() {
       color TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_todo_categories_user ON todo_categories(user_id)`;
+    );
 
-  // Migration: Add sort_order column for drag-drop reordering
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'exercises' AND column_name = 'sort_order'
-      ) THEN
-        ALTER TABLE exercises ADD COLUMN sort_order INTEGER;
-      END IF;
-    END $$;
-  `;
-
-  // User connections - bidirectional relationships for sharing/assigning
-  await sql`
     CREATE TABLE IF NOT EXISTS user_connections (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       connected_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(user_id, connected_user_id)
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_user_connections_user ON user_connections(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_user_connections_connected ON user_connections(connected_user_id)`;
+    );
 
-  // Shopping list sharing - tracks who shares their list with whom (legacy, kept for backwards compat)
-  await sql`
     CREATE TABLE IF NOT EXISTS shopping_shares (
       id TEXT PRIMARY KEY,
       owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       shared_with_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(owner_id, shared_with_id)
-    )
-  `;
+    );
 
-  // Shopping audit history - tracks all changes
-  await sql`
     CREATE TABLE IF NOT EXISTS shopping_audit (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -276,50 +124,30 @@ export async function initDb() {
       item_name TEXT NOT NULL,
       details TEXT,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id)`;
+    );
 
-  // Period tracking tables
-  await sql`
     CREATE TABLE IF NOT EXISTS period_cycles (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       start_date TEXT NOT NULL,
       end_date TEXT,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  
-  await sql`
+    );
+
     CREATE TABLE IF NOT EXISTS period_settings (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       average_cycle_length INTEGER DEFAULT 28,
       average_period_length INTEGER DEFAULT 5,
       notify_days_before INTEGER DEFAULT 2,
       updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  // User settings table (module configuration)
-  await sql`
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'period', 'notes'],
       updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+    );
 
-  // Migration: Add 'notes' to existing user_settings if not present
-  await sql`
-    UPDATE user_settings
-    SET enabled_modules = array_append(enabled_modules, 'notes'),
-        updated_at = NOW()
-    WHERE NOT ('notes' = ANY(enabled_modules))
-  `;
-
-  // Workout sessions table
-  await sql`
     CREATE TABLE IF NOT EXISTS workout_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -331,38 +159,8 @@ export async function initDb() {
       duration INTEGER DEFAULT 0,
       exercises JSONB DEFAULT '[]',
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id)`;
+    );
 
-  // Migration: Add new columns to workout_sessions if they don't exist
-  await sql`
-    DO $$ 
-    BEGIN 
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'workout_sessions' AND column_name = 'body_part_id'
-      ) THEN
-        ALTER TABLE workout_sessions ADD COLUMN body_part_id TEXT;
-        ALTER TABLE workout_sessions ADD COLUMN body_part_name TEXT;
-        ALTER TABLE workout_sessions ADD COLUMN start_time TEXT;
-        ALTER TABLE workout_sessions ADD COLUMN end_time TEXT;
-        ALTER TABLE workout_sessions ADD COLUMN duration INTEGER DEFAULT 0;
-      END IF;
-      
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'workout_sessions' AND column_name = 'date'
-      ) THEN
-        ALTER TABLE workout_sessions ADD COLUMN date TEXT;
-        UPDATE workout_sessions SET date = COALESCE(start_time, created_at::TEXT) WHERE date IS NULL;
-        ALTER TABLE workout_sessions ALTER COLUMN date SET NOT NULL;
-      END IF;
-    END $$;
-  `;
-
-  // Push notification subscriptions
-  await sql`
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -370,17 +168,26 @@ export async function initDb() {
       p256dh TEXT NOT NULL,
       auth TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)`;
+    );
 
-  // Create indexes for user_id lookups
-  await sql`CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_bodyparts_user ON body_parts(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id)`;
+    -- All indexes in one batch
+    CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id);
+    CREATE INDEX IF NOT EXISTS idx_shopping_user ON shopping_items(user_id);
+    CREATE INDEX IF NOT EXISTS idx_shopping_stores_user ON shopping_stores(user_id);
+    CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id);
+    CREATE INDEX IF NOT EXISTS idx_bodyparts_user ON body_parts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_todo_categories_user ON todo_categories(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_connections_user ON user_connections(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_connections_connected ON user_connections(connected_user_id);
+    CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id);
+    CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id);
+  `;
+  // NOTE: All column migrations (todos.category, sort_order, assigned_to_user_id, etc.)
+  // have already been applied and are baked into the CREATE TABLE definitions above.
+  // Removed the DO $$ migration block to save a query on every initDb() call.
 }
 
 // Helper to verify JWT and get user ID from request

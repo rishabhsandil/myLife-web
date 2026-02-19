@@ -206,15 +206,45 @@ export default function ShoppingPage() {
     loadShareStatus();
   }, [loadData]);
 
-  // Auto-sync when list is shared
+  // Auto-sync when list is shared — only while tab is visible, and refresh on re-focus
   useEffect(() => {
     if (!isSharing) return;
-    
-    const interval = setInterval(() => {
-      loadData(false); // Don't show loading skeleton during background sync
-    }, 5000); // Sync every 5 seconds
-    
-    return () => clearInterval(interval);
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(() => {
+        loadData(false);
+      }, 60000); // Poll every 60s while visible
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData(false); // Refresh immediately on tab re-focus
+        startPolling();
+      } else {
+        stopPolling(); // Stop polling when hidden so Neon can auto-suspend
+      }
+    };
+
+    // Start polling only if tab is currently visible
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [isSharing, loadData]);
 
   async function loadShareStatus() {

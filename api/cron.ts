@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webpush from 'web-push';
-import { sql, initDb } from './db.js';
+import { sql } from './db.js';
 
 // Configure web-push with VAPID keys (must be set in environment variables)
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    await initDb();
+    // NOTE: initDb() removed from cron to save compute. Run it once via /api/init endpoint.
     
     const results = {
       reminders: 0,
@@ -186,29 +186,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ============ MOVE OVERDUE TASKS FORWARD ============
-    // Server-side: move non-recurring past-date tasks to today
-    const overdueTasks = await sql`
-      SELECT id, date, original_date, overdue
-      FROM todos
+    // Server-side: move non-recurring past-date tasks to today (single bulk UPDATE)
+    const overduResult = await sql`
+      UPDATE todos
+      SET original_date = COALESCE(original_date, date),
+          date = ${currentDate},
+          overdue = true
       WHERE completed = false
         AND date < ${currentDate}
         AND date != 'backlog'
         AND (recurrence = 'none' OR recurrence IS NULL)
     `;
-
-    for (const task of overdueTasks) {
-      try {
-        await sql`
-          UPDATE todos
-          SET original_date = COALESCE(original_date, date),
-              date = ${currentDate},
-              overdue = true
-          WHERE id = ${task.id}
-        `;
-      } catch (error) {
-        results.errors.push(`Overdue task ${task.id}: ${String(error)}`);
-      }
-    }
 
     // ============ CHECK PERIOD PREDICTION REMINDERS ============
     // Get users with period tracking enabled and notify_days_before set
