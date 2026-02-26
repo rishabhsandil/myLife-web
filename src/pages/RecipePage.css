@@ -324,6 +324,41 @@
 
 /* ─── Add / Edit Form ─────────────────── */
 
+/* Import section tabs (YouTube / Paste Text) */
+.import-section {
+  margin-bottom: 4px;
+}
+
+.import-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  background: #F1F5F9;
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.import-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.import-tab.active {
+  background: white;
+  color: #1E293B;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
 /* YouTube extract row */
 .extract-row {
   display: flex;

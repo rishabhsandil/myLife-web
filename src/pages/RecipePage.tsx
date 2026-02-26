@@ -2,13 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   IoAdd, IoClose, IoTrash, IoHeart, IoHeartOutline, IoSearchOutline,
   IoRestaurantOutline, IoTime, IoPeople, IoPencil, IoLink,
-  IoLogoYoutube, IoCheckmarkCircle, IoRefreshOutline,
+  IoLogoYoutube, IoCheckmarkCircle, IoRefreshOutline, IoClipboardOutline,
 } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
 import { Recipe, RecipeIngredient } from '../types';
 import {
   getRecipes, saveRecipe, updateRecipe, deleteRecipe as apiDeleteRecipe,
-  extractRecipeFromUrl,
+  extractRecipeFromUrl, parseRecipeFromText,
 } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
@@ -159,10 +159,16 @@ export default function RecipePage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'favorites'>('all');
 
   // URL extraction
+  const [importTab, setImportTab] = useState<'youtube' | 'paste'>('youtube');
   const [extractUrl, setExtractUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState('');
   const [extractedOk, setExtractedOk] = useState(false);
+  // Text paste extraction
+  const [pasteText, setPasteText] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
+  const [pasteError, setPasteError] = useState('');
+  const [parsedOk, setParsedOk] = useState(false);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -175,6 +181,7 @@ export default function RecipePage() {
   const [formTagInput, setFormTagInput] = useState('');
   const [formTags, setFormTags] = useState<string[]>([]);
   const [formSourceUrl, setFormSourceUrl] = useState('');
+  const [urlDuplicateError, setUrlDuplicateError] = useState('');
   const [formThumbnail, setFormThumbnail] = useState('');
   const [formChannelName, setFormChannelName] = useState('');
   const [formSourcePlatform, setFormSourcePlatform] = useState<'youtube' | 'manual'>('manual');
@@ -218,6 +225,9 @@ export default function RecipePage() {
     setFormTagInput(''); setFormTags([]);
     setFormSourceUrl(''); setFormThumbnail(''); setFormChannelName('');
     setFormSourcePlatform('manual'); setFormIsFavorite(false);
+    setUrlDuplicateError('');
+    setImportTab('youtube');
+    setPasteText(''); setPasteError(''); setParsedOk(false);
   };
 
   const openAddModal = () => { resetForm(); addModal.open(); };
@@ -240,23 +250,27 @@ export default function RecipePage() {
     addModal.open(recipe);
   };
 
+  const applyExtractedData = (data: Awaited<ReturnType<typeof extractRecipeFromUrl>>) => {
+    if (data.title) setFormTitle(data.title);
+    if (data.description) setFormDescription(data.description);
+    if (data.ingredients?.length) setFormIngredients(data.ingredients as RecipeIngredient[]);
+    if (data.instructions?.length) setFormInstructions(data.instructions);
+    if (data.prepTime) setFormPrepTime(data.prepTime.toString());
+    if (data.cookTime) setFormCookTime(data.cookTime.toString());
+    if (data.servings) setFormServings(data.servings.toString());
+    if (data.tags?.length) setFormTags(data.tags);
+    if (data.sourceUrl) setFormSourceUrl(data.sourceUrl);
+    if (data.thumbnail) setFormThumbnail(data.thumbnail);
+    if (data.channelName) setFormChannelName(data.channelName);
+    if (data.sourcePlatform) setFormSourcePlatform(data.sourcePlatform);
+  };
+
   const handleExtract = async () => {
     if (!extractUrl.trim()) return;
     setIsExtracting(true); setExtractError(''); setExtractedOk(false);
     try {
       const data = await extractRecipeFromUrl(extractUrl.trim());
-      if (data.title) setFormTitle(data.title);
-      if (data.description) setFormDescription(data.description);
-      if (data.ingredients?.length) setFormIngredients(data.ingredients as RecipeIngredient[]);
-      if (data.instructions?.length) setFormInstructions(data.instructions);
-      if (data.prepTime) setFormPrepTime(data.prepTime.toString());
-      if (data.cookTime) setFormCookTime(data.cookTime.toString());
-      if (data.servings) setFormServings(data.servings.toString());
-      if (data.tags?.length) setFormTags(data.tags);
-      if (data.sourceUrl) setFormSourceUrl(data.sourceUrl);
-      if (data.thumbnail) setFormThumbnail(data.thumbnail);
-      if (data.channelName) setFormChannelName(data.channelName);
-      if (data.sourcePlatform) setFormSourcePlatform(data.sourcePlatform);
+      applyExtractedData(data);
       setExtractedOk(true);
     } catch (err: unknown) {
       setExtractError(err instanceof Error ? err.message : 'Failed to extract recipe');
@@ -265,8 +279,32 @@ export default function RecipePage() {
     }
   };
 
+  const handleParseText = async () => {
+    if (!pasteText.trim()) return;
+    setIsParsing(true); setPasteError(''); setParsedOk(false);
+    try {
+      const data = await parseRecipeFromText(pasteText.trim());
+      applyExtractedData(data);
+      setParsedOk(true);
+    } catch (err: unknown) {
+      setPasteError(err instanceof Error ? err.message : 'Failed to parse recipe');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formTitle.trim()) return;
+    const trimmedUrl = formSourceUrl.trim();
+    if (trimmedUrl) {
+      const editingId = addModal.data?.id;
+      const duplicate = recipes.find(r => r.sourceUrl === trimmedUrl && r.id !== editingId);
+      if (duplicate) {
+        setUrlDuplicateError(`This URL is already used by "${duplicate.title}".`);
+        return;
+      }
+    }
+    setUrlDuplicateError('');
     const recipeData: Recipe = {
       id: addModal.data?.id || Date.now().toString(),
       title: formTitle.trim(),
@@ -447,36 +485,85 @@ export default function RecipePage() {
           />
         }
       >
-        {/* YouTube extraction — only on new recipes */}
+        {/* Import section — only on new recipes */}
         {!addModal.data && (
-          <FormGroup label="Import from YouTube (optional)">
-            <div className="extract-row">
-              <input
-                type="url"
-                value={extractUrl}
-                onChange={e => { setExtractUrl(e.target.value); setExtractError(''); setExtractedOk(false); }}
-                placeholder="Paste YouTube URL..."
-                onKeyDown={e => e.key === 'Enter' && handleExtract()}
-              />
+          <div className="import-section">
+            <div className="import-tabs">
               <button
-                className="extract-btn"
-                onClick={handleExtract}
-                disabled={!extractUrl.trim() || isExtracting}
+                className={`import-tab${importTab === 'youtube' ? ' active' : ''}`}
+                onClick={() => setImportTab('youtube')}
+                type="button"
               >
-                {isExtracting
-                  ? <IoRefreshOutline size={17} className="spin" />
-                  : <IoLogoYoutube size={17} />
-                }
-                {isExtracting ? 'Extracting...' : 'Extract'}
+                <IoLogoYoutube size={14} /> YouTube
+              </button>
+              <button
+                className={`import-tab${importTab === 'paste' ? ' active' : ''}`}
+                onClick={() => setImportTab('paste')}
+                type="button"
+              >
+                <IoClipboardOutline size={14} /> Paste Text
               </button>
             </div>
-            {extractError && <p className="extract-error">{extractError}</p>}
-            {extractedOk && (
-              <p className="extract-success">
-                <IoCheckmarkCircle size={14} /> Recipe extracted! Review the fields below.
-              </p>
+
+            {importTab === 'youtube' ? (
+              <FormGroup label="Import from YouTube (optional)">
+                <div className="extract-row">
+                  <input
+                    type="url"
+                    value={extractUrl}
+                    onChange={e => { setExtractUrl(e.target.value); setExtractError(''); setExtractedOk(false); }}
+                    placeholder="Paste YouTube URL..."
+                    onKeyDown={e => e.key === 'Enter' && handleExtract()}
+                  />
+                  <button
+                    className="extract-btn"
+                    onClick={handleExtract}
+                    disabled={!extractUrl.trim() || isExtracting}
+                  >
+                    {isExtracting
+                      ? <IoRefreshOutline size={17} className="spin" />
+                      : <IoLogoYoutube size={17} />
+                    }
+                    {isExtracting ? 'Extracting...' : 'Extract'}
+                  </button>
+                </div>
+                {extractError && <p className="extract-error">{extractError}</p>}
+                {extractedOk && (
+                  <p className="extract-success">
+                    <IoCheckmarkCircle size={14} /> Recipe extracted! Review the fields below.
+                  </p>
+                )}
+              </FormGroup>
+            ) : (
+              <FormGroup label="Paste recipe text (optional)">
+                <textarea
+                  value={pasteText}
+                  onChange={e => { setPasteText(e.target.value); setPasteError(''); setParsedOk(false); }}
+                  placeholder="Paste any recipe text here — ingredients, steps, blog post, etc."
+                  rows={5}
+                  style={{ resize: 'vertical' }}
+                />
+                <button
+                  className="extract-btn"
+                  style={{ marginTop: '6px', width: '100%' }}
+                  onClick={handleParseText}
+                  disabled={!pasteText.trim() || isParsing}
+                >
+                  {isParsing
+                    ? <IoRefreshOutline size={17} className="spin" />
+                    : <IoClipboardOutline size={17} />
+                  }
+                  {isParsing ? 'Parsing...' : 'Parse Recipe'}
+                </button>
+                {pasteError && <p className="extract-error">{pasteError}</p>}
+                {parsedOk && (
+                  <p className="extract-success">
+                    <IoCheckmarkCircle size={14} /> Recipe parsed! Review the fields below.
+                  </p>
+                )}
+              </FormGroup>
             )}
-          </FormGroup>
+          </div>
         )}
 
         {/* Thumbnail preview */}
@@ -632,9 +719,12 @@ export default function RecipePage() {
           <input
             type="url"
             value={formSourceUrl}
-            onChange={e => setFormSourceUrl(e.target.value)}
+            onChange={e => { setFormSourceUrl(e.target.value); setUrlDuplicateError(''); }}
             placeholder="https://…"
           />
+          {urlDuplicateError && (
+            <p style={{ color: '#EF4444', fontSize: '0.8rem', marginTop: '4px' }}>{urlDuplicateError}</p>
+          )}
         </FormGroup>
 
         {/* Favorite toggle */}

@@ -120,10 +120,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleWorkouts(req, res, userId);
       case 'settings':
         return handleUserSettings(req, res, userId);
-      case 'push-subscription':
-        return handlePushSubscription(req, res, userId);
-      case 'notifications/test':
-        return handleTestNotification(req, res, userId);
       case 'recipes':
         return handleRecipes(req, res, userId);
       case 'recipes/extract':
@@ -932,6 +928,12 @@ async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: st
     }
     case 'POST': {
       const { id, title, description, ingredients, instructions, prepTime, cookTime, servings, tags, sourceUrl, sourcePlatform, thumbnail, channelName, isFavorite, sortOrder, createdAt, updatedAt } = req.body;
+      if (sourceUrl) {
+        const existing = await sql`SELECT id FROM recipes WHERE user_id = ${userId} AND source_url = ${sourceUrl}`;
+        if (existing.length > 0) {
+          return res.status(409).json({ error: 'A recipe with this URL already exists.' });
+        }
+      }
       await sql`
         INSERT INTO recipes (id, user_id, title, description, ingredients, instructions, prep_time, cook_time, servings, tags, source_url, source_platform, thumbnail, channel_name, is_favorite, sort_order, created_at, updated_at)
         VALUES (${id}, ${userId}, ${title}, ${description || null}, ${JSON.stringify(ingredients || [])}, ${JSON.stringify(instructions || [])}, ${prepTime || null}, ${cookTime || null}, ${servings || null}, ${tags || []}, ${sourceUrl || null}, ${sourcePlatform || 'manual'}, ${thumbnail || null}, ${channelName || null}, ${isFavorite || false}, ${sortOrder !== undefined ? sortOrder : null}, ${createdAt || new Date().toISOString()}, ${updatedAt || new Date().toISOString()})
@@ -940,6 +942,12 @@ async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: st
     }
     case 'PUT': {
       const { id, title, description, ingredients, instructions, prepTime, cookTime, servings, tags, sourceUrl, sourcePlatform, thumbnail, channelName, isFavorite, sortOrder, updatedAt } = req.body;
+      if (sourceUrl) {
+        const existing = await sql`SELECT id FROM recipes WHERE user_id = ${userId} AND source_url = ${sourceUrl} AND id != ${id}`;
+        if (existing.length > 0) {
+          return res.status(409).json({ error: 'A recipe with this URL already exists.' });
+        }
+      }
       await sql`
         UPDATE recipes SET
           title = ${title},
@@ -991,9 +999,63 @@ async function handleRecipeExtract(req: VercelRequest, res: VercelResponse, _use
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { url } = req.body;
+  const { url, text } = req.body;
+
+  // ── Text paste path ──────────────────────────────────────────────────────────
+  if (text) {
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({ error: 'AI parsing not configured on server.' });
+    }
+    let extracted: Record<string, unknown>;
+    try {
+      const client = new OpenAI({
+        baseURL: 'https://models.github.ai/inference',
+        apiKey: GITHUB_TOKEN,
+      });
+      const aiResponse = await client.chat.completions.create({
+        model: 'openai/gpt-4.1-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a recipe extraction assistant. Parse raw recipe text into structured data. Always respond with valid JSON only, no markdown.',
+          },
+          {
+            role: 'user',
+            content: `Parse the following text into a structured recipe. Return ONLY a valid JSON object with these exact fields:
+- "title": string (recipe name)
+- "description": string (1-2 sentence dish description)
+- "ingredients": array of objects { "amount": string, "unit": string, "name": string }
+- "instructions": array of strings (numbered steps as plain text)
+- "prepTime": number (minutes, null if unknown)
+- "cookTime": number (minutes, null if unknown)
+- "servings": number (null if unknown)
+- "tags": array of strings (e.g. ["Italian","pasta"])
+
+If no recognisable recipe is present, return: {"error": "No recipe found"}
+
+Recipe text:
+${(text as string).substring(0, 6000)}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: 2000,
+        temperature: 0.1,
+      });
+      extracted = JSON.parse(aiResponse.choices[0].message.content ?? '{}') as Record<string, unknown>;
+    } catch (aiError) {
+      console.error('GitHub Models AI error:', aiError);
+      return res.status(500).json({ error: 'AI parsing failed. Please try again.' });
+    }
+    if (extracted.error) {
+      return res.status(422).json({ error: extracted.error as string });
+    }
+    return res.status(200).json({ ...extracted, sourcePlatform: 'manual' });
+  }
+
+  // ── URL path (YouTube) ───────────────────────────────────────────────────────
   if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
+    return res.status(400).json({ error: 'Either url or text is required' });
   }
 
   const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;

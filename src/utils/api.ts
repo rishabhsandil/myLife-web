@@ -323,3 +323,11 @@ export async function extractRecipeFromUrl(url: string): Promise<RecipeExtractRe
   });
   return result;
 }
+
+export async function parseRecipeFromText(text: string): Promise<RecipeExtractResult> {
+  const result = await api<RecipeExtractResult>('recipes/extract', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+  return result;
+}
