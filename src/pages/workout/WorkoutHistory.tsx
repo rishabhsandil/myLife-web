@@ -5,7 +5,7 @@ import {
 } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
 import { BodyPart, WeightUnit, WorkoutSession } from '../../types';
-import { formatDuration, getSessionStats, getBodyPartColor } from './helpers';
+import { formatDuration, getSessionStats, getBodyPartColor, toLocalDateString } from './helpers';
 import { Modal } from '../../components';
 import { EmptyState } from '../../components';
 import { useModal } from '../../hooks';
@@ -131,7 +131,7 @@ export function WorkoutHistory({
     const map = new Map<string, WorkoutSession[]>();
     sessions.forEach(session => {
       const date = new Date(session.startTime);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = toLocalDateString(date);
       if (!map.has(dateKey)) {
         map.set(dateKey, []);
       }
@@ -178,7 +178,7 @@ export function WorkoutHistory({
               </div>
               <div className="week-days-grid">
                 {weekDays.map((day, index) => {
-                  const dateKey = day.toISOString().split('T')[0];
+                  const dateKey = toLocalDateString(day);
                   const daySessions = sessionsByDate.get(dateKey) || [];
                   const hasWorkout = daySessions.length > 0;
                   const isCurrentDay = isToday(day);

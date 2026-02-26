@@ -532,6 +532,12 @@
   margin-bottom: 12px;
 }
 
+.session-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .session-discard-btn {
   width: 36px;
   height: 36px;
@@ -541,6 +547,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.session-view-plan-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-view-plan-btn:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Active session banner shown on plan view while a session is running */
+.active-session-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border: none;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: filter 0.15s;
+}
+
+.active-session-banner:active {
+  filter: brightness(0.9);
 }
 
 .session-split-label {

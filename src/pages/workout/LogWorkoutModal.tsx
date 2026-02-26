@@ -5,7 +5,7 @@ import {
 } from 'react-icons/io5';
 import { BodyPart, Exercise, WeightUnit, WorkoutSession, WorkoutSessionExercise } from '../../types';
 import { Modal, ModalFooter, FormGroup } from '../../components';
-import { kgToLbs, lbsToKg, buildSessionExercises } from './helpers';
+import { kgToLbs, lbsToKg, buildSessionExercises, toLocalDateString } from './helpers';
 import { colors } from '../../utils/theme';
 
 interface LogWorkoutModalProps {
@@ -27,10 +27,7 @@ export function LogWorkoutModal({
 }: LogWorkoutModalProps) {
   const [step, setStep] = useState<'details' | 'exercises'>('details');
   const [selectedBodyPartId, setSelectedBodyPartId] = useState('');
-  const [workoutDate, setWorkoutDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().slice(0, 10); // YYYY-MM-DD
-  });
+  const [workoutDate, setWorkoutDate] = useState(() => toLocalDateString());
   const [workoutTime, setWorkoutTime] = useState('09:00');
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [sessionExercises, setSessionExercises] = useState<WorkoutSessionExercise[]>([]);
@@ -50,8 +47,7 @@ export function LogWorkoutModal({
   const reset = () => {
     setStep('details');
     setSelectedBodyPartId('');
-    const d = new Date();
-    setWorkoutDate(d.toISOString().slice(0, 10));
+    setWorkoutDate(toLocalDateString());
     setWorkoutTime('09:00');
     setDurationMinutes(60);
     setSessionExercises([]);
@@ -174,7 +170,7 @@ export function LogWorkoutModal({
               type="date"
               value={workoutDate}
               onChange={e => setWorkoutDate(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={toLocalDateString()}
             />
           </FormGroup>
 

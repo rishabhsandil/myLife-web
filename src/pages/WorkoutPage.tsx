@@ -33,7 +33,7 @@ import { Modal, ModalFooter, FormGroup, FormRow, NumberControl, ColorPicker, FAB
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 
-import { makeDisplayWeight, kgToLbs, lbsToKg, buildSessionExercises, getBodyPartColor as getBpColor } from './workout/helpers';
+import { makeDisplayWeight, kgToLbs, lbsToKg, buildSessionExercises, getBodyPartColor as getBpColor, toLocalDateString } from './workout/helpers';
 import { SortableExerciseItem } from './workout/SortableExerciseItem';
 import { ActiveSession } from './workout/ActiveSession';
 import { WorkoutHistory } from './workout/WorkoutHistory';
@@ -51,6 +51,7 @@ export default function WorkoutPage() {
 
   // Active workout session state
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  const [showingPlanDuringSession, setShowingPlanDuringSession] = useState(false);
 
   // Workout history state
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
@@ -229,7 +230,7 @@ export default function WorkoutPage() {
       id: `ws_${Date.now()}`,
       bodyPartId: bp.id,
       bodyPartName: bp.name,
-      date: now.toISOString().split('T')[0], // YYYY-MM-DD
+      date: toLocalDateString(now),
       startTime: now.toISOString(),
       exercises: sessionExercises,
       createdAt: now.toISOString(),
@@ -263,12 +264,14 @@ export default function WorkoutPage() {
 
     clearActiveWorkoutSession();
     setActiveSession(null);
+    setShowingPlanDuringSession(false);
     summaryModal.open(completedSession);
   };
 
   const handleDiscardWorkout = () => {
     clearActiveWorkoutSession();
     setActiveSession(null);
+    setShowingPlanDuringSession(false);
   };
 
   const handleToggleHistory = async () => {
@@ -307,7 +310,7 @@ export default function WorkoutPage() {
   };
 
   // ============ RENDER: ACTIVE SESSION ============
-  if (activeSession) {
+  if (activeSession && !showingPlanDuringSession) {
     return (
       <>
         <ActiveSession
@@ -318,6 +321,7 @@ export default function WorkoutPage() {
           displayWeight={displayWeight}
           onFinish={handleFinishWorkout}
           onDiscard={handleDiscardWorkout}
+          onViewPlan={() => setShowingPlanDuringSession(true)}
         />
         <SessionSummaryModal
           isOpen={summaryModal.isOpen}
@@ -334,6 +338,18 @@ export default function WorkoutPage() {
   // ============ RENDER: NORMAL VIEW ============
   return (
     <div className="workout-page">
+      {/* Active session banner */}
+      {activeSession && showingPlanDuringSession && (
+        <button
+          className="active-session-banner"
+          style={{ background: getBodyPartColor(activeSession.bodyPartId) }}
+          onClick={() => setShowingPlanDuringSession(false)}
+        >
+          <IoPlay size={16} />
+          <span>{activeSession.bodyPartName} in progress — tap to return</span>
+        </button>
+      )}
+
       {/* Header */}
       <header className="workout-header">
         <div>
@@ -645,7 +661,7 @@ export default function WorkoutPage() {
       >
         <p>Are you sure you want to delete this workout?</p>
         {deleteSessionModal.data && (
-          <p><strong>{deleteSessionModal.data.bodyPartName} - {new Date(deleteSessionModal.data.date).toLocaleDateString()}</strong></p>
+          <p><strong>{deleteSessionModal.data.bodyPartName} - {new Date(deleteSessionModal.data.date + 'T00:00:00').toLocaleDateString()}</strong></p>
         )}
       </Modal>
     </div>

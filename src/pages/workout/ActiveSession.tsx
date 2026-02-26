@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   IoCheckmark, IoEllipseOutline, IoTime,
-  IoChevronDown, IoChevronUp, IoClose,
+  IoChevronDown, IoChevronUp, IoClose, IoBarbell,
 } from 'react-icons/io5';
 import { Exercise, WeightUnit, WorkoutSession } from '../../types';
 import { saveActiveWorkoutSession } from '../../utils/storage';
@@ -15,6 +15,7 @@ interface ActiveSessionProps {
   displayWeight: (kg: number) => string;
   onFinish: (session: WorkoutSession, durationSeconds: number) => void;
   onDiscard: () => void;
+  onViewPlan: () => void;
 }
 
 export function ActiveSession({
@@ -25,6 +26,7 @@ export function ActiveSession({
   displayWeight,
   onFinish,
   onDiscard,
+  onViewPlan,
 }: ActiveSessionProps) {
   const [session, setSession] = useState<WorkoutSession>(initialSession);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -109,9 +111,14 @@ export function ActiveSession({
       {/* Session Header */}
       <header className="session-header" style={{ background: `linear-gradient(135deg, ${bodyPartColor}, ${bodyPartColor}dd)` }}>
         <div className="session-header-top">
-          <button className="session-discard-btn" onClick={onDiscard}>
-            <IoClose size={20} />
-          </button>
+          <div className="session-header-left">
+            <button className="session-discard-btn" onClick={onDiscard} title="Discard workout">
+              <IoClose size={20} />
+            </button>
+            <button className="session-view-plan-btn" onClick={onViewPlan} title="View workout plan">
+              <IoBarbell size={18} />
+            </button>
+          </div>
           <div className="session-split-label">{session.bodyPartName}</div>
           <button className="session-finish-btn" onClick={() => onFinish(session, elapsedSeconds)}>
             <IoCheckmark size={20} />

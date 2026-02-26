@@ -1,5 +1,13 @@
 import { WorkoutSession, WorkoutSessionExercise, Exercise, BodyPart, WeightUnit } from '../../types';
 
+// Return the local date as YYYY-MM-DD (timezone-safe, unlike toISOString which is UTC)
+export function toLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Format seconds to MM:SS or HH:MM:SS
 export function formatTimer(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);

@@ -841,8 +841,8 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'POST': {
       try {
-        const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
-        const date = startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const { id, bodyPartId, bodyPartName, date: clientDate, startTime, endTime, duration, exercises } = req.body;
+        const date = clientDate || (startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
         await sql`
           INSERT INTO workout_sessions (id, user_id, date, body_part_id, body_part_name, start_time, end_time, duration, exercises)
           VALUES (${id}, ${userId}, ${date}, ${bodyPartId}, ${bodyPartName}, ${startTime}, ${endTime || null}, ${duration || 0}, ${JSON.stringify(exercises)})
@@ -859,8 +859,8 @@ async function handleWorkouts(req: VercelRequest, res: VercelResponse, userId: s
       }
     }
     case 'PUT': {
-      const { id, bodyPartId, bodyPartName, startTime, endTime, duration, exercises } = req.body;
-      const date = startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const { id, bodyPartId, bodyPartName, date: clientDate, startTime, endTime, duration, exercises } = req.body;
+      const date = clientDate || (startTime ? new Date(startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       await sql`
         UPDATE workout_sessions SET 
           date = ${date},
