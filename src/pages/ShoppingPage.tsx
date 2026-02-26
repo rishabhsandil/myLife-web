@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
-  IoTime, IoPencil, IoSettings, IoReorderTwo
+  IoTime, IoPencil, IoSettings, IoReorderTwo, IoSearchOutline
 } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
 import {
@@ -139,6 +139,7 @@ export default function ShoppingPage() {
   const [stores, setStores] = useState<ShoppingStore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStore, setSelectedStore] = useState<string>('');
+  const [itemSearch, setItemSearch] = useState('');
   const [shareStatus, setShareStatus] = useState<ShoppingShareStatus>({ sharedWith: [], sharedBy: [] });
   const [shareEmail, setShareEmail] = useState('');
   const [shareError, setShareError] = useState('');
@@ -256,7 +257,7 @@ export default function ShoppingPage() {
   const filteredItems = useMemo(() => {
     // Filter by store name to handle shared lists where users have different store IDs for the same store name
     const storeName = currentStore?.name;
-    return items
+    let result = items
       .filter(item => item.storeName === storeName)
       .sort((a, b) => {
         // Completed items go to bottom
@@ -273,7 +274,12 @@ export default function ShoppingPage() {
         // Default to creation order
         return 0;
       });
-  }, [items, selectedStore, currentStore]);
+    if (itemSearch.trim()) {
+      const q = itemSearch.toLowerCase();
+      result = result.filter(item => item.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [items, selectedStore, currentStore, itemSearch]);
 
   const completedCount = filteredItems.filter(i => i.completed).length;
   const totalCount = filteredItems.length;
@@ -554,7 +560,7 @@ export default function ShoppingPage() {
           <button
             key={store.id}
             className={`store-tab ${selectedStore === store.id ? 'active' : ''}`}
-            onClick={() => setSelectedStore(store.id)}
+            onClick={() => { setSelectedStore(store.id); setItemSearch(''); }}
             style={{ 
               borderColor: selectedStore === store.id ? store.color : 'transparent',
               color: selectedStore === store.id ? store.color : undefined
@@ -566,6 +572,23 @@ export default function ShoppingPage() {
         <button className="store-tab settings" onClick={() => settingsModal.open()}>
           <IoSettings size={18} />
         </button>
+      </div>
+
+      {/* Per-store search bar */}
+      <div className="shopping-search-bar">
+        <IoSearchOutline size={16} className="shopping-search-icon" />
+        <input
+          className="shopping-search-input"
+          type="text"
+          placeholder="Search items..."
+          value={itemSearch}
+          onChange={e => setItemSearch(e.target.value)}
+        />
+        {itemSearch && (
+          <button className="shopping-search-clear" onClick={() => setItemSearch('')}>
+            <IoClose size={15} />
+          </button>
+        )}
       </div>
 
       {/* Progress */}

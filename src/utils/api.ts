@@ -300,6 +300,60 @@ export const saveRecipe = recipesApi.create;
 export const updateRecipe = recipesApi.update;
 export const deleteRecipe = recipesApi.delete;
 
+// ============ SHARED RECIPES ============
+import { SharedRecipe } from '../types';
+
+export async function getSharedRecipes(): Promise<SharedRecipe[]> {
+  try {
+    return await api<SharedRecipe[]>('recipes/shared');
+  } catch (error) {
+    console.error('Failed to fetch shared recipes:', error);
+    return [];
+  }
+}
+
+export async function deleteSharedRecipe(id: string): Promise<void> {
+  try {
+    await api(`recipes/shared?id=${id}`, { method: 'DELETE' });
+  } catch (error) {
+    console.error('Failed to delete shared recipe:', error);
+  }
+}
+
+export async function saveSharedRecipeToOwn(recipe: SharedRecipe): Promise<void> {
+  const ownRecipe: Recipe = {
+    id: `recipe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: recipe.title,
+    description: recipe.description,
+    ingredients: recipe.ingredients,
+    instructions: recipe.instructions,
+    prepTime: recipe.prepTime,
+    cookTime: recipe.cookTime,
+    servings: recipe.servings,
+    tags: recipe.tags,
+    sourceUrl: recipe.sourceUrl,
+    sourcePlatform: recipe.sourcePlatform,
+    thumbnail: recipe.thumbnail,
+    channelName: recipe.channelName,
+    isFavorite: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await saveRecipe(ownRecipe);
+}
+
+export async function shareRecipe(recipeId: string, email: string): Promise<{ success: boolean; sharedWith?: { name: string; email: string }; message?: string; error?: string }> {
+  try {
+    return await api<{ success: boolean; sharedWith: { name: string; email: string }; message: string }>('recipes/share', {
+      method: 'POST',
+      body: JSON.stringify({ recipeId, email }),
+    });
+  } catch (error) {
+    console.error('Failed to share recipe:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to share recipe' };
+  }
+}
+
 export interface RecipeExtractResult {
   title: string;
   description?: string;

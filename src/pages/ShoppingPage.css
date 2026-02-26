@@ -154,6 +154,46 @@
   color: #6B7C6D;
 }
 
+/* Per-store search bar */
+.shopping-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 8px;
+  padding: 9px 14px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1.5px solid #E2E8F0;
+}
+
+.shopping-search-icon {
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+
+.shopping-search-input {
+  flex: 1;
+  font-size: 14px;
+  color: #1E293B;
+  background: transparent;
+  width: auto !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.shopping-search-input::placeholder { color: #94A3B8; }
+.shopping-search-input:focus { outline: none; }
+
+.shopping-search-clear {
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px;
+}
+
 /* Items */
 .items-container {
   flex: 1;

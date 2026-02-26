@@ -165,6 +165,11 @@ export interface Recipe {
   updatedAt: string;
 }
 
+export interface SharedRecipe extends Recipe {
+  sharedByName: string;
+  sharedAt: string;
+}
+
 export interface UserSettings {
   enabledModules: ModuleType[];
 }

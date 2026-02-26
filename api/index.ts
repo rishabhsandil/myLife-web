@@ -122,6 +122,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleUserSettings(req, res, userId);
       case 'recipes':
         return handleRecipes(req, res, userId);
+      case 'recipes/share':
+        return handleRecipeShare(req, res, userId);
+      case 'recipes/shared':
+        return handleSharedRecipes(req, res, userId);
       case 'recipes/extract':
         return handleRecipeExtract(req, res, userId);
       default:
@@ -918,7 +922,7 @@ async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: st
           thumbnail, channel_name as "channelName",
           is_favorite as "isFavorite", sort_order as "sortOrder",
           created_at as "createdAt", updated_at as "updatedAt"
-        FROM recipes WHERE user_id = ${userId} ORDER BY updated_at DESC
+        FROM recipes WHERE user_id = ${userId} AND shared_with_id IS NULL ORDER BY updated_at DESC
       `;
       return res.status(200).json(rows.map((r: Record<string, unknown>) => ({
         ...r,
@@ -972,6 +976,119 @@ async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: st
     case 'DELETE': {
       const { id } = req.query;
       if (id) await sql`DELETE FROM recipes WHERE id = ${id as string} AND user_id = ${userId}`;
+      return res.status(200).json({ success: true });
+    }
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+// ============ RECIPE SHARING ============
+async function handleRecipeShare(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { recipeId, email } = req.body;
+  if (!recipeId || !email) {
+    return res.status(400).json({ error: 'Recipe ID and email are required' });
+  }
+
+  // Find the target user
+  const users = await sql`SELECT id, email, name FROM users WHERE email = ${email.toLowerCase()}`;
+  if (users.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  const targetUser = users[0];
+  if (targetUser.id === userId) {
+    return res.status(400).json({ error: 'Cannot share with yourself' });
+  }
+
+  // Fetch the recipe
+  const recipes = await sql`
+    SELECT id, title, description, ingredients, instructions,
+      prep_time, cook_time, servings, tags, source_url, source_platform,
+      thumbnail, channel_name
+    FROM recipes WHERE id = ${recipeId} AND user_id = ${userId}
+  `;
+  if (recipes.length === 0) {
+    return res.status(404).json({ error: 'Recipe not found' });
+  }
+
+  const recipe = recipes[0];
+  const newId = `shared_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const now = new Date().toISOString();
+
+  // Get sender name
+  const senderRows = await sql`SELECT name FROM users WHERE id = ${userId}`;
+  const senderName = senderRows.length > 0 ? senderRows[0].name as string : 'Someone';
+
+  // Check if already shared with this user
+  const existing = await sql`
+    SELECT id FROM recipes
+    WHERE shared_by_id = ${userId} AND shared_with_id = ${targetUser.id as string}
+      AND title = ${recipe.title as string}
+  `;
+  if (existing.length > 0) {
+    return res.status(400).json({ error: 'Recipe already shared with this user' });
+  }
+
+  // Insert shared copy into recipes table
+  await sql`
+    INSERT INTO recipes (id, user_id, title, description, ingredients, instructions,
+      prep_time, cook_time, servings, tags, source_url, source_platform,
+      thumbnail, channel_name, is_favorite, sort_order,
+      shared_by_id, shared_by_name, shared_with_id,
+      created_at, updated_at)
+    VALUES (
+      ${newId}, ${userId}, ${recipe.title as string},
+      ${recipe.description as string || null},
+      ${typeof recipe.ingredients === 'string' ? recipe.ingredients as string : JSON.stringify(recipe.ingredients || [])},
+      ${typeof recipe.instructions === 'string' ? recipe.instructions as string : JSON.stringify(recipe.instructions || [])},
+      ${recipe.prep_time as number || null}, ${recipe.cook_time as number || null},
+      ${recipe.servings as number || null},
+      ${recipe.tags as string[] || []},
+      ${recipe.source_url as string || null}, ${recipe.source_platform as string || 'manual'},
+      ${recipe.thumbnail as string || null}, ${recipe.channel_name as string || null},
+      false, null,
+      ${userId}, ${senderName}, ${targetUser.id as string},
+      ${now}, ${now}
+    )
+  `;
+
+  return res.status(201).json({
+    success: true,
+    sharedWith: { name: targetUser.name, email: targetUser.email },
+    message: `Recipe shared with ${targetUser.name}`,
+  });
+}
+
+// ============ SHARED RECIPES (received) ============
+async function handleSharedRecipes(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'GET': {
+      const rows = await sql`
+        SELECT id, title, description,
+          ingredients, instructions,
+          prep_time as "prepTime", cook_time as "cookTime", servings, tags,
+          source_url as "sourceUrl", source_platform as "sourcePlatform",
+          thumbnail, channel_name as "channelName",
+          is_favorite as "isFavorite", sort_order as "sortOrder",
+          created_at as "createdAt", updated_at as "updatedAt",
+          shared_by_name as "sharedByName",
+          created_at as "sharedAt"
+        FROM recipes WHERE shared_with_id = ${userId}
+        ORDER BY created_at DESC
+      `;
+      return res.status(200).json(rows.map((r: Record<string, unknown>) => ({
+        ...r,
+        ingredients: typeof r.ingredients === 'string' ? JSON.parse(r.ingredients as string) : (r.ingredients || []),
+        instructions: typeof r.instructions === 'string' ? JSON.parse(r.instructions as string) : (r.instructions || []),
+      })));
+    }
+    case 'DELETE': {
+      const { id } = req.query;
+      if (id) await sql`DELETE FROM recipes WHERE id = ${id as string} AND shared_with_id = ${userId}`;
       return res.status(200).json({ success: true });
     }
     default:

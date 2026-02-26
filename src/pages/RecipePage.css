@@ -120,6 +120,50 @@
   color: white;
 }
 
+.recipe-filter-tab .shared-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #EF4444;
+  color: white;
+  line-height: 1;
+}
+
+.recipe-filter-tab.active .shared-badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* ── Shared recipe card ── */
+.shared-by-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #6366F1;
+  font-weight: 500;
+  margin: 2px 0 4px;
+}
+
+.recipe-view-shared-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6366F1;
+  font-weight: 500;
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  background: #EEF2FF;
+  border-radius: 8px;
+}
+
 /* ── Grid Container ── */
 .recipe-container {
   flex: 1;
@@ -132,6 +176,7 @@
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-items: stretch;
   gap: 14px;
 }
 
@@ -140,6 +185,7 @@
   position: relative;
   border-radius: 14px;
   overflow: hidden;
+  height: 100%;
 }
 
 .recipe-card-wrapper .swipe-delete-bg {
@@ -163,18 +209,26 @@
   z-index: 1;
   background: white;
   border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   cursor: pointer;
   will-change: transform;
+  height: 100%;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.recipe-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.13), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
 }
 
 /* Thumbnail */
 .recipe-thumbnail {
   width: 100%;
-  aspect-ratio: 16/9;
+  height: 110px;
+  flex-shrink: 0;
   overflow: hidden;
   position: relative;
   background: #F1F5F9;
@@ -189,7 +243,8 @@
 
 .recipe-thumbnail-placeholder {
   width: 100%;
-  aspect-ratio: 16/9;
+  height: 110px;
+  flex-shrink: 0;
   background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
   display: flex;
   align-items: center;
@@ -850,3 +905,179 @@
 }
 
 .recipe-source-link:hover { text-decoration: underline; }
+
+/* ── Share Recipe Modal ── */
+.share-recipe-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.share-recipe-name {
+  font-size: 14px;
+  color: #334155;
+  margin: 0;
+}
+
+.share-recipe-note {
+  font-size: 12px;
+  color: #94A3B8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.share-email-row {
+  display: flex;
+  gap: 8px;
+}
+
+.share-email-row input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #F8FAFC;
+  color: #1E293B;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.share-email-row input:focus {
+  border-color: #EF4444;
+}
+
+.share-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  background: #EF4444;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.share-send-btn:hover:not(:disabled) {
+  background: #DC2626;
+}
+
+.share-send-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.share-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.share-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.share-result.success {
+  color: #16A34A;
+  background: #F0FDF4;
+}
+
+.share-result.error {
+  color: #EF4444;
+  background: #FEF2F2;
+}
+
+/* Connections section */
+.share-connections {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 14px;
+}
+
+.share-connections-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px;
+}
+
+.share-connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-connection-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.share-connection-item:hover:not(:disabled) {
+  background: #F1F5F9;
+}
+
+.share-connection-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.share-conn-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.share-conn-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.share-conn-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.share-conn-email {
+  font-size: 12px;
+  color: #94A3B8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-conn-send {
+  color: #94A3B8;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.share-connection-item:hover .share-conn-send {
+  color: #EF4444;
+}

@@ -3,12 +3,17 @@ import {
   IoAdd, IoClose, IoTrash, IoHeart, IoHeartOutline, IoSearchOutline,
   IoRestaurantOutline, IoTime, IoPeople, IoPencil, IoLink,
   IoLogoYoutube, IoCheckmarkCircle, IoRefreshOutline, IoClipboardOutline,
+  IoShareSocialOutline, IoPersonOutline, IoSendOutline,
+  IoDownloadOutline,
 } from 'react-icons/io5';
 import { useSwipeable } from 'react-swipeable';
-import { Recipe, RecipeIngredient } from '../types';
+import { Recipe, RecipeIngredient, SharedRecipe } from '../types';
 import {
   getRecipes, saveRecipe, updateRecipe, deleteRecipe as apiDeleteRecipe,
-  extractRecipeFromUrl, parseRecipeFromText,
+  extractRecipeFromUrl, parseRecipeFromText, shareRecipe as apiShareRecipe,
+  getConnections, UserConnection,
+  getSharedRecipes, deleteSharedRecipe as apiDeleteSharedRecipe,
+  saveSharedRecipeToOwn,
 } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
 import { useModal } from '../hooks';
@@ -154,9 +159,10 @@ function RecipeCard({ recipe, onView, onEdit, onDelete, onToggleFavorite }: Reci
 
 export default function RecipePage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [sharedRecipes, setSharedRecipes] = useState<SharedRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'favorites'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'favorites' | 'shared'>('all');
 
   // URL extraction
   const [importTab, setImportTab] = useState<'youtube' | 'paste'>('youtube');
@@ -190,14 +196,27 @@ export default function RecipePage() {
   const addModal = useModal<Recipe>();
   const viewModal = useModal<Recipe>();
   const deleteModal = useModal<Recipe>();
+  const shareModal = useModal<Recipe>();
 
-  useEffect(() => { loadRecipes(); }, []);
+  // Share state
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareConnections, setShareConnections] = useState<UserConnection[]>([]);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareResult, setShareResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+
+  useEffect(() => { loadRecipes(); loadSharedRecipes(); }, []);
 
   async function loadRecipes() {
     setIsLoading(true);
     const data = await getRecipes();
     setRecipes(data);
     setIsLoading(false);
+  }
+
+  async function loadSharedRecipes() {
+    const data = await getSharedRecipes();
+    setSharedRecipes(data);
   }
 
   const filteredRecipes = useMemo(() => {
@@ -214,6 +233,18 @@ export default function RecipePage() {
     }
     return result;
   }, [recipes, searchQuery, activeFilter]);
+
+  const filteredSharedRecipes = useMemo(() => {
+    if (!searchQuery.trim()) return sharedRecipes;
+    const q = searchQuery.toLowerCase();
+    return sharedRecipes.filter(r =>
+      r.title.toLowerCase().includes(q) ||
+      r.tags?.some(t => t.toLowerCase().includes(q)) ||
+      r.channelName?.toLowerCase().includes(q) ||
+      r.description?.toLowerCase().includes(q) ||
+      r.sharedByName?.toLowerCase().includes(q)
+    );
+  }, [sharedRecipes, searchQuery]);
 
   // ── Form helpers ──
 
@@ -347,6 +378,45 @@ export default function RecipePage() {
     if (viewModal.isOpen) viewModal.close();
   };
 
+  const handleDeleteShared = async (recipe: SharedRecipe) => {
+    await apiDeleteSharedRecipe(recipe.id);
+    setSharedRecipes(prev => prev.filter(r => r.id !== recipe.id));
+    deleteModal.close();
+    if (viewModal.isOpen) viewModal.close();
+  };
+
+  const handleSaveToOwn = async (recipe: SharedRecipe) => {
+    await saveSharedRecipeToOwn(recipe);
+    await loadRecipes();
+    setActiveFilter('all');
+  };
+
+  const openShareModal = async (recipe: Recipe) => {
+    setShareEmail('');
+    setShareResult(null);
+    setIsSharing(false);
+    shareModal.open(recipe);
+    if (!connectionsLoaded) {
+      const conns = await getConnections();
+      setShareConnections(conns);
+      setConnectionsLoaded(true);
+    }
+  };
+
+  const handleShare = async (email: string) => {
+    if (!shareModal.data || !email.trim()) return;
+    setIsSharing(true);
+    setShareResult(null);
+    const result = await apiShareRecipe(shareModal.data.id, email.trim().toLowerCase());
+    setIsSharing(false);
+    if (result.success) {
+      setShareResult({ type: 'success', message: result.message || `Shared with ${result.sharedWith?.name}!` });
+      setShareEmail('');
+    } else {
+      setShareResult({ type: 'error', message: result.error || 'Failed to share recipe' });
+    }
+  };
+
   // Ingredient helpers
   const updateIngredient = (i: number, field: keyof RecipeIngredient, val: string) =>
     setFormIngredients(prev => prev.map((ing, idx) => idx === i ? { ...ing, [field]: val } : ing));
@@ -371,6 +441,7 @@ export default function RecipePage() {
   };
 
   const viewRecipe = viewModal.data;
+  const isViewingShared = viewRecipe && 'sharedByName' in viewRecipe;
   const favoriteCount = recipes.filter(r => r.isFavorite).length;
 
   // ── Render ──
@@ -423,6 +494,15 @@ export default function RecipePage() {
         >
           <IoHeart size={13} /> Favorites ({favoriteCount})
         </button>
+        <button
+          className={`recipe-filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
+          onClick={() => setActiveFilter('shared')}
+        >
+          <IoShareSocialOutline size={13} /> Shared
+          {sharedRecipes.length > 0 && (
+            <span className="shared-badge">{sharedRecipes.length}</span>
+          )}
+        </button>
       </div>
 
       {/* Grid */}
@@ -437,6 +517,81 @@ export default function RecipePage() {
               </div>
             ))}
           </div>
+        ) : activeFilter === 'shared' ? (
+          /* Shared recipes view */
+          filteredSharedRecipes.length === 0 ? (
+            <EmptyState
+              icon={IoShareSocialOutline}
+              message={
+                searchQuery
+                  ? 'No shared recipes match your search'
+                  : 'No recipes shared with you yet'
+              }
+            />
+          ) : (
+            <div className="recipe-grid">
+              {filteredSharedRecipes.map(recipe => (
+                <div key={recipe.id} className="recipe-card-wrapper">
+                  <div className="swipe-delete-bg">
+                    <IoTrash size={20} />
+                  </div>
+                  <div className="recipe-card shared-recipe-card">
+                    {/* Thumbnail */}
+                    <div
+                      className={recipe.thumbnail ? 'recipe-thumbnail' : 'recipe-thumbnail-placeholder'}
+                      onClick={() => viewModal.open(recipe)}
+                    >
+                      {recipe.thumbnail
+                        ? <img src={recipe.thumbnail} alt={recipe.title} loading="lazy" />
+                        : <IoRestaurantOutline size={36} />
+                      }
+                      {recipe.sourcePlatform === 'youtube' && (
+                        <div className="recipe-platform-badge">
+                          <IoLogoYoutube size={13} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Card body */}
+                    <div className="recipe-card-body" onClick={() => viewModal.open(recipe)}>
+                      <h3 className="recipe-card-title">{recipe.title}</h3>
+                      <p className="shared-by-label">
+                        <IoPersonOutline size={11} /> From {recipe.sharedByName}
+                      </p>
+                      <div className="recipe-card-meta">
+                        {((recipe.prepTime || 0) + (recipe.cookTime || 0)) > 0 && (
+                          <span className="recipe-meta-item">
+                            <IoTime size={12} /> {formatTime((recipe.prepTime || 0) + (recipe.cookTime || 0))}
+                          </span>
+                        )}
+                        {(recipe.servings ?? 0) > 0 && (
+                          <span className="recipe-meta-item">
+                            <IoPeople size={12} /> {recipe.servings}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="recipe-card-actions">
+                      <button
+                        className="recipe-action-btn"
+                        onClick={e => { e.stopPropagation(); handleSaveToOwn(recipe); }}
+                        title="Save to my recipes"
+                      >
+                        <IoDownloadOutline size={17} />
+                      </button>
+                      <button
+                        className="recipe-action-btn"
+                        onClick={e => { e.stopPropagation(); deleteModal.open(recipe); }}
+                        title="Remove"
+                      >
+                        <IoTrash size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : filteredRecipes.length === 0 ? (
           <EmptyState
             icon={IoRestaurantOutline}
@@ -756,32 +911,69 @@ export default function RecipePage() {
             <div className="recipe-view-header">
               <h2 className="recipe-view-title">{viewRecipe.title}</h2>
               <div className="recipe-view-actions">
-                <button
-                  className="recipe-view-btn"
-                  onClick={() => handleToggleFavorite(viewRecipe)}
-                  title={viewRecipe.isFavorite ? 'Remove favorite' : 'Add to favorites'}
-                >
-                  {viewRecipe.isFavorite
-                    ? <IoHeart size={22} color="#EF4444" />
-                    : <IoHeartOutline size={22} />
-                  }
-                </button>
-                <button
-                  className="recipe-view-btn"
-                  onClick={() => { viewModal.close(); openEditModal(viewRecipe); }}
-                  title="Edit"
-                >
-                  <IoPencil size={20} />
-                </button>
-                <button
-                  className="recipe-view-btn danger"
-                  onClick={() => { viewModal.close(); deleteModal.open(viewRecipe); }}
-                  title="Delete"
-                >
-                  <IoTrash size={20} />
-                </button>
+                {isViewingShared ? (
+                  /* Shared recipe actions */
+                  <>
+                    <button
+                      className="recipe-view-btn"
+                      onClick={() => { handleSaveToOwn(viewRecipe as SharedRecipe); viewModal.close(); }}
+                      title="Save to my recipes"
+                    >
+                      <IoDownloadOutline size={20} />
+                    </button>
+                    <button
+                      className="recipe-view-btn danger"
+                      onClick={() => { viewModal.close(); deleteModal.open(viewRecipe); }}
+                      title="Remove"
+                    >
+                      <IoTrash size={20} />
+                    </button>
+                  </>
+                ) : (
+                  /* Own recipe actions */
+                  <>
+                    <button
+                      className="recipe-view-btn"
+                      onClick={() => handleToggleFavorite(viewRecipe)}
+                      title={viewRecipe.isFavorite ? 'Remove favorite' : 'Add to favorites'}
+                    >
+                      {viewRecipe.isFavorite
+                        ? <IoHeart size={22} color="#EF4444" />
+                        : <IoHeartOutline size={22} />
+                      }
+                    </button>
+                    <button
+                      className="recipe-view-btn"
+                      onClick={() => openShareModal(viewRecipe)}
+                      title="Share recipe"
+                    >
+                      <IoShareSocialOutline size={20} />
+                    </button>
+                    <button
+                      className="recipe-view-btn"
+                      onClick={() => { viewModal.close(); openEditModal(viewRecipe); }}
+                      title="Edit"
+                    >
+                      <IoPencil size={20} />
+                    </button>
+                    <button
+                      className="recipe-view-btn danger"
+                      onClick={() => { viewModal.close(); deleteModal.open(viewRecipe); }}
+                      title="Delete"
+                    >
+                      <IoTrash size={20} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
+
+            {isViewingShared && (
+              <p className="recipe-view-shared-by">
+                <IoPersonOutline size={14} />
+                Shared by {(viewRecipe as SharedRecipe).sharedByName}
+              </p>
+            )}
 
             {viewRecipe.channelName && (
               <p className="recipe-view-channel">
@@ -886,15 +1078,94 @@ export default function RecipePage() {
         footer={
           <ModalFooter
             onCancel={deleteModal.close}
-            onSubmit={() => deleteModal.data && handleDelete(deleteModal.data)}
+            onSubmit={() => {
+              if (!deleteModal.data) return;
+              if ('sharedByName' in deleteModal.data) {
+                handleDeleteShared(deleteModal.data as SharedRecipe);
+              } else {
+                handleDelete(deleteModal.data);
+              }
+            }}
             submitText="Delete"
             submitDestructive={true}
           />
         }
       >
         <p style={{ color: '#64748B' }}>
-          Are you sure you want to delete "{deleteModal.data?.title}"? This cannot be undone.
+          Are you sure you want to {deleteModal.data && 'sharedByName' in deleteModal.data ? 'remove' : 'delete'} "{deleteModal.data?.title}"? This cannot be undone.
         </p>
+      </Modal>
+
+      {/* ── Share Recipe Modal ── */}
+      <Modal
+        isOpen={shareModal.isOpen}
+        onClose={shareModal.close}
+        title="Share Recipe"
+      >
+        <div className="share-recipe-modal">
+          <p className="share-recipe-name">
+            Sharing: <strong>{shareModal.data?.title}</strong>
+          </p>
+          <p className="share-recipe-note">
+            A copy of this recipe will be added to the other user's recipes.
+          </p>
+
+          {/* Email input */}
+          <div className="share-email-row">
+            <input
+              type="email"
+              value={shareEmail}
+              onChange={e => { setShareEmail(e.target.value); setShareResult(null); }}
+              placeholder="Enter email address..."
+              onKeyDown={e => e.key === 'Enter' && handleShare(shareEmail)}
+              disabled={isSharing}
+            />
+            <button
+              className="share-send-btn"
+              onClick={() => handleShare(shareEmail)}
+              disabled={!shareEmail.trim() || isSharing}
+            >
+              {isSharing
+                ? <IoRefreshOutline size={17} className="spin" />
+                : <IoSendOutline size={17} />
+              }
+            </button>
+          </div>
+
+          {/* Result message */}
+          {shareResult && (
+            <p className={`share-result ${shareResult.type}`}>
+              {shareResult.type === 'success' && <IoCheckmarkCircle size={14} />}
+              {shareResult.message}
+            </p>
+          )}
+
+          {/* Quick share from connections */}
+          {shareConnections.length > 0 && (
+            <div className="share-connections">
+              <p className="share-connections-label">Quick share with connections</p>
+              <div className="share-connections-list">
+                {shareConnections.map(conn => (
+                  <button
+                    key={conn.id}
+                    className="share-connection-item"
+                    onClick={() => handleShare(conn.email)}
+                    disabled={isSharing}
+                  >
+                    <div className="share-conn-avatar">
+                      <IoPersonOutline size={16} />
+                    </div>
+                    <div className="share-conn-info">
+                      <span className="share-conn-name">{conn.name}</span>
+                      <span className="share-conn-email">{conn.email}</span>
+                    </div>
+                    <IoSendOutline size={14} className="share-conn-send" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
