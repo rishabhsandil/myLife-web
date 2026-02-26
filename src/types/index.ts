@@ -118,18 +118,6 @@ export interface WorkoutSetLog {
   completed: boolean;
 }
 
-export interface PeriodCycle {
-  id: string;
-  startDate: string;
-  endDate?: string; // null if currently ongoing
-  createdAt: string;
-}
-
-export interface PeriodSettings {
-  averageCycleLength: number; // days, default 28
-  averagePeriodLength: number; // days, default 5
-  notifyDaysBefore: number; // days before predicted period, default 2
-}
 
 export interface Note {
   id: string;
@@ -141,7 +129,7 @@ export interface Note {
   sortOrder?: number; // For manual drag-drop reordering
 }
 
-export type ModuleType = 'todos' | 'shopping' | 'workout' | 'period' | 'notes' | 'recipes';
+export type ModuleType = 'todos' | 'shopping' | 'workout' | 'notes' | 'recipes';
 
 export interface ModuleConfig {
   id: ModuleType;

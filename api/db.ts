@@ -126,25 +126,9 @@ export async function initDb() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS period_cycles (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      start_date TEXT NOT NULL,
-      end_date TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS period_settings (
-      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      average_cycle_length INTEGER DEFAULT 28,
-      average_period_length INTEGER DEFAULT 5,
-      notify_days_before INTEGER DEFAULT 2,
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'period', 'notes'],
+      enabled_modules TEXT[] DEFAULT ARRAY['todos', 'shopping', 'workout', 'notes'],
       updated_at TIMESTAMP DEFAULT NOW()
     );
 
@@ -158,15 +142,6 @@ export async function initDb() {
       end_time TEXT,
       duration INTEGER DEFAULT 0,
       exercises JSONB DEFAULT '[]',
-      created_at TIMESTAMP DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      endpoint TEXT NOT NULL UNIQUE,
-      p256dh TEXT NOT NULL,
-      auth TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
 
@@ -203,8 +178,6 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_user_connections_connected ON user_connections(connected_user_id);
     CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id);
     CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_periods_user ON period_cycles(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id);
   `;
   // NOTE: All column migrations (todos.category, sort_order, assigned_to_user_id, etc.)

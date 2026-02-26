@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IoCheckbox, IoCart, IoFitness, IoWater, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople, IoNotifications, IoNotificationsOff, IoDocumentText, IoRestaurantOutline } from 'react-icons/io5';
+import { IoCheckbox, IoCart, IoFitness, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople, IoDocumentText, IoRestaurantOutline } from 'react-icons/io5';
 import { ModuleType } from '../types';
 import { saveUserSettings, getConnections, addConnection, removeConnection, UserConnection } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  getNotificationPermission, 
-  enableNotifications, 
-  disableNotifications,
-  initializeNotifications
-} from '../utils/notifications';
 import logo from '../assets/logo.png';
 import './SettingsPage.css';
 
@@ -43,13 +37,6 @@ const MODULES: ModuleOption[] = [
     color: '#F59E0B',
   },
   {
-    id: 'period',
-    name: 'Period',
-    description: 'Track menstrual cycles with predictions and reminders',
-    icon: IoWater,
-    color: '#EC4899',
-  },
-  {
     id: 'notes',
     name: 'Notes',
     description: 'Create and organize notes with colors, similar to Apple Notes',
@@ -81,26 +68,10 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   const [newConnectionEmail, setNewConnectionEmail] = useState('');
   const [connectionError, setConnectionError] = useState('');
   const [addingConnection, setAddingConnection] = useState(false);
-  
-  // Notification state
-  const [notificationsSupported, setNotificationsSupported] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
-  const [togglingNotifications, setTogglingNotifications] = useState(false);
-  const [testingNotification, setTestingNotification] = useState(false);
-  const [notificationTestResult, setNotificationTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     loadConnections();
-    checkNotificationStatus();
   }, []);
-
-  async function checkNotificationStatus() {
-    const status = await initializeNotifications();
-    setNotificationsSupported(status.supported);
-    setNotificationPermission(status.permission);
-    setNotificationsEnabled(status.subscribed && status.permission === 'granted');
-  }
 
   async function loadConnections() {
     const data = await getConnections();
@@ -128,61 +99,6 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   const handleRemoveConnection = async (userId: string) => {
     await removeConnection(userId);
     setConnections(prev => prev.filter(c => c.id !== userId));
-  };
-
-  const handleToggleNotifications = async () => {
-    setTogglingNotifications(true);
-    setNotificationTestResult(null);
-    try {
-      if (notificationsEnabled) {
-        await disableNotifications();
-        setNotificationsEnabled(false);
-      } else {
-        const success = await enableNotifications();
-        if (success) {
-          setNotificationsEnabled(true);
-          setNotificationPermission('granted');
-          // Send test notification
-          await handleTestNotification();
-        } else {
-          setNotificationPermission(getNotificationPermission());
-        }
-      }
-    } finally {
-      setTogglingNotifications(false);
-    }
-  };
-
-  const handleTestNotification = async () => {
-    setTestingNotification(true);
-    setNotificationTestResult(null);
-    try {
-      const response = await fetch('/api/notifications/test', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        }
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        const successCount = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
-        if (successCount > 0) {
-          setNotificationTestResult('✓ Test notification sent!');
-        } else {
-          setNotificationTestResult('⚠ Notification failed - check console');
-          console.error('Notification test results:', data);
-        }
-      } else {
-        setNotificationTestResult(`✗ ${data.error || 'Failed to send'}`);
-        console.error('Notification test error:', data);
-      }
-    } catch (error) {
-      setNotificationTestResult('✗ Network error');
-      console.error('Notification test error:', error);
-    } finally {
-      setTestingNotification(false);
-    }
   };
 
   const toggleModule = (moduleId: ModuleType) => {
@@ -327,73 +243,6 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
             ))
           )}
         </div>
-      </section>
-
-      {/* Notifications Section */}
-      <section className="settings-section">
-        <h2 className="section-title">
-          <IoNotifications size={20} /> Notifications
-        </h2>
-        <p className="section-description">
-          Get notified about reminders, assigned tasks, and updates even when the app is closed.
-        </p>
-
-        {!notificationsSupported ? (
-          <div className="notification-unsupported">
-            <IoNotificationsOff size={24} />
-            <p>Push notifications are not supported in this browser.</p>
-          </div>
-        ) : notificationPermission === 'denied' ? (
-          <div className="notification-denied">
-            <IoNotificationsOff size={24} />
-            <div>
-              <p>Notifications are blocked.</p>
-              <p className="notification-hint">Enable them in your browser settings to receive notifications.</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <button 
-              className={`notification-toggle ${notificationsEnabled ? 'enabled' : ''}`}
-              onClick={handleToggleNotifications}
-              disabled={togglingNotifications}
-            >
-              {notificationsEnabled ? (
-                <>
-                  <IoNotifications size={24} />
-                  <div className="notification-toggle-text">
-                    <span className="notification-status">Notifications Enabled</span>
-                    <span className="notification-hint">Click to disable</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <IoNotificationsOff size={24} />
-                  <div className="notification-toggle-text">
-                    <span className="notification-status">Enable Notifications</span>
-                    <span className="notification-hint">Get alerts for reminders & assigned tasks</span>
-                  </div>
-                </>
-              )}
-            </button>
-            {notificationsEnabled && (
-              <div className="notification-test-section">
-                <button 
-                  className="notification-test-btn"
-                  onClick={handleTestNotification}
-                  disabled={testingNotification}
-                >
-                  {testingNotification ? 'Sending...' : 'Send Test Notification'}
-                </button>
-                {notificationTestResult && (
-                  <span className={`notification-test-result ${notificationTestResult.startsWith('✓') ? 'success' : notificationTestResult.startsWith('⚠') ? 'warning' : 'error'}`}>
-                    {notificationTestResult}
-                  </span>
-                )}
-              </div>
-            )}
-          </>
-        )}
       </section>
 
       {/* Account Section */}

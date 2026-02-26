@@ -1,19 +1,17 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoWaterOutline, IoWater, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
+import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';
-import PeriodPage from './pages/PeriodPage';
 import NotesPage from './pages/NotesPage';
 import RecipePage from './pages/RecipePage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
-import { getUserSettings, getTodos } from './utils/api';
-import { updateBadgeWithOverdueTasks } from './utils/notifications';
-import { ModuleType, TodoItem } from './types';
+import { getUserSettings } from './utils/api';
+import { ModuleType } from './types';
 import logo from './assets/logo.png';
 // Global styles - shared components use these
 import './App.css';
@@ -57,7 +55,6 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
     { path: '/', module: 'todos' as ModuleType, label: 'Reminders', iconActive: IoCheckbox, iconInactive: IoCheckboxOutline },
     { path: '/shopping', module: 'shopping' as ModuleType, label: 'Shopping', iconActive: IoCart, iconInactive: IoCartOutline },
     { path: '/workout', module: 'workout' as ModuleType, label: 'Workout', iconActive: IoFitness, iconInactive: IoFitnessOutline },
-    { path: '/period', module: 'period' as ModuleType, label: 'Period', iconActive: IoWater, iconInactive: IoWaterOutline },
     { path: '/notes', module: 'notes' as ModuleType, label: 'Notes', iconActive: IoDocumentText, iconInactive: IoDocumentTextOutline },
     { path: '/recipes', module: 'recipes' as ModuleType, label: 'Recipes', iconActive: IoRestaurant, iconInactive: IoRestaurantOutline },
   ];
@@ -112,62 +109,6 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Update badge when app is opened/focused (show overdue count) - debounced
-  useEffect(() => {
-    let lastBadgeUpdate = 0;
-    const BADGE_DEBOUNCE_MS = 60000; // Only update badge once per minute
-
-    const updateBadge = async () => {
-      const now = Date.now();
-      if (now - lastBadgeUpdate < BADGE_DEBOUNCE_MS) return;
-      lastBadgeUpdate = now;
-
-      if (!user) return;
-      
-      try {
-        const todos = await getTodos();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
-        
-        // Count overdue tasks (past date, not completed, not recurring)
-        const overdueTasks = todos.filter((todo: TodoItem) => {
-          // Skip completed tasks
-          if (todo.completed === true) return false;
-          
-          // Skip recurring tasks - they're never considered overdue
-          if (todo.recurrence !== 'none') return false;
-          
-          // Skip backlog tasks (no date or date='backlog')
-          if (!todo.date || todo.date === 'backlog' || todo.date.startsWith('backlog-')) return false;
-          
-          // Get the task date string (YYYY-MM-DD format)
-          const todoDateStr = todo.date.split('T')[0];
-          
-          // Check if it's overdue (before today)
-          return todoDateStr < todayStr;
-        });
-        
-        await updateBadgeWithOverdueTasks(overdueTasks.length);
-      } catch (error) {
-        console.error('Failed to update badge:', error);
-      }
-    };
-    
-    // Update badge on app load
-    updateBadge();
-    
-    // Update badge when app becomes visible
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        updateBadge();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user]);
-
   useEffect(() => {
     // Load user settings when user is available
     if (user) {
@@ -190,7 +131,6 @@ function AppContent() {
     if (enabledModules.includes('todos')) return '/';
     if (enabledModules.includes('shopping')) return '/shopping';
     if (enabledModules.includes('workout')) return '/workout';
-    if (enabledModules.includes('period')) return '/period';
     if (enabledModules.includes('notes')) return '/notes';
     if (enabledModules.includes('recipes')) return '/recipes';
     return '/settings';
@@ -203,7 +143,6 @@ function AppContent() {
           {enabledModules.includes('todos') && <Route path="/" element={<TodoPage />} />}
           {enabledModules.includes('shopping') && <Route path="/shopping" element={<ShoppingPage />} />}
           {enabledModules.includes('workout') && <Route path="/workout" element={<WorkoutPage />} />}
-          {enabledModules.includes('period') && <Route path="/period" element={<PeriodPage />} />}
           {enabledModules.includes('notes') && <Route path="/notes" element={<NotesPage />} />}
           {enabledModules.includes('recipes') && <Route path="/recipes" element={<RecipePage />} />}
           <Route path="/settings" element={<SettingsPage enabledModules={enabledModules} onModulesChange={setEnabledModules} />} />

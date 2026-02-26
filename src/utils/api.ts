@@ -1,4 +1,4 @@
-import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, PeriodCycle, PeriodSettings, UserSettings, ModuleType, Note, WorkoutSession, Recipe } from '../types';
+import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, UserSettings, ModuleType, Note, WorkoutSession, Recipe } from '../types';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -220,43 +220,9 @@ export const saveTodoCategory = todoCategoriesApi.create;
 export const updateTodoCategory = todoCategoriesApi.update;
 export const deleteTodoCategory = todoCategoriesApi.delete;
 
-// ============ PERIOD TRACKING ============
-const periodApi = createCrudApi<PeriodCycle>('periods', 'almostadult_periods');
-
-export const getPeriods = periodApi.getAll;
-export const savePeriod = periodApi.create;
-export const updatePeriod = periodApi.update;
-export const deletePeriod = periodApi.delete;
-
-export async function getPeriodSettings(): Promise<PeriodSettings> {
-  try {
-    const settings = await api<PeriodSettings>('periods/settings');
-    return settings;
-  } catch (error) {
-    console.error('Failed to fetch period settings:', error);
-    const stored = localStorage.getItem('almostadult_period_settings');
-    return stored ? JSON.parse(stored) : {
-      averageCycleLength: 28,
-      averagePeriodLength: 5,
-      notifyDaysBefore: 2,
-    };
-  }
-}
-
-export async function savePeriodSettings(settings: PeriodSettings): Promise<void> {
-  try {
-    await api('periods/settings', {
-      method: 'POST',
-      body: JSON.stringify(settings),
-    });
-    localStorage.setItem('almostadult_period_settings', JSON.stringify(settings));
-  } catch (error) {
-    console.error('Failed to save period settings:', error);
-  }
-}
 
 // ============ USER SETTINGS (Module Configuration) ============
-const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'period', 'notes'];
+const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'notes'];
 
 export async function getUserSettings(): Promise<UserSettings> {
   try {
