@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles/global.css'
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 // Register service worker for PWA caching
 if ('serviceWorker' in navigator) {
@@ -8,5 +9,8 @@ if ('serviceWorker' in navigator) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
+  <>
+    <App />
+    <SpeedInsights />
+  </>
 )
