@@ -33,3 +33,8 @@ desktop.ini
 # Testing
 coverage
 .nyc_output
+
+# AI agent local config
+.claude/settings.local.json
+.claude/.cache/
+.claude/logs/
