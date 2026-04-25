@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
+import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from './utils/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';

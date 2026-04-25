@@ -5,7 +5,7 @@ import {
   IoLogoYoutube, IoCheckmarkCircle, IoRefreshOutline, IoClipboardOutline,
   IoShareSocialOutline, IoPersonOutline, IoSendOutline,
   IoDownloadOutline,
-} from 'react-icons/io5';
+} from '../utils/icons';
 import { useSwipeable } from 'react-swipeable';
 import { Recipe, RecipeIngredient, SharedRecipe } from '../types';
 import {
@@ -16,7 +16,7 @@ import {
   saveSharedRecipeToOwn,
 } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
-import { useModal } from '../hooks';
+import { useRecipeModals } from './recipe/useRecipeModals';
 import logo from '../assets/logo.png';
 import './RecipePage.css';
 
@@ -193,10 +193,7 @@ export default function RecipePage() {
   const [formSourcePlatform, setFormSourcePlatform] = useState<'youtube' | 'manual'>('manual');
   const [formIsFavorite, setFormIsFavorite] = useState(false);
 
-  const addModal = useModal<Recipe>();
-  const viewModal = useModal<Recipe>();
-  const deleteModal = useModal<Recipe>();
-  const shareModal = useModal<Recipe>();
+  const { add: addModal, view: viewModal, del: deleteModal, share: shareModal } = useRecipeModals();
 
   // Share state
   const [shareEmail, setShareEmail] = useState('');

@@ -3,7 +3,7 @@ import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
   IoTime, IoPencil, IoSettings, IoReorderTwo, IoSearchOutline
-} from 'react-icons/io5';
+} from '../utils/icons';
 import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,

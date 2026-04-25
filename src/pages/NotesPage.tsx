@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage, IoExpand, IoContract } from 'react-icons/io5';
+import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage, IoExpand, IoContract } from '../utils/icons';
 import { useSwipeable } from 'react-swipeable';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';

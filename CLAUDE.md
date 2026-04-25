@@ -172,6 +172,9 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - ✅ Default rows now seeded once at signup (`seedDefaultsForUser`); GET handlers no longer re-seed.
 - ✅ Shopping audit insert is now properly awaited (no fire-and-forget `.catch(() => {})`).
 - ✅ `api.ts` `createCrudApi.getAll(signal)` accepts an `AbortSignal`; `NotesPage.loadData` is the canonical pattern — propagate to other pages when you next touch them.
+- ✅ `parseRecurrenceLabel(todo)` helper extracted in [src/pages/TodoPage.tsx](src/pages/TodoPage.tsx); inline title expression replaced.
+- ✅ RecipePage's four sibling `useModal<Recipe>()` calls now bundled in [src/pages/recipe/useRecipeModals.ts](src/pages/recipe/useRecipeModals.ts) (`{ add, view, del, share }`).
+- ✅ Shared icon registry at [src/utils/icons.ts](src/utils/icons.ts); `App.tsx`, `TodoPage`, `NotesPage`, `RecipePage`, `ShoppingPage`, `SettingsPage` now import icons from it. New icons go in the registry — do not add fresh `react-icons/io5` imports in pages over the ~10-icon threshold.
 
 ### Remaining (do as you go)
 
@@ -183,8 +186,5 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - Auth token in `localStorage` → migrate to short-lived in-memory access token + httpOnly refresh cookie.
 - `TodoItem` mega-interface (~20 optional fields) → split into `BasicTodo | RecurringTodo | AssignedTodo` discriminated union.
 - WorkoutPage session lifecycle scattered across components → consolidate via `useReducer` state machine.
-- Per-page icon imports (15–20 each) → extract a shared `icons.ts` registry once a page exceeds ~10.
-- RecipePage has 4+ sibling `useModal` instances → bundle into a `useRecipeModals()` aggregator.
 - `ShoppingPage` `isMutating` ref pauses sync → replace with optimistic updates and remove the ref.
-- `TodoPage` recurrence label parsing inline → extract `parseRecurrenceLabel()` helper.
 - Heavy deps (Tiptap, OpenAI client) → `React.lazy` the routes that pull them in.

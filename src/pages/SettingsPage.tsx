@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoCheckbox, IoCart, IoFitness, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople, IoDocumentText, IoRestaurantOutline } from 'react-icons/io5';
+import { IoCheckbox, IoCart, IoFitness, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople, IoDocumentText, IoRestaurantOutline } from '../utils/icons';
 import { ModuleType } from '../types';
 import { saveUserSettings, getConnections, addConnection, removeConnection, UserConnection } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';

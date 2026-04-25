@@ -3,7 +3,7 @@ import {
   IoAdd, IoCalendar, IoChevronBack, IoChevronForward, IoClose,
   IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
   IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline, IoPersonAdd
-} from 'react-icons/io5';
+} from '../utils/icons';
 import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
@@ -68,6 +68,31 @@ const formatDateKey = (date: Date): string => {
 };
 const formatDate = (date: Date): string => `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 const isToday = (date: Date): boolean => formatDateKey(date) === formatDateKey(new Date());
+
+// Returns the human-readable tooltip for a todo's recurrence rule.
+function parseRecurrenceLabel(todo: TodoItem): string {
+  const { recurrence, recurrenceDays, date } = todo;
+  if (recurrence === 'custom' && recurrenceDays) {
+    return `Repeats: ${recurrenceDays.map(d => DAY_NAMES[d]).join(', ')}`;
+  }
+  if (recurrence === 'daily') return 'Repeats every day';
+  const baseDate = new Date(date + 'T00:00:00');
+  if (recurrence === 'weekly') return `Repeats every ${DAY_NAMES[baseDate.getDay()]}`;
+  if (recurrence === 'biweekly') return `Repeats every other ${DAY_NAMES[baseDate.getDay()]}`;
+  if (recurrence === 'monthly') {
+    const day = baseDate.getDate();
+    const mod100 = day % 100;
+    const mod10 = day % 10;
+    const suffix = (mod100 > 10 && mod100 < 14) ? 'th'
+      : mod10 === 1 ? 'st'
+      : mod10 === 2 ? 'nd'
+      : mod10 === 3 ? 'rd'
+      : 'th';
+    return `Repeats monthly on the ${day}${suffix}`;
+  }
+  if (recurrence === 'yearly') return 'Repeats yearly';
+  return 'Recurring';
+}
 
 // Sortable Task Item Component
 interface SortableTaskItemProps {
@@ -165,16 +190,7 @@ function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, on
               {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
               {todo.category && <span className="task-category">{todo.category}</span>}
               {todo.recurrence !== 'none' && (
-                <span className="recurrence-badge" title={
-                  todo.recurrence === 'custom' && todo.recurrenceDays 
-                    ? `Repeats: ${todo.recurrenceDays.map(d => DAY_NAMES[d]).join(', ')}`
-                    : todo.recurrence === 'daily' ? 'Repeats every day'
-                    : todo.recurrence === 'weekly' ? `Repeats every ${DAY_NAMES[new Date(todo.date + 'T00:00:00').getDay()]}`
-                    : todo.recurrence === 'biweekly' ? `Repeats every other ${DAY_NAMES[new Date(todo.date + 'T00:00:00').getDay()]}`
-                    : todo.recurrence === 'monthly' ? `Repeats monthly on the ${new Date(todo.date + 'T00:00:00').getDate()}${['th','st','nd','rd'][(new Date(todo.date + 'T00:00:00').getDate() % 100 > 10 && new Date(todo.date + 'T00:00:00').getDate() % 100 < 14) ? 0 : new Date(todo.date + 'T00:00:00').getDate() % 10 < 4 ? new Date(todo.date + 'T00:00:00').getDate() % 10 : 0]}`
-                    : todo.recurrence === 'yearly' ? 'Repeats yearly'
-                    : 'Recurring'
-                }>
+                <span className="recurrence-badge" title={parseRecurrenceLabel(todo)}>
                   <IoRepeat size={11} />
                   {todo.recurrence === 'daily' && <span className="recurrence-label">Daily</span>}
                   {todo.recurrence === 'weekly' && <span className="recurrence-label">Wk</span>}
