@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import OpenAI from 'openai';
-import { sql, getUserIdFromRequest, generateToken, initDb } from './db.js';
+import { sql, getUserIdFromRequest, generateAccessToken, generateRefreshToken, verifyRefreshToken, REFRESH_COOKIE_MAX_AGE_SECONDS, REFRESH_COOKIE_NAME, initDb } from './db.js';
 import { validateEmail, validatePassword, validateName } from './validators.js';
 
 // Default body parts for new users
@@ -79,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (routePath === 'auth/signup') {
       return handleSignup(req, res);
     }
+    if (routePath === 'auth/refresh') {
+      return handleRefresh(req, res);
+    }
+    if (routePath === 'auth/logout') {
+      return handleLogout(req, res);
+    }
 
     // ============ AUTH REQUIRED ROUTES ============
     const userId = getUserIdFromRequest(req);
@@ -139,6 +145,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 // ============ AUTH HANDLERS ============
+
+// In production we serve the API from the same origin as the SPA (Vercel),
+// so SameSite=Lax + Secure is correct. In development the Vite dev server
+// proxies /api to the deployed backend; cookies still flow on the proxied
+// response, but Secure can't be used over plain http://localhost. Gate it
+// on NODE_ENV.
+function buildRefreshCookie(token: string, maxAgeSeconds: number): string {
+  const isProd = process.env.NODE_ENV === 'production';
+  const parts = [
+    `${REFRESH_COOKIE_NAME}=${token}`,
+    'HttpOnly',
+    'SameSite=Lax',
+    'Path=/api',
+    `Max-Age=${maxAgeSeconds}`,
+  ];
+  if (isProd) parts.push('Secure');
+  return parts.join('; ');
+}
+
+function setRefreshCookie(res: VercelResponse, token: string) {
+  res.setHeader('Set-Cookie', buildRefreshCookie(token, REFRESH_COOKIE_MAX_AGE_SECONDS));
+}
+
+function clearRefreshCookie(res: VercelResponse) {
+  // Max-Age=0 expires the cookie immediately.
+  res.setHeader('Set-Cookie', buildRefreshCookie('', 0));
+}
+
+function readRefreshCookie(req: VercelRequest): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  const cookies = header.split(';');
+  for (const c of cookies) {
+    const [rawName, ...rest] = c.split('=');
+    if (rawName?.trim() === REFRESH_COOKIE_NAME) {
+      return rest.join('=').trim() || null;
+    }
+  }
+  return null;
+}
+
 async function handleLogin(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -165,10 +212,11 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
-  const token = generateToken(user.id as string);
+  const userId = user.id as string;
+  setRefreshCookie(res, generateRefreshToken(userId));
   return res.status(200).json({
-    user: { id: user.id, email: user.email, name: user.name },
-    token
+    user: { id: userId, email: user.email, name: user.name },
+    accessToken: generateAccessToken(userId),
   });
 }
 
@@ -202,11 +250,45 @@ async function handleSignup(req: VercelRequest, res: VercelResponse) {
   // Seed defaults once on signup so GET handlers don't need to re-seed every call.
   await seedDefaultsForUser(userId);
 
-  const token = generateToken(userId);
+  setRefreshCookie(res, generateRefreshToken(userId));
   return res.status(201).json({
     user: { id: userId, email: lowered, name: (name as string).trim() },
-    token
+    accessToken: generateAccessToken(userId),
   });
+}
+
+// Issue a new short-lived access token from a valid refresh cookie.
+// Rotates the refresh cookie on every call to extend the active session
+// without requiring the user to log in again.
+async function handleRefresh(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  const refresh = readRefreshCookie(req);
+  if (!refresh) {
+    return res.status(401).json({ error: 'No refresh token' });
+  }
+  const userId = verifyRefreshToken(refresh);
+  if (!userId) {
+    clearRefreshCookie(res);
+    return res.status(401).json({ error: 'Invalid refresh token' });
+  }
+  // Confirm the user still exists.
+  const users = await sql`SELECT id, email, name FROM users WHERE id = ${userId}`;
+  if (users.length === 0) {
+    clearRefreshCookie(res);
+    return res.status(401).json({ error: 'User not found' });
+  }
+  setRefreshCookie(res, generateRefreshToken(userId));
+  return res.status(200).json({
+    user: users[0],
+    accessToken: generateAccessToken(userId),
+  });
+}
+
+async function handleLogout(_req: VercelRequest, res: VercelResponse) {
+  clearRefreshCookie(res);
+  return res.status(200).json({ success: true });
 }
 
 async function seedDefaultsForUser(userId: string) {

@@ -185,7 +185,19 @@ export async function initDb() {
   // Removed the DO $$ migration block to save a query on every initDb() call.
 }
 
-// Helper to verify JWT and get user ID from request
+// Token lifetimes.
+// - Access tokens are short-lived and live only in memory on the client.
+// - Refresh tokens are long-lived and stored in an httpOnly cookie.
+const ACCESS_TOKEN_TTL = '15m';
+const REFRESH_TOKEN_TTL = '30d';
+// Refresh-cookie max-age must match REFRESH_TOKEN_TTL (in seconds).
+export const REFRESH_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+export const REFRESH_COOKIE_NAME = 'aa_refresh';
+
+interface AccessClaims { userId: string; type?: 'access' }
+interface RefreshClaims { userId: string; type: 'refresh' }
+
+// Helper to verify the access JWT and get user ID from a request's Authorization header.
 export function getUserIdFromRequest(req: VercelRequest): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -194,16 +206,34 @@ export function getUserIdFromRequest(req: VercelRequest): string | null {
 
   const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET as string) as unknown as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET as string) as AccessClaims;
+    // Reject refresh tokens used as Bearer credentials.
+    if (decoded.type === 'refresh') return null;
     return decoded.userId;
   } catch {
     return null;
   }
 }
 
-// Generate JWT token (7 day expiration for security)
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
+// Verify a refresh token (from the httpOnly cookie). Returns the userId or null.
+export function verifyRefreshToken(token: string): string | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET as string) as RefreshClaims;
+    if (decoded.type !== 'refresh') return null;
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+}
+
+// Short-lived access token (in-memory on the client).
+export function generateAccessToken(userId: string): string {
+  return jwt.sign({ userId, type: 'access' }, JWT_SECRET!, { expiresIn: ACCESS_TOKEN_TTL });
+}
+
+// Long-lived refresh token (httpOnly cookie).
+export function generateRefreshToken(userId: string): string {
+  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET!, { expiresIn: REFRESH_TOKEN_TTL });
 }
 
 export { sql, JWT_SECRET };

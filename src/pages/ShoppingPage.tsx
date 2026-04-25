@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
@@ -26,9 +26,10 @@ import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } 
 import { 
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
   getShoppingStores, saveShoppingStore, updateShoppingStore, deleteShoppingStore as apiDeleteStore,
-  getShoppingShareStatus, unshareShoppingList, getShoppingAudit
+  getShoppingShareStatus, shareShoppingList, unshareShoppingList, getShoppingAudit
 } from '../utils/api';
 import { Modal, ModalFooter, FormGroup, ColorPicker, FAB, EmptyState } from '../components';
+import { useToast } from '../components/Toast';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 import './ShoppingPage.css';
@@ -162,9 +163,7 @@ export default function ShoppingPage() {
   const [storeName, setStoreName] = useState('');
   const [storeColor, setStoreColor] = useState('#22c55e');
 
-  // Track mutations to pause sync
-  const isMutating = useRef(false);
-  const lastSyncTime = useRef(0);
+  const { showError } = useToast();
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -182,22 +181,15 @@ export default function ShoppingPage() {
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
   const loadData = useCallback(async (showLoading = true) => {
-    // Skip sync if a mutation is in progress
-    if (isMutating.current) return;
-    
     if (showLoading) setIsLoading(true);
     const [itemsData, storesData] = await Promise.all([
       getShoppingItems(),
       getShoppingStores()
     ]);
-    // Double-check mutation didn't start during fetch
-    if (!isMutating.current) {
-      setItems(itemsData);
-      setStores(storesData);
-      if (storesData.length > 0 && !selectedStore) {
-        setSelectedStore(storesData[0].id);
-      }
-      lastSyncTime.current = Date.now();
+    setItems(itemsData);
+    setStores(storesData);
+    if (storesData.length > 0 && !selectedStore) {
+      setSelectedStore(storesData[0].id);
     }
     if (showLoading) setIsLoading(false);
   }, [selectedStore]);
@@ -318,74 +310,81 @@ export default function ShoppingPage() {
   const handleSave = async () => {
     if (!name.trim() || !selectedStore) return;
 
-    isMutating.current = true;
-    try {
-      if (editingItem) {
-        // Update existing item
-        const updatedItem: ShoppingItem = {
-          ...editingItem,
-          name: name.trim(),
-          quantity,
-        };
-        await updateShoppingItem(updatedItem);
-      } else {
-        // Create new item
-        const newItem: ShoppingItem = {
-          id: Date.now().toString(),
-          name: name.trim(),
-          quantity,
-          storeId: selectedStore,
-          completed: false,
-          createdAt: new Date().toISOString(),
-          isOwn: true,
-        };
-        await saveShoppingItem(newItem);
-      }
-      // Fetch fresh data from server to get authoritative state
-      const data = await getShoppingItems();
-      setItems(data);
-    } finally {
-      isMutating.current = false;
+    const previousItems = items;
+    const trimmedName = name.trim();
+    const isEdit = !!editingItem;
+    let mutated: ShoppingItem;
+
+    if (editingItem) {
+      // Optimistic edit
+      mutated = { ...editingItem, name: trimmedName, quantity };
+      setItems(items.map(i => i.id === editingItem.id ? mutated : i));
+    } else {
+      // Optimistic create
+      mutated = {
+        id: Date.now().toString(),
+        name: trimmedName,
+        quantity,
+        storeId: selectedStore,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        isOwn: true,
+      };
+      setItems([...items, mutated]);
     }
     modal.close();
+
+    try {
+      if (isEdit) {
+        await updateShoppingItem(mutated);
+      } else {
+        await saveShoppingItem(mutated);
+      }
+    } catch (err) {
+      setItems(previousItems);
+      showError(err, isEdit ? 'Failed to update item' : 'Failed to add item');
+    }
   };
 
   const toggleComplete = async (item: ShoppingItem) => {
     const updatedItem = { ...item, completed: !item.completed };
+    const previousItems = items;
     // Optimistic update
     setItems(items.map(i => i.id === item.id ? updatedItem : i));
-    
-    isMutating.current = true;
+
     try {
       await updateShoppingItem(updatedItem);
-    } finally {
-      isMutating.current = false;
+    } catch (err) {
+      setItems(previousItems);
+      showError(err, 'Failed to update item');
     }
   };
 
   const deleteItem = async (id: string) => {
+    const previousItems = items;
     // Optimistic update
     setItems(items.filter(i => i.id !== id));
-    
-    isMutating.current = true;
+
     try {
       await deleteShoppingItem(id);
-    } finally {
-      isMutating.current = false;
+    } catch (err) {
+      setItems(previousItems);
+      showError(err, 'Failed to delete item');
     }
   };
 
   const clearCompleted = async () => {
     if (!currentStore) return;
     const storeName = currentStore.name;
+    const previousItems = items;
     // Optimistic update - filter by store name
     setItems(items.filter(i => !i.completed || i.storeName !== storeName));
-    
-    isMutating.current = true;
+
     try {
       await clearCompletedItems(storeName);
-    } finally {
-      isMutating.current = false;
+    } catch (err) {
+      setItems(previousItems);
+      showError(err, 'Failed to clear completed items');
     }
   };
 
@@ -397,13 +396,14 @@ export default function ShoppingPage() {
       const newIndex = filteredItems.findIndex((item) => item.id === over.id);
 
       const reorderedItems = arrayMove(filteredItems, oldIndex, newIndex);
-      
+
       // Assign sortOrder to all items in this store
       const updatedItems = reorderedItems.map((item, index) => ({
         ...item,
         sortOrder: index,
       }));
 
+      const previousItems = items;
       // Optimistically update UI
       setItems(items.map(i => {
         const updatedItem = updatedItems.find(ui => ui.id === i.id);
@@ -411,46 +411,32 @@ export default function ShoppingPage() {
       }));
 
       // Update all reordered items in backend
-      isMutating.current = true;
       try {
         for (const item of updatedItems) {
           await updateShoppingItem(item);
         }
-      } finally {
-        isMutating.current = false;
+      } catch (err) {
+        setItems(previousItems);
+        showError(err, 'Failed to reorder items');
       }
     }
   };
 
   const handleShare = async () => {
     if (!shareEmail.trim()) return;
-    
+
     setShareError('');
-    try {
-      const response = await fetch(`/api/shopping-share`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify({ email: shareEmail.trim().toLowerCase() }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setShareError(data.error || 'Failed to share');
-        return;
-      }
-      
-      setShareStatus(prev => ({
-        ...prev,
-        sharedWith: [...prev.sharedWith, data.sharedWith],
-      }));
-      setShareEmail('');
-    } catch {
-      setShareError('Failed to share list');
+    const result = await shareShoppingList(shareEmail.trim().toLowerCase());
+    if (!result.success || !result.sharedWith) {
+      setShareError(result.error || 'Failed to share');
+      return;
     }
+    const newShare = result.sharedWith;
+    setShareStatus(prev => ({
+      ...prev,
+      sharedWith: [...prev.sharedWith, newShare],
+    }));
+    setShareEmail('');
   };
 
   const handleUnshare = async (userId: string) => {

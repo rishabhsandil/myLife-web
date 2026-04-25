@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import {
+  getAccessToken,
+  setAccessToken,
+  clearAccessToken,
+  refreshAccessToken,
+  revokeRefreshToken,
+  onSessionExpired,
+} from '../utils/authToken';
 
 interface User {
   id: string;
@@ -8,109 +16,99 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, name: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.PROD ? '' : '';
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+interface AuthResponse {
+  user: User;
+  accessToken: string;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing token on mount
+  // On mount, try to mint a fresh access token from the httpOnly refresh
+  // cookie. If that succeeds we already have the user payload and don't
+  // need a separate /auth/me round-trip.
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      setToken(storedToken);
-      fetchUser(storedToken);
-    } else {
+    let cancelled = false;
+    (async () => {
+      const result = await refreshAccessToken();
+      if (cancelled) return;
+      if (result) {
+        setUser(result.user);
+      } else {
+        clearAccessToken();
+      }
       setIsLoading(false);
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const fetchUser = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        setToken(authToken);
-      } else {
-        // Token invalid, clear it
-        localStorage.removeItem('authToken');
-        setToken(null);
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      localStorage.removeItem('authToken');
-      setToken(null);
+  // If a later refresh attempt fails (e.g. cookie expired while the tab was
+  // open), drop the user from state so the app routes back to login.
+  useEffect(() => {
+    return onSessionExpired(() => {
+      clearAccessToken();
       setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    });
+  }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const response = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.error || 'Login failed');
     }
 
-    localStorage.setItem('authToken', data.token);
-    setToken(data.token);
-    setUser(data.user);
-  };
+    const { user: u, accessToken } = data as AuthResponse;
+    setAccessToken(accessToken);
+    setUser(u);
+  }, []);
 
-  const signup = async (email: string, name: string, password: string) => {
+  const signup = useCallback(async (email: string, name: string, password: string) => {
     const response = await fetch(`${API_BASE}/api/auth/signup`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, name, password }),
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.error || 'Signup failed');
     }
 
-    localStorage.setItem('authToken', data.token);
-    setToken(data.token);
-    setUser(data.user);
-  };
+    const { user: u, accessToken } = data as AuthResponse;
+    setAccessToken(accessToken);
+    setUser(u);
+  }, []);
 
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    setToken(null);
+  const logout = useCallback(async () => {
+    // Tell the server to clear the refresh cookie before dropping local state.
+    await revokeRefreshToken();
+    clearAccessToken();
     setUser(null);
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -123,3 +121,7 @@ export function useAuth() {
   }
   return context;
 }
+
+// Re-exported so callers that need to read the current access token
+// (rare — prefer going through utils/api.ts) don't import from two places.
+export { getAccessToken };

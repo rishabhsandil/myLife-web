@@ -1,13 +1,9 @@
 import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, UserSettings, ModuleType, Note, WorkoutSession, Recipe } from '../types';
 import { AI_API_TIMEOUT_MS, DEFAULT_API_TIMEOUT_MS } from './constants';
+import { getAccessToken, refreshAccessToken } from './authToken';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
-
-// Get auth token from localStorage
-function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
-}
 
 interface ApiOptions extends RequestInit {
   /** Optional timeout in ms. Defaults to DEFAULT_API_TIMEOUT_MS. */
@@ -33,19 +29,43 @@ function buildSignal(externalSignal: AbortSignal | undefined, timeoutMs: number)
   return ctrl.signal;
 }
 
-// Generic API helper
-async function api<T>(endpoint: string, options?: ApiOptions): Promise<T> {
-  const token = getAuthToken();
-  const { timeoutMs = DEFAULT_API_TIMEOUT_MS, signal, ...rest } = options ?? {};
-  const res = await fetch(`${API_BASE}/api/${endpoint}`, {
+// Build the request init for a single fetch attempt.
+function buildRequestInit(
+  rest: Omit<ApiOptions, 'timeoutMs' | 'signal'>,
+  signal: AbortSignal,
+  token: string | null,
+): RequestInit {
+  return {
     ...rest,
-    signal: buildSignal(signal ?? undefined, timeoutMs),
+    signal,
+    // credentials so the refresh cookie can ride along on auth endpoints.
+    // Data endpoints don't require it but it's harmless on same-origin.
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...rest.headers,
     },
-  });
+  };
+}
+
+// Generic API helper. On a 401 response we attempt a single refresh and
+// retry once before surfacing the error.
+async function api<T>(endpoint: string, options?: ApiOptions): Promise<T> {
+  const { timeoutMs = DEFAULT_API_TIMEOUT_MS, signal, ...rest } = options ?? {};
+  const url = `${API_BASE}/api/${endpoint}`;
+  const reqSignal = buildSignal(signal ?? undefined, timeoutMs);
+
+  let res = await fetch(url, buildRequestInit(rest, reqSignal, getAccessToken()));
+
+  if (res.status === 401) {
+    // Access token may have expired — try once to mint a new one.
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      res = await fetch(url, buildRequestInit(rest, reqSignal, refreshed.accessToken));
+    }
+  }
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const errorMsg = errorData.error || errorData.details || `API error: ${res.status}`;

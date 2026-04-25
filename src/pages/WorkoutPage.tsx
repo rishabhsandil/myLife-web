@@ -26,7 +26,7 @@ import {
   getWorkoutSessions, saveWorkoutSession, deleteWorkoutSession,
 } from '../utils/api.ts';
 import {
-  getWeightUnit, saveWeightUnit, getActiveWorkoutSession, clearActiveWorkoutSession,
+  getWeightUnit, saveWeightUnit, clearActiveWorkoutSession,
   saveActiveWorkoutSession,
 } from '../utils/storage.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, NumberControl, ColorPicker, FAB, EmptyState } from '../components';
@@ -39,6 +39,7 @@ import { ActiveSession } from './workout/ActiveSession';
 import { WorkoutHistory } from './workout/WorkoutHistory';
 import { SessionSummaryModal } from './workout/SessionSummaryModal';
 import { LogWorkoutModal } from './workout/LogWorkoutModal';
+import { useSessionMachine } from './workout/sessionReducer';
 
 import './WorkoutPage.css';
 
@@ -49,9 +50,8 @@ export default function WorkoutPage() {
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>('');
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
 
-  // Active workout session state
-  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
-  const [showingPlanDuringSession, setShowingPlanDuringSession] = useState(false);
+  // Active workout session lifecycle (idle | active | summary). See sessionReducer.ts.
+  const [sessionState, dispatchSession] = useSessionMachine();
 
   // Workout history state
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
@@ -64,7 +64,6 @@ export default function WorkoutPage() {
   const deleteBodyPartModal = useModal<BodyPart>();
   const deleteSessionModal = useModal<WorkoutSession>();
   const startWorkoutModal = useModal();
-  const summaryModal = useModal<WorkoutSession>();
   const logWorkoutModal = useModal();
 
   // Exercise form state
@@ -91,12 +90,7 @@ export default function WorkoutPage() {
     loadData();
     const savedUnit = getWeightUnit();
     setWeightUnit(savedUnit);
-
-    // Restore active session from localStorage
-    const savedSession = getActiveWorkoutSession();
-    if (savedSession) {
-      setActiveSession(savedSession);
-    }
+    // Active session restore happens inside useSessionMachine's lazy initializer.
   }, []);
 
   async function loadData() {
@@ -236,7 +230,7 @@ export default function WorkoutPage() {
       createdAt: now.toISOString(),
     };
 
-    setActiveSession(session);
+    dispatchSession({ type: 'start', session });
     saveActiveWorkoutSession(session);
     startWorkoutModal.close();
   };
@@ -263,15 +257,12 @@ export default function WorkoutPage() {
     }
 
     clearActiveWorkoutSession();
-    setActiveSession(null);
-    setShowingPlanDuringSession(false);
-    summaryModal.open(completedSession);
+    dispatchSession({ type: 'finish', session: completedSession });
   };
 
   const handleDiscardWorkout = () => {
     clearActiveWorkoutSession();
-    setActiveSession(null);
-    setShowingPlanDuringSession(false);
+    dispatchSession({ type: 'discard' });
   };
 
   const handleToggleHistory = async () => {
@@ -310,29 +301,20 @@ export default function WorkoutPage() {
   };
 
   // ============ RENDER: ACTIVE SESSION ============
-  if (activeSession && !showingPlanDuringSession) {
+  if (sessionState.status === 'active' && !sessionState.viewingPlan) {
+    const { session: activeSession } = sessionState;
     return (
-      <>
-        <ActiveSession
-          session={activeSession}
-          exercises={exercises}
-          bodyPartColor={getBodyPartColor(activeSession.bodyPartId)}
-          weightUnit={weightUnit}
-          displayWeight={displayWeight}
-          onFinish={handleFinishWorkout}
-          onDiscard={handleDiscardWorkout}
-          onViewPlan={() => setShowingPlanDuringSession(true)}
-          onSessionUpdate={setActiveSession}
-        />
-        <SessionSummaryModal
-          isOpen={summaryModal.isOpen}
-          onClose={summaryModal.close}
-          session={summaryModal.data}
-          mode="complete"
-          weightUnit={weightUnit}
-          displayWeight={displayWeight}
-        />
-      </>
+      <ActiveSession
+        session={activeSession}
+        exercises={exercises}
+        bodyPartColor={getBodyPartColor(activeSession.bodyPartId)}
+        weightUnit={weightUnit}
+        displayWeight={displayWeight}
+        onFinish={handleFinishWorkout}
+        onDiscard={handleDiscardWorkout}
+        onViewPlan={() => dispatchSession({ type: 'viewPlan' })}
+        onSessionUpdate={(s) => dispatchSession({ type: 'update', session: s })}
+      />
     );
   }
 
@@ -340,14 +322,14 @@ export default function WorkoutPage() {
   return (
     <div className="workout-page">
       {/* Active session banner */}
-      {activeSession && showingPlanDuringSession && (
+      {sessionState.status === 'active' && sessionState.viewingPlan && (
         <button
           className="active-session-banner"
-          style={{ background: getBodyPartColor(activeSession.bodyPartId) }}
-          onClick={() => setShowingPlanDuringSession(false)}
+          style={{ background: getBodyPartColor(sessionState.session.bodyPartId) }}
+          onClick={() => dispatchSession({ type: 'resume' })}
         >
           <IoPlay size={16} />
-          <span>{activeSession.bodyPartName} in progress — tap to return</span>
+          <span>{sessionState.session.bodyPartName} in progress — tap to return</span>
         </button>
       )}
 
@@ -595,9 +577,9 @@ export default function WorkoutPage() {
 
       {/* Summary Modal (after finishing workout) */}
       <SessionSummaryModal
-        isOpen={summaryModal.isOpen}
-        onClose={summaryModal.close}
-        session={summaryModal.data}
+        isOpen={sessionState.status === 'summary'}
+        onClose={() => dispatchSession({ type: 'closeSummary' })}
+        session={sessionState.status === 'summary' ? sessionState.session : null}
         mode="complete"
         weightUnit={weightUnit}
         displayWeight={displayWeight}

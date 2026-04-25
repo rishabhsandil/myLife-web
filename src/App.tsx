@@ -1,11 +1,12 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from './utils/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';
-import NotesPage from './pages/NotesPage';
+// NotesPage is lazy-loaded: it pulls in Tiptap (~200 KB), which we don't want in the initial bundle.
+const NotesPage = lazy(() => import('./pages/NotesPage'));
 import RecipePage from './pages/RecipePage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
@@ -183,15 +184,17 @@ function AppContent() {
   return (
     <div className="app-container">
       <main className="main-content">
-        <Routes>
-          {enabledModules.includes('todos') && <Route path="/" element={<TodoPage />} />}
-          {enabledModules.includes('shopping') && <Route path="/shopping" element={<ShoppingPage />} />}
-          {enabledModules.includes('workout') && <Route path="/workout" element={<WorkoutPage />} />}
-          {enabledModules.includes('notes') && <Route path="/notes" element={<NotesPage />} />}
-          {enabledModules.includes('recipes') && <Route path="/recipes" element={<RecipePage />} />}
-          <Route path="/settings" element={<SettingsPage enabledModules={enabledModules} onModulesChange={setEnabledModules} />} />
-          <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {enabledModules.includes('todos') && <Route path="/" element={<TodoPage />} />}
+            {enabledModules.includes('shopping') && <Route path="/shopping" element={<ShoppingPage />} />}
+            {enabledModules.includes('workout') && <Route path="/workout" element={<WorkoutPage />} />}
+            {enabledModules.includes('notes') && <Route path="/notes" element={<NotesPage />} />}
+            {enabledModules.includes('recipes') && <Route path="/recipes" element={<RecipePage />} />}
+            <Route path="/settings" element={<SettingsPage enabledModules={enabledModules} onModulesChange={setEnabledModules} />} />
+            <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
+          </Routes>
+        </Suspense>
       </main>
       <TabBar enabledModules={enabledModules} />
     </div>

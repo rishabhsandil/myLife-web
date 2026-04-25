@@ -12,7 +12,7 @@ Guidance for AI coding assistants (Claude Code, Copilot, etc.) working in this r
 |-------|-------|
 | Frontend | React 18 + TypeScript, Vite 7, React Router v6, react-icons, date-fns, @dnd-kit, Tiptap, react-swipeable |
 | Backend | Vercel serverless functions (`/api`), Neon Postgres (`@neondatabase/serverless`) |
-| Auth | JWT (30-day) + bcrypt; token in `localStorage` |
+| Auth | JWT access token (15 min, in-memory) + refresh token (30 d, httpOnly cookie); bcrypt |
 | State | React hooks + a single `AuthContext`; per-page local state |
 | PWA | `vite-plugin-pwa`, `public/sw.js`, `public/manifest.json` |
 
@@ -105,7 +105,7 @@ public/             # Static assets, sw.js, manifest.json
 
 ### 4.6 Authentication & Security
 
-- JWT lives in `localStorage` today; treat it as a known limitation. **Migration plan:** short-lived access token in memory + refresh token in httpOnly cookie. When you next touch auth, take a step in that direction (do not deepen the localStorage usage).
+- Access token is a short-lived JWT (~15 min) held only in memory in [src/utils/authToken.ts](src/utils/authToken.ts). The long-lived refresh token lives in an httpOnly cookie scoped to `/api`. On boot and on any 401, the client calls `POST /api/auth/refresh` to mint a new access token; concurrent calls share a single in-flight refresh. Never reintroduce `localStorage`-backed auth tokens.
 - Hash passwords with bcrypt at ≥10 rounds (current setting). Never log passwords or tokens.
 - Verify the JWT on every protected endpoint and re-derive `userId` from the token, not from the request body.
 - Sanitize HTML before rendering anything sourced from the user (notes/recipes via Tiptap). Inline base64 images are capped at `MAX_INLINE_IMAGE_BYTES`; prefer hosted URLs.
@@ -175,6 +175,10 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - ✅ `parseRecurrenceLabel(todo)` helper extracted in [src/pages/TodoPage.tsx](src/pages/TodoPage.tsx); inline title expression replaced.
 - ✅ RecipePage's four sibling `useModal<Recipe>()` calls now bundled in [src/pages/recipe/useRecipeModals.ts](src/pages/recipe/useRecipeModals.ts) (`{ add, view, del, share }`).
 - ✅ Shared icon registry at [src/utils/icons.ts](src/utils/icons.ts); `App.tsx`, `TodoPage`, `NotesPage`, `RecipePage`, `ShoppingPage`, `SettingsPage` now import icons from it. New icons go in the registry — do not add fresh `react-icons/io5` imports in pages over the ~10-icon threshold.
+- ✅ `NotesPage` is `React.lazy`-loaded in [src/App.tsx](src/App.tsx) with a `<Suspense fallback={<LoadingScreen />}>`; Tiptap (~390 KB) is now in its own chunk and out of the initial bundle. The OpenAI client is server-side only (`api/index.ts`) and never reaches the browser.
+- ✅ `ShoppingPage` mutations (save / toggle / delete / clear completed / reorder) are fully optimistic with revert-on-error + toast; the `isMutating` and `lastSyncTime` refs are gone and the polling loop no longer pauses on writes.
+- ✅ Auth tokens migrated off `localStorage`: short-lived access token in memory ([src/utils/authToken.ts](src/utils/authToken.ts)) + httpOnly refresh cookie issued by `/api/auth/login`, `/api/auth/signup`, and rotated by `/api/auth/refresh`; cleared by `/api/auth/logout`. `api.ts` retries any 401 once after a single-flight refresh.
+- ✅ WorkoutPage session lifecycle consolidated into a `useReducer` state machine in [src/pages/workout/sessionReducer.ts](src/pages/workout/sessionReducer.ts) (`idle | active | summary`); replaces the scattered `activeSession`, `showingPlanDuringSession`, and post-finish `summaryModal` state.
 
 ### Remaining (do as you go)
 
@@ -183,8 +187,4 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - Duplicated swipeable + sortable item pattern across pages → extract `<SortableSwipeItem>` (render-prop children).
 - Pages other than Notes still call `loadData()` without `AbortController` → add it when editing (use Notes as the template).
 - Most mutations (toggle / reorder / delete) wait on the server response → move to optimistic updates with revert-on-error.
-- Auth token in `localStorage` → migrate to short-lived in-memory access token + httpOnly refresh cookie.
 - `TodoItem` mega-interface (~20 optional fields) → split into `BasicTodo | RecurringTodo | AssignedTodo` discriminated union.
-- WorkoutPage session lifecycle scattered across components → consolidate via `useReducer` state machine.
-- `ShoppingPage` `isMutating` ref pauses sync → replace with optimistic updates and remove the ref.
-- Heavy deps (Tiptap, OpenAI client) → `React.lazy` the routes that pull them in.
