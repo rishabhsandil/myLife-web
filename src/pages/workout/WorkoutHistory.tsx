@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import {
-  IoBarbell, IoTrash, IoTime, IoFlame, IoCalendar, IoPlay,
+  IoBarbell, IoTime, IoFlame, IoCalendar, IoPlay,
   IoCheckmarkCircle, IoChevronBack, IoChevronForward,
 } from 'react-icons/io5';
-import { useSwipeable } from 'react-swipeable';
 import { BodyPart, WeightUnit, WorkoutSession } from '../../types';
 import { formatDuration, getSessionStats, getBodyPartColor, toLocalDateString } from './helpers';
-import { Modal } from '../../components';
+import { Modal, SortableSwipeItem } from '../../components';
 import { EmptyState } from '../../components';
 import { useModal } from '../../hooks';
 import { colors } from '../../utils/theme';
@@ -19,71 +18,37 @@ interface SwipeableHistoryCardProps {
 }
 
 function SwipeableHistoryCard({ session, bodyPartColor, onDelete, onClick }: SwipeableHistoryCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-
-  const resetSwipe = () => {
-    setSwipeOffset(0);
-    setIsSwiping(false);
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      if (eventData.dir === 'Left') {
-        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
-        setSwipeOffset(offset);
-        setIsSwiping(true);
-      }
-    },
-    onSwiped: (eventData) => {
-      if (eventData.dir === 'Left' && swipeOffset < -70) {
-        onDelete();
-        setTimeout(resetSwipe, 300);
-      } else {
-        resetSwipe();
-      }
-      setIsSwiping(false);
-    },
-    trackMouse: false,
-    preventScrollOnSwipe: false,
-  });
-
-  const contentStyle = {
-    transform: `translateX(${swipeOffset}px)`,
-    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  };
-
   const st = getSessionStats(session);
   const date = new Date(session.startTime);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
   return (
-    <div className="history-card-wrapper">
-      <div className="swipe-delete-bg">
-        <IoTrash size={20} />
-      </div>
-      <div className="history-card" style={contentStyle} {...swipeHandlers} onClick={onClick}>
-        <div className="history-card-header">
-          <div
-            className="history-split-badge"
-            style={{ background: bodyPartColor + '20', color: bodyPartColor }}
-          >
-            {session.bodyPartName}
-          </div>
-        </div>
-        <div className="history-card-date">
-          {dateStr} · {timeStr}
-        </div>
-        <div className="history-card-stats">
-          <span><IoFlame size={12} /> {st.completedExercises} exercises</span>
-          <span><IoBarbell size={12} /> {st.completedSets} sets</span>
-          {(session.duration ?? 0) > 0 && (
-            <span><IoTime size={12} /> {formatDuration(session.duration || 0)}</span>
-          )}
+    <SortableSwipeItem
+      onSwipeDelete={onDelete}
+      wrapperClassName="history-card-wrapper"
+      contentClassName="history-card"
+      onContentClick={onClick}
+    >
+      <div className="history-card-header">
+        <div
+          className="history-split-badge"
+          style={{ background: bodyPartColor + '20', color: bodyPartColor }}
+        >
+          {session.bodyPartName}
         </div>
       </div>
-    </div>
+      <div className="history-card-date">
+        {dateStr} · {timeStr}
+      </div>
+      <div className="history-card-stats">
+        <span><IoFlame size={12} /> {st.completedExercises} exercises</span>
+        <span><IoBarbell size={12} /> {st.completedSets} sets</span>
+        {(session.duration ?? 0) > 0 && (
+          <span><IoTime size={12} /> {formatDuration(session.duration || 0)}</span>
+        )}
+      </div>
+    </SortableSwipeItem>
   );
 }
 

@@ -94,33 +94,22 @@ function createCrudApi<T extends Entity>(
     },
 
     async create(item: T): Promise<void> {
-      try {
-        await api(endpoint, {
-          method: 'POST',
-          body: JSON.stringify(item),
-        });
-      } catch (error) {
-        console.error(`Failed to create ${endpoint}:`, error);
-      }
+      // Re-throw so callers using optimistic updates can revert.
+      await api(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(item),
+      });
     },
 
     async update(item: T): Promise<void> {
-      try {
-        await api(endpoint, {
-          method: 'PUT',
-          body: JSON.stringify(item),
-        });
-      } catch (error) {
-        console.error(`Failed to update ${endpoint}:`, error);
-      }
+      await api(endpoint, {
+        method: 'PUT',
+        body: JSON.stringify(item),
+      });
     },
 
     async delete(id: string): Promise<void> {
-      try {
-        await api(`${endpoint}?id=${id}`, { method: 'DELETE' });
-      } catch (error) {
-        console.error(`Failed to delete ${endpoint}:`, error);
-      }
+      await api(`${endpoint}?id=${id}`, { method: 'DELETE' });
     },
 
     saveToLocalStorage(items: T[]): void {
@@ -158,21 +147,18 @@ export const updateShoppingStore = shoppingStoresApi.update;
 export const deleteShoppingStore = shoppingStoresApi.delete;
 
 export async function clearCompletedItems(storeName?: string): Promise<void> {
-  try {
-    const url = storeName 
-      ? `shopping?clearCompleted=true&storeName=${encodeURIComponent(storeName)}` 
-      : 'shopping?clearCompleted=true';
-    await api(url, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to clear completed items:', error);
-  }
+  const url = storeName
+    ? `shopping?clearCompleted=true&storeName=${encodeURIComponent(storeName)}`
+    : 'shopping?clearCompleted=true';
+  await api(url, { method: 'DELETE' });
 }
 
 // ============ SHOPPING SHARING ============
-export async function getShoppingShareStatus(): Promise<ShoppingShareStatus> {
+export async function getShoppingShareStatus(signal?: AbortSignal): Promise<ShoppingShareStatus> {
   try {
-    return await api<ShoppingShareStatus>('shopping-share');
+    return await api<ShoppingShareStatus>('shopping-share', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to get share status:', error);
     return { sharedWith: [], sharedBy: [] };
   }
@@ -192,18 +178,15 @@ export async function shareShoppingList(email: string): Promise<{ success: boole
 }
 
 export async function unshareShoppingList(userId: string): Promise<void> {
-  try {
-    await api(`shopping-share?userId=${userId}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to unshare list:', error);
-  }
+  await api(`shopping-share?userId=${userId}`, { method: 'DELETE' });
 }
 
 // ============ SHOPPING AUDIT ============
-export async function getShoppingAudit(): Promise<ShoppingAuditEntry[]> {
+export async function getShoppingAudit(signal?: AbortSignal): Promise<ShoppingAuditEntry[]> {
   try {
-    return await api<ShoppingAuditEntry[]>('shopping-audit');
+    return await api<ShoppingAuditEntry[]>('shopping-audit', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to get audit history:', error);
     return [];
   }
@@ -223,10 +206,11 @@ export const updateBodyPart = bodyPartsApi.update;
 export const deleteBodyPart = bodyPartsApi.delete;
 
 // ============ WORKOUT SESSIONS ============
-export async function getWorkoutSessions(): Promise<WorkoutSession[]> {
+export async function getWorkoutSessions(signal?: AbortSignal): Promise<WorkoutSession[]> {
   try {
-    return await api<WorkoutSession[]>('workouts');
+    return await api<WorkoutSession[]>('workouts', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to fetch workout sessions:', error);
     const data = localStorage.getItem('almostadult_workout_sessions');
     return data ? JSON.parse(data) : [];
@@ -246,11 +230,7 @@ export async function saveWorkoutSession(session: WorkoutSession): Promise<void>
 }
 
 export async function deleteWorkoutSession(id: string): Promise<void> {
-  try {
-    await api(`workouts?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete workout session:', error);
-  }
+  await api(`workouts?id=${id}`, { method: 'DELETE' });
 }
 
 // ============ NOTES ============
@@ -272,10 +252,11 @@ export const deleteTodoCategory = todoCategoriesApi.delete;
 // ============ USER SETTINGS (Module Configuration) ============
 const DEFAULT_ENABLED_MODULES: ModuleType[] = ['todos', 'shopping', 'workout', 'notes'];
 
-export async function getUserSettings(): Promise<UserSettings> {
+export async function getUserSettings(signal?: AbortSignal): Promise<UserSettings> {
   try {
-    return await api<UserSettings>('settings');
+    return await api<UserSettings>('settings', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to fetch user settings:', error);
     const stored = localStorage.getItem('almostadult_user_settings');
     return stored ? JSON.parse(stored) : { enabledModules: DEFAULT_ENABLED_MODULES };
@@ -283,15 +264,11 @@ export async function getUserSettings(): Promise<UserSettings> {
 }
 
 export async function saveUserSettings(settings: UserSettings): Promise<void> {
-  try {
-    await api('settings', {
-      method: 'POST',
-      body: JSON.stringify(settings),
-    });
-    localStorage.setItem('almostadult_user_settings', JSON.stringify(settings));
-  } catch (error) {
-    console.error('Failed to save user settings:', error);
-  }
+  await api('settings', {
+    method: 'POST',
+    body: JSON.stringify(settings),
+  });
+  localStorage.setItem('almostadult_user_settings', JSON.stringify(settings));
 }
 
 // ============ USER SEARCH ============
@@ -312,10 +289,11 @@ export interface UserConnection {
   connectedAt?: string;
 }
 
-export async function getConnections(): Promise<UserConnection[]> {
+export async function getConnections(signal?: AbortSignal): Promise<UserConnection[]> {
   try {
-    return await api<UserConnection[]>('connections');
+    return await api<UserConnection[]>('connections', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to get connections:', error);
     return [];
   }
@@ -334,11 +312,7 @@ export async function addConnection(email: string): Promise<{ success: boolean; 
 }
 
 export async function removeConnection(userId: string): Promise<void> {
-  try {
-    await api(`connections?id=${userId}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to remove connection:', error);
-  }
+  await api(`connections?id=${userId}`, { method: 'DELETE' });
 }
 // ============ RECIPES ============
 const recipesApi = createCrudApi<Recipe>('recipes', 'almostadult_recipes');
@@ -351,21 +325,18 @@ export const deleteRecipe = recipesApi.delete;
 // ============ SHARED RECIPES ============
 import { SharedRecipe } from '../types';
 
-export async function getSharedRecipes(): Promise<SharedRecipe[]> {
+export async function getSharedRecipes(signal?: AbortSignal): Promise<SharedRecipe[]> {
   try {
-    return await api<SharedRecipe[]>('recipes/shared');
+    return await api<SharedRecipe[]>('recipes/shared', { signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     console.error('Failed to fetch shared recipes:', error);
     return [];
   }
 }
 
 export async function deleteSharedRecipe(id: string): Promise<void> {
-  try {
-    await api(`recipes/shared?id=${id}`, { method: 'DELETE' });
-  } catch (error) {
-    console.error('Failed to delete shared recipe:', error);
-  }
+  await api(`recipes/shared?id=${id}`, { method: 'DELETE' });
 }
 
 export async function saveSharedRecipeToOwn(recipe: SharedRecipe): Promise<void> {

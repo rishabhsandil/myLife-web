@@ -176,15 +176,15 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - ✅ RecipePage's four sibling `useModal<Recipe>()` calls now bundled in [src/pages/recipe/useRecipeModals.ts](src/pages/recipe/useRecipeModals.ts) (`{ add, view, del, share }`).
 - ✅ Shared icon registry at [src/utils/icons.ts](src/utils/icons.ts); `App.tsx`, `TodoPage`, `NotesPage`, `RecipePage`, `ShoppingPage`, `SettingsPage` now import icons from it. New icons go in the registry — do not add fresh `react-icons/io5` imports in pages over the ~10-icon threshold.
 - ✅ `NotesPage` is `React.lazy`-loaded in [src/App.tsx](src/App.tsx) with a `<Suspense fallback={<LoadingScreen />}>`; Tiptap (~390 KB) is now in its own chunk and out of the initial bundle. The OpenAI client is server-side only (`api/index.ts`) and never reaches the browser.
-- ✅ `ShoppingPage` mutations (save / toggle / delete / clear completed / reorder) are fully optimistic with revert-on-error + toast; the `isMutating` and `lastSyncTime` refs are gone and the polling loop no longer pauses on writes.
+- ✅ `ShoppingPage` mutations (save / toggle / delete / clear completed / reorder / store CRUD / unshare) are fully optimistic with revert-on-error + toast; the `isMutating` and `lastSyncTime` refs are gone and the polling loop no longer pauses on writes.
+- ✅ Optimistic mutations rolled out to `TodoPage`, `NotesPage`, `RecipePage`, `WorkoutPage`, and `SettingsPage`; CRUD helpers in [src/utils/api.ts](src/utils/api.ts) now re-throw errors instead of swallowing them with `console.error` so callers can revert local state and surface a toast via `useToast()`.
 - ✅ Auth tokens migrated off `localStorage`: short-lived access token in memory ([src/utils/authToken.ts](src/utils/authToken.ts)) + httpOnly refresh cookie issued by `/api/auth/login`, `/api/auth/signup`, and rotated by `/api/auth/refresh`; cleared by `/api/auth/logout`. `api.ts` retries any 401 once after a single-flight refresh.
 - ✅ WorkoutPage session lifecycle consolidated into a `useReducer` state machine in [src/pages/workout/sessionReducer.ts](src/pages/workout/sessionReducer.ts) (`idle | active | summary`); replaces the scattered `activeSession`, `showingPlanDuringSession`, and post-finish `summaryModal` state.
+- ✅ Initial-mount `loadData` in `TodoPage`, `RecipePage`, `ShoppingPage`, `WorkoutPage`, and `SettingsPage` now use the Notes `AbortController` pattern — effects abort on unmount, errors surface via `useToast()`, and `AbortError` is silently ignored. Non-CRUD getters in [src/utils/api.ts](src/utils/api.ts) (`getShoppingShareStatus`, `getShoppingAudit`, `getWorkoutSessions`, `getUserSettings`, `getConnections`, `getSharedRecipes`) accept an optional `AbortSignal` and propagate `AbortError`.
+- ✅ Duplicated swipeable + sortable item pattern extracted into [`<SortableSwipeItem>`](src/components/SortableSwipeItem.tsx) (render-prop `children` exposes `dragHandleProps` + `isDragging`); `TodoPage`, `ShoppingPage`, `NotesPage`, `RecipePage`, `WorkoutHistory`, and `workout/SortableExerciseItem` now use it. Pass `id` to enable `@dnd-kit` sorting; omit it for swipe-only rows.
 
 ### Remaining (do as you go)
 
 - `api/index.ts` (~1.3k LOC) → split into `api/handlers/<feature>.ts` and dispatch from `index.ts` by route.
 - Page files (`TodoPage` 1.6k, `RecipePage` 1.2k, `ShoppingPage` 900, `WorkoutPage` 670, `NotesPage` 515) → extract sub-components per the `pages/workout/` pattern.
-- Duplicated swipeable + sortable item pattern across pages → extract `<SortableSwipeItem>` (render-prop children).
-- Pages other than Notes still call `loadData()` without `AbortController` → add it when editing (use Notes as the template).
-- Most mutations (toggle / reorder / delete) wait on the server response → move to optimistic updates with revert-on-error.
 - `TodoItem` mega-interface (~20 optional fields) → split into `BasicTodo | RecurringTodo | AssignedTodo` discriminated union.

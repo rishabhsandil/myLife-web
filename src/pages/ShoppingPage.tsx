@@ -4,7 +4,6 @@ import {
   IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
   IoTime, IoPencil, IoSettings, IoReorderTwo, IoSearchOutline
 } from '../utils/icons';
-import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
   closestCenter,
@@ -18,17 +17,15 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import { 
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
   getShoppingStores, saveShoppingStore, updateShoppingStore, deleteShoppingStore as apiDeleteStore,
   getShoppingShareStatus, shareShoppingList, unshareShoppingList, getShoppingAudit
 } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, ColorPicker, FAB, EmptyState } from '../components';
+import { Modal, ModalFooter, FormGroup, ColorPicker, FAB, EmptyState, SortableSwipeItem } from '../components';
 import { useToast } from '../components/Toast';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
@@ -43,95 +40,43 @@ interface SortableShoppingItemProps {
 }
 
 function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShoppingItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
-
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-
-  const resetSwipe = () => {
-    setSwipeOffset(0);
-    setIsSwiping(false);
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      if (eventData.dir === 'Left') {
-        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
-        setSwipeOffset(offset);
-        setIsSwiping(true);
-      }
-    },
-    onSwiped: (eventData) => {
-      if (eventData.dir === 'Left' && swipeOffset < -70) {
-        // Call delete and reset immediately - modal will handle confirmation
-        onDelete();
-        // Reset after a short delay to allow modal to open
-        setTimeout(resetSwipe, 300);
-      } else {
-        resetSwipe();
-      }
-      setIsSwiping(false);
-    },
-    trackMouse: false,
-    preventScrollOnSwipe: false,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: isSwiping ? 'none' : transition,
-  };
-
-  const contentStyle = {
-    transform: `translateX(${swipeOffset}px)`,
-    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  };
-
   const isSharedItem = item.isOwn === false;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''} ${isDragging ? 'dragging' : ''}`}
+    <SortableSwipeItem
+      id={item.id}
+      onSwipeDelete={onDelete}
+      wrapperClassName={(isDragging) =>
+        `item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''} ${isDragging ? 'dragging' : ''}`
+      }
+      contentClassName="item-card-content"
     >
-      <div className="swipe-delete-bg">
-        <IoTrash size={20} />
-      </div>
-      <div className="item-card-content" style={contentStyle} {...swipeHandlers}>
-        <button
-          className="drag-handle"
-          {...attributes}
-          {...listeners}
-        >
-          <IoReorderTwo size={20} color={colors.textMuted} />
-        </button>
-        <button className="item-checkbox" onClick={onToggle}>
-        {item.completed ? (
-          <IoCheckmarkCircle size={22} color={colors.success} />
-        ) : (
-          <IoEllipseOutline size={22} color={colors.textMuted} />
-        )}
-      </button>
-      <div className="item-content" onClick={onEdit}>
-        <div className="item-name">
-          {item.name}
-          {isSharedItem && (
-            <span className="item-owner">({item.ownerName})</span>
-          )}
-        </div>
-        <div className="item-meta">
-          <span className="item-qty">×{item.quantity}</span>
-        </div>
-      </div>
-      </div>
-    </div>
+      {({ dragHandleProps }) => (
+        <>
+          <button className="drag-handle" {...dragHandleProps}>
+            <IoReorderTwo size={20} color={colors.textMuted} />
+          </button>
+          <button className="item-checkbox" onClick={onToggle}>
+            {item.completed ? (
+              <IoCheckmarkCircle size={22} color={colors.success} />
+            ) : (
+              <IoEllipseOutline size={22} color={colors.textMuted} />
+            )}
+          </button>
+          <div className="item-content" onClick={onEdit}>
+            <div className="item-name">
+              {item.name}
+              {isSharedItem && (
+                <span className="item-owner">({item.ownerName})</span>
+              )}
+            </div>
+            <div className="item-meta">
+              <span className="item-qty">×{item.quantity}</span>
+            </div>
+          </div>
+        </>
+      )}
+    </SortableSwipeItem>
   );
 }
 
@@ -180,24 +125,33 @@ export default function ShoppingPage() {
 
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
 
-  const loadData = useCallback(async (showLoading = true) => {
+  const loadData = useCallback(async (showLoading = true, signal?: AbortSignal) => {
     if (showLoading) setIsLoading(true);
-    const [itemsData, storesData] = await Promise.all([
-      getShoppingItems(),
-      getShoppingStores()
-    ]);
-    setItems(itemsData);
-    setStores(storesData);
-    if (storesData.length > 0 && !selectedStore) {
-      setSelectedStore(storesData[0].id);
+    try {
+      const [itemsData, storesData] = await Promise.all([
+        getShoppingItems(signal),
+        getShoppingStores(signal)
+      ]);
+      setItems(itemsData);
+      setStores(storesData);
+      if (storesData.length > 0 && !selectedStore) {
+        setSelectedStore(storesData[0].id);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load shopping list');
+    } finally {
+      if (showLoading) setIsLoading(false);
     }
-    if (showLoading) setIsLoading(false);
-  }, [selectedStore]);
+  }, [selectedStore, showError]);
 
   useEffect(() => {
-    loadData();
-    loadShareStatus();
-  }, [loadData]);
+    const ac = new AbortController();
+    void loadData(true, ac.signal);
+    void loadShareStatus(ac.signal);
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-sync when list is shared — only while tab is visible, and refresh on re-focus
   useEffect(() => {
@@ -240,9 +194,14 @@ export default function ShoppingPage() {
     };
   }, [isSharing, loadData]);
 
-  async function loadShareStatus() {
-    const status = await getShoppingShareStatus();
-    setShareStatus(status);
+  async function loadShareStatus(signal?: AbortSignal) {
+    try {
+      const status = await getShoppingShareStatus(signal);
+      setShareStatus(status);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load sharing status');
+    }
   }
 
   const currentStore = stores.find(s => s.id === selectedStore);
@@ -440,11 +399,17 @@ export default function ShoppingPage() {
   };
 
   const handleUnshare = async (userId: string) => {
-    await unshareShoppingList(userId);
+    const previous = shareStatus;
     setShareStatus(prev => ({
       ...prev,
       sharedWith: prev.sharedWith.filter(u => u.id !== userId),
     }));
+    try {
+      await unshareShoppingList(userId);
+    } catch (err) {
+      setShareStatus(previous);
+      showError(err, 'Failed to unshare list');
+    }
   };
 
   // Store management
@@ -463,33 +428,57 @@ export default function ShoppingPage() {
   const handleSaveStore = async () => {
     if (!storeName.trim()) return;
 
+    const previousStores = stores;
+    const previousSelected = selectedStore;
+
     if (editingStore) {
       const updated: ShoppingStore = { ...editingStore, name: storeName.trim(), color: storeColor };
-      await updateShoppingStore(updated);
       setStores(stores.map(s => s.id === updated.id ? updated : s));
+      resetStoreForm();
+      try {
+        await updateShoppingStore(updated);
+      } catch (err) {
+        setStores(previousStores);
+        showError(err, 'Failed to update store');
+      }
     } else {
       const newStore: ShoppingStore = {
         id: `store_${Date.now()}`,
         name: storeName.trim(),
         color: storeColor,
       };
-      await saveShoppingStore(newStore);
       setStores([...stores, newStore]);
-      if (!selectedStore) {
-        setSelectedStore(newStore.id);
+      if (!selectedStore) setSelectedStore(newStore.id);
+      resetStoreForm();
+      try {
+        await saveShoppingStore(newStore);
+      } catch (err) {
+        setStores(previousStores);
+        setSelectedStore(previousSelected);
+        showError(err, 'Failed to add store');
       }
     }
-
-    resetStoreForm();
   };
 
   const handleDeleteStore = async (id: string) => {
-    await apiDeleteStore(id);
+    const previousStores = stores;
+    const previousItems = items;
+    const previousSelected = selectedStore;
+
     setStores(stores.filter(s => s.id !== id));
     setItems(items.filter(i => i.storeId !== id));
     if (selectedStore === id) {
       const remaining = stores.filter(s => s.id !== id);
       setSelectedStore(remaining.length > 0 ? remaining[0].id : '');
+    }
+
+    try {
+      await apiDeleteStore(id);
+    } catch (err) {
+      setStores(previousStores);
+      setItems(previousItems);
+      setSelectedStore(previousSelected);
+      showError(err, 'Failed to delete store');
     }
   };
 

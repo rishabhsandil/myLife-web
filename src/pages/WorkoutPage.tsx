@@ -30,6 +30,7 @@ import {
   saveActiveWorkoutSession,
 } from '../utils/storage.ts';
 import { Modal, ModalFooter, FormGroup, FormRow, NumberControl, ColorPicker, FAB, EmptyState } from '../components';
+import { useToast } from '../components/Toast';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
 
@@ -44,6 +45,7 @@ import { useSessionMachine } from './workout/sessionReducer';
 import './WorkoutPage.css';
 
 export default function WorkoutPage() {
+  const { showError } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,24 +89,33 @@ export default function WorkoutPage() {
   const getBodyPartColor = (partId: string) => getBpColor(bodyParts, partId, colors.primary);
 
   useEffect(() => {
-    loadData();
+    const ac = new AbortController();
+    void loadData(ac.signal);
     const savedUnit = getWeightUnit();
     setWeightUnit(savedUnit);
     // Active session restore happens inside useSessionMachine's lazy initializer.
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadData() {
+  async function loadData(signal?: AbortSignal) {
     setIsLoading(true);
-    const [exerciseData, bodyPartData] = await Promise.all([
-      getExercises(),
-      getBodyParts(),
-    ]);
-    setExercises(exerciseData);
-    setBodyParts(bodyPartData);
-    if (bodyPartData.length > 0 && !selectedBodyPart) {
-      setSelectedBodyPart(bodyPartData[0].id);
+    try {
+      const [exerciseData, bodyPartData] = await Promise.all([
+        getExercises(signal),
+        getBodyParts(signal),
+      ]);
+      setExercises(exerciseData);
+      setBodyParts(bodyPartData);
+      if (bodyPartData.length > 0 && !selectedBodyPart) {
+        setSelectedBodyPart(bodyPartData[0].id);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load workout data');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }
 
   async function loadHistory() {
@@ -145,25 +156,43 @@ export default function WorkoutPage() {
   const handleSave = async () => {
     if (!exerciseName.trim()) return;
     const weightInKg = weightUnit === 'lbs' ? lbsToKg(formWeight) : formWeight;
+    const previousExercises = exercises;
 
     if (exerciseModal.data) {
       const updated: Exercise = { ...exerciseModal.data, name: exerciseName.trim(), sets: formSets, reps: formReps, weight: weightInKg };
-      await updateExercise(updated);
       setExercises(exercises.map(e => e.id === updated.id ? updated : e));
+      exerciseModal.close();
+      try {
+        await updateExercise(updated);
+      } catch (err) {
+        setExercises(previousExercises);
+        showError(err, 'Failed to update exercise');
+      }
     } else {
       const newExercise: Exercise = {
         id: Date.now().toString(), name: exerciseName.trim(), bodyPart: selectedBodyPart,
         sets: formSets, reps: formReps, weight: weightInKg,
       };
-      await saveExercise(newExercise);
       setExercises([...exercises, newExercise]);
+      exerciseModal.close();
+      try {
+        await saveExercise(newExercise);
+      } catch (err) {
+        setExercises(previousExercises);
+        showError(err, 'Failed to add exercise');
+      }
     }
-    exerciseModal.close();
   };
 
   const handleDeleteExercise = async (id: string) => {
-    await apiDeleteExercise(id);
+    const previousExercises = exercises;
     setExercises(exercises.filter(e => e.id !== id));
+    try {
+      await apiDeleteExercise(id);
+    } catch (err) {
+      setExercises(previousExercises);
+      showError(err, 'Failed to delete exercise');
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -172,11 +201,17 @@ export default function WorkoutPage() {
       const oldIndex = filteredExercises.findIndex(ex => ex.id === active.id);
       const newIndex = filteredExercises.findIndex(ex => ex.id === over.id);
       const reordered = arrayMove(filteredExercises, oldIndex, newIndex).map((ex, i) => ({ ...ex, sortOrder: i }));
+      const previousExercises = exercises;
       setExercises(exercises.map(e => {
         const updated = reordered.find(ue => ue.id === e.id);
         return updated || e;
       }));
-      for (const ex of reordered) { await updateExercise(ex); }
+      try {
+        for (const ex of reordered) { await updateExercise(ex); }
+      } catch (err) {
+        setExercises(previousExercises);
+        showError(err, 'Failed to reorder exercises');
+      }
     }
   };
 
@@ -189,26 +224,53 @@ export default function WorkoutPage() {
 
   const handleSaveBodyPart = async () => {
     if (!bpName.trim()) return;
+    const previousBodyParts = bodyParts;
+    const previousSelected = selectedBodyPart;
+
     if (editingBodyPart) {
       const updated: BodyPart = { ...editingBodyPart, name: bpName.trim(), color: bpColor };
-      await updateBodyPart(updated);
       setBodyParts(bodyParts.map(bp => bp.id === updated.id ? updated : bp));
+      resetBodyPartForm();
+      try {
+        await updateBodyPart(updated);
+      } catch (err) {
+        setBodyParts(previousBodyParts);
+        showError(err, 'Failed to update body part');
+      }
     } else {
       const newBp: BodyPart = { id: `bp_${Date.now()}`, name: bpName.trim(), color: bpColor };
-      await saveBodyPart(newBp);
       setBodyParts([...bodyParts, newBp]);
       if (!selectedBodyPart) setSelectedBodyPart(newBp.id);
+      resetBodyPartForm();
+      try {
+        await saveBodyPart(newBp);
+      } catch (err) {
+        setBodyParts(previousBodyParts);
+        setSelectedBodyPart(previousSelected);
+        showError(err, 'Failed to add body part');
+      }
     }
-    resetBodyPartForm();
   };
 
   const handleDeleteBodyPart = async (id: string) => {
-    await apiDeleteBodyPart(id);
+    const previousBodyParts = bodyParts;
+    const previousExercises = exercises;
+    const previousSelected = selectedBodyPart;
+
     setBodyParts(bodyParts.filter(bp => bp.id !== id));
     setExercises(exercises.filter(e => e.bodyPart !== id));
     if (selectedBodyPart === id) {
       const remaining = bodyParts.filter(bp => bp.id !== id);
       setSelectedBodyPart(remaining.length > 0 ? remaining[0].id : '');
+    }
+
+    try {
+      await apiDeleteBodyPart(id);
+    } catch (err) {
+      setBodyParts(previousBodyParts);
+      setExercises(previousExercises);
+      setSelectedBodyPart(previousSelected);
+      showError(err, 'Failed to delete body part');
     }
   };
 
@@ -271,8 +333,14 @@ export default function WorkoutPage() {
   };
 
   const handleDeleteSession = async (id: string) => {
-    await deleteWorkoutSession(id);
+    const previousHistory = workoutHistory;
     setWorkoutHistory(prev => prev.filter(s => s.id !== id));
+    try {
+      await deleteWorkoutSession(id);
+    } catch (err) {
+      setWorkoutHistory(previousHistory);
+      showError(err, 'Failed to delete workout');
+    }
   };
 
   const handleLogWorkout = async (session: WorkoutSession) => {

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoAdd, IoTrash, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage, IoExpand, IoContract } from '../utils/icons';
-import { useSwipeable } from 'react-swipeable';
+import { IoAdd, IoDocumentTextOutline, IoSearchOutline, IoList, IoCode, IoLink, IoCheckboxOutline, IoImage, IoExpand, IoContract } from '../utils/icons';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -9,7 +8,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import { Note } from '../types';
 import { getNotes as apiGetNotes, saveNote, updateNote, deleteNote as apiDeleteNote } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, FAB, EmptyState, useToast } from '../components';
+import { Modal, ModalFooter, FormGroup, FAB, EmptyState, SortableSwipeItem, useToast } from '../components';
 import { useModal } from '../hooks';
 import { MAX_INLINE_IMAGE_BYTES } from '../utils/constants';
 import './NotesPage.css';
@@ -151,9 +150,10 @@ export default function NotesPage() {
   const handleSave = async () => {
     const title = noteTitle.trim() || 'Untitled Note';
     const content = noteContent.trim();
+    const previousNotes = notes;
 
     if (noteModal.data) {
-      // Update existing
+      // Optimistic update
       const updated: Note = {
         ...noteModal.data,
         title,
@@ -161,11 +161,17 @@ export default function NotesPage() {
         color: noteColor,
         updatedAt: new Date().toISOString(),
       };
-      await updateNote(updated);
       setNotes(notes.map(n => n.id === updated.id ? updated : n)
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+      noteModal.close();
+      try {
+        await updateNote(updated);
+      } catch (err) {
+        setNotes(previousNotes);
+        showError(err, 'Failed to update note');
+      }
     } else {
-      // Add new
+      // Optimistic create
       const newNote: Note = {
         id: Date.now().toString(),
         title,
@@ -174,16 +180,27 @@ export default function NotesPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      await saveNote(newNote);
       setNotes([newNote, ...notes]);
+      noteModal.close();
+      try {
+        await saveNote(newNote);
+      } catch (err) {
+        setNotes(previousNotes);
+        showError(err, 'Failed to add note');
+      }
     }
-
-    noteModal.close();
   };
 
   const handleDeleteNote = async (id: string) => {
-    await apiDeleteNote(id);
+    const previousNotes = notes;
+    // Optimistic update
     setNotes(notes.filter(n => n.id !== id));
+    try {
+      await apiDeleteNote(id);
+    } catch (err) {
+      setNotes(previousNotes);
+      showError(err, 'Failed to delete note');
+    }
   };
 
   // Filter notes based on search query
@@ -475,55 +492,17 @@ interface NoteCardProps {
 }
 
 function NoteCard({ note, onEdit, onDelete, formatDate, getPreviewText }: NoteCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-
-  const resetSwipe = () => {
-    setSwipeOffset(0);
-    setIsSwiping(false);
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      if (eventData.dir === 'Left') {
-        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
-        setSwipeOffset(offset);
-        setIsSwiping(true);
-      }
-    },
-    onSwiped: (eventData) => {
-      if (eventData.dir === 'Left' && swipeOffset < -70) {
-        onDelete();
-        setTimeout(resetSwipe, 300);
-      } else {
-        resetSwipe();
-      }
-      setIsSwiping(false);
-    },
-    trackMouse: false,
-    preventScrollOnSwipe: false,
-  });
-
-  const contentStyle = {
-    transform: `translateX(${swipeOffset}px)`,
-    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  };
-
   return (
-    <div className="note-card-wrapper">
-      <div className="swipe-delete-bg">
-        <IoTrash size={20} />
-      </div>
-      <div 
-        className="note-card" 
-        style={{ ...contentStyle, background: note.color || '#FFFFFF' }}
-        onClick={onEdit}
-        {...swipeHandlers}
-      >
-        <h3 className="note-title">{note.title}</h3>
-        <p className="note-preview">{getPreviewText(note.content)}</p>
-        <span className="note-date">{formatDate(note.updatedAt)}</span>
-      </div>
-    </div>
+    <SortableSwipeItem
+      onSwipeDelete={onDelete}
+      wrapperClassName="note-card-wrapper"
+      contentClassName="note-card"
+      contentStyle={{ background: note.color || '#FFFFFF' }}
+      onContentClick={onEdit}
+    >
+      <h3 className="note-title">{note.title}</h3>
+      <p className="note-preview">{getPreviewText(note.content)}</p>
+      <span className="note-date">{formatDate(note.updatedAt)}</span>
+    </SortableSwipeItem>
   );
 }

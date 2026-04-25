@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from './utils/icons';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import TodoPage from './pages/TodoPage';
 import ShoppingPage from './pages/ShoppingPage';
 import WorkoutPage from './pages/WorkoutPage';

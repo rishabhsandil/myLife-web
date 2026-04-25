@@ -7,6 +7,8 @@ export { FormGroup, FormRow, NumberControl, OptionPills, ColorPicker } from './F
 // UI components
 export { EmptyState } from './EmptyState';
 export { FAB } from './FAB';
+export { SortableSwipeItem } from './SortableSwipeItem';
+export type { DragHandleProps } from './SortableSwipeItem';
 
 // App-level surfaces
 export { ErrorBoundary } from './ErrorBoundary';

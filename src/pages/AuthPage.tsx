@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.tsx';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { PASSWORD_RULES_MESSAGE } from '../utils/constants';
 import './AuthPage.css';

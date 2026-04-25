@@ -4,7 +4,6 @@ import {
   IoCheckmarkCircle, IoEllipseOutline, IoRepeat, IoTrash,
   IoTime, IoCalendarOutline, IoPencil, IoReorderTwo, IoSettingsOutline, IoPersonAdd
 } from '../utils/icons';
-import { useSwipeable } from 'react-swipeable';
 import {
   DndContext,
   closestCenter,
@@ -18,15 +17,14 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { TodoItem, Priority, RecurrenceType } from '../types';
 import { getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory, getConnections, UserConnection } from '../utils/api.ts';
-import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, ColorPicker, FAB, EmptyState } from '../components';
+import { Modal, ModalFooter, FormGroup, FormRow, OptionPills, ColorPicker, FAB, EmptyState, SortableSwipeItem } from '../components';
+import { useToast } from '../components/Toast';
 import { useModal } from '../hooks';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.tsx';
 import { colors } from '../utils/theme';
 import logo from '../assets/logo.png';
 import './TodoPage.css';
@@ -105,133 +103,82 @@ interface SortableTaskItemProps {
 }
 
 function SortableTaskItem({ todo, completed, currentUserId, onToggle, onEdit, onDelete }: SortableTaskItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: todo.id });
-
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-
-  const resetSwipe = () => {
-    setSwipeOffset(0);
-    setIsSwiping(false);
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      if (eventData.dir === 'Left') {
-        const offset = Math.min(0, Math.max(-100, eventData.deltaX));
-        setSwipeOffset(offset);
-        setIsSwiping(true);
-      }
-    },
-    onSwiped: (eventData) => {
-      if (eventData.dir === 'Left' && swipeOffset < -70) {
-        // Call delete and reset immediately - modal will handle confirmation
-        onDelete();
-        // Reset after a short delay to allow modal to open
-        setTimeout(resetSwipe, 300);
-      } else {
-        resetSwipe();
-      }
-      setIsSwiping(false);
-    },
-    trackMouse: false,
-    preventScrollOnSwipe: false,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: isSwiping ? 'none' : transition,
-  };
-
-  const contentStyle = {
-    transform: `translateX(${swipeOffset}px)`,
-    transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  };
-
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`}
+    <SortableSwipeItem
+      id={todo.id}
+      onSwipeDelete={onDelete}
+      wrapperClassName={(isDragging) =>
+        `task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`
+      }
+      contentClassName="task-item-content"
     >
-      <div className="swipe-delete-bg">
-        <IoTrash size={20} />
-      </div>
-      <div className="task-item-content" style={contentStyle} {...swipeHandlers}>
-        <button
-          className="drag-handle"
-          {...attributes}
-          {...listeners}
-        >
-          <IoReorderTwo size={18} color={colors.textMuted} />
-        </button>
-        <button
-          className="task-checkbox"
-          onClick={onToggle}
-        >
-          {completed ? (
-            <IoCheckmarkCircle size={22} color={colors.success} />
-          ) : (
-            <IoEllipseOutline size={22} color={colors.textMuted} />
-          )}
-        </button>
-        <div className="task-content" onClick={onEdit}>
-        <span className="task-title">{todo.title}</span>
-        <div className="task-info">
-          {(todo.time || todo.category || todo.recurrence !== 'none' || (todo.overdue && !completed)) && (
-            <div className="task-meta">
-              {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
-              {todo.category && <span className="task-category">{todo.category}</span>}
-              {todo.recurrence !== 'none' && (
-                <span className="recurrence-badge" title={parseRecurrenceLabel(todo)}>
-                  <IoRepeat size={11} />
-                  {todo.recurrence === 'daily' && <span className="recurrence-label">Daily</span>}
-                  {todo.recurrence === 'weekly' && <span className="recurrence-label">Wk</span>}
-                  {todo.recurrence === 'biweekly' && <span className="recurrence-label">2Wk</span>}
-                  {todo.recurrence === 'monthly' && <span className="recurrence-label">Mo</span>}
-                  {todo.recurrence === 'yearly' && <span className="recurrence-label">Yr</span>}
-                  {todo.recurrence === 'custom' && todo.recurrenceDays && (
-                    <span className="recurrence-label">{todo.recurrenceDays.map(d => DAY_LABELS[d]).join('')}</span>
-                  )}
-                </span>
-              )}
-              {todo.overdue && !completed && (
-                <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
-                  Overdue
-                </span>
-              )}
-            </div>
-          )}
-          {(todo.assignedToUserId || (todo.ownerId && todo.ownerId !== currentUserId)) && (
-            <div className="task-badges">
-              {todo.assignedToUserId && (
-                <span className="badge assigned" title={`Assigned to: ${todo.assigneeName}`}>
-                  <IoPersonAdd size={10} /> {todo.assigneeName}
-                </span>
-              )}
-              {todo.ownerId && todo.ownerId !== currentUserId && todo.ownerName && (
-                <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
-                  From {todo.ownerName}
-                </span>
-              )}
-            </div>
-          )}
+      {({ dragHandleProps }) => (
+        <>
+          <button className="drag-handle" {...dragHandleProps}>
+            <IoReorderTwo size={18} color={colors.textMuted} />
+          </button>
+          <button
+            className="task-checkbox"
+            onClick={onToggle}
+          >
+            {completed ? (
+              <IoCheckmarkCircle size={22} color={colors.success} />
+            ) : (
+              <IoEllipseOutline size={22} color={colors.textMuted} />
+            )}
+          </button>
+          <div className="task-content" onClick={onEdit}>
+          <span className="task-title">{todo.title}</span>
+          <div className="task-info">
+            {(todo.time || todo.category || todo.recurrence !== 'none' || (todo.overdue && !completed)) && (
+              <div className="task-meta">
+                {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
+                {todo.category && <span className="task-category">{todo.category}</span>}
+                {todo.recurrence !== 'none' && (
+                  <span className="recurrence-badge" title={parseRecurrenceLabel(todo)}>
+                    <IoRepeat size={11} />
+                    {todo.recurrence === 'daily' && <span className="recurrence-label">Daily</span>}
+                    {todo.recurrence === 'weekly' && <span className="recurrence-label">Wk</span>}
+                    {todo.recurrence === 'biweekly' && <span className="recurrence-label">2Wk</span>}
+                    {todo.recurrence === 'monthly' && <span className="recurrence-label">Mo</span>}
+                    {todo.recurrence === 'yearly' && <span className="recurrence-label">Yr</span>}
+                    {todo.recurrence === 'custom' && todo.recurrenceDays && (
+                      <span className="recurrence-label">{todo.recurrenceDays.map(d => DAY_LABELS[d]).join('')}</span>
+                    )}
+                  </span>
+                )}
+                {todo.overdue && !completed && (
+                  <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
+                    Overdue
+                  </span>
+                )}
+              </div>
+            )}
+            {(todo.assignedToUserId || (todo.ownerId && todo.ownerId !== currentUserId)) && (
+              <div className="task-badges">
+                {todo.assignedToUserId && (
+                  <span className="badge assigned" title={`Assigned to: ${todo.assigneeName}`}>
+                    <IoPersonAdd size={10} /> {todo.assigneeName}
+                  </span>
+                )}
+                {todo.ownerId && todo.ownerId !== currentUserId && todo.ownerName && (
+                  <span className="badge assigned-from" title={`From: ${todo.ownerName}`}>
+                    From {todo.ownerName}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      </div>
-    </div>
+        </>
+      )}
+    </SortableSwipeItem>
   );
 }
 
 export default function TodoPage() {
   const { user } = useAuth();
+  const { showError } = useToast();
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string; color: string; sortOrder: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -299,19 +246,29 @@ export default function TodoPage() {
   );
 
   useEffect(() => {
-    loadTodos();
-    loadCategories();
-    loadConnections();
+    const ac = new AbortController();
+    void loadAll(ac.signal);
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadCategories() {
-    const data = await getTodoCategories();
-    setCategories(data);
-  }
-
-  async function loadConnections() {
-    const data = await getConnections();
-    setConnections(data);
+  async function loadAll(signal?: AbortSignal) {
+    setIsLoading(true);
+    try {
+      const [todoData, categoryData, connectionData] = await Promise.all([
+        getTodos(signal),
+        getTodoCategories(signal),
+        getConnections(signal),
+      ]);
+      setTodos(todoData);
+      setCategories(categoryData);
+      setConnections(connectionData);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load tasks');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Check for overdue tasks and carry them forward
@@ -368,14 +325,21 @@ export default function TodoPage() {
       });
 
       if (hasUpdates) {
-        for (const todo of updatedTodos) {
-          const originalTodo = todos.find(t => t.id === todo.id);
-          if (!originalTodo) continue;
-          if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date || todo.originalDate !== originalTodo.originalDate) {
-            await updateTodo(todo);
-          }
-        }
+        const previousTodos = todos;
+        // Optimistic local update so the UI reflects overdue state immediately.
         setTodos(updatedTodos);
+        try {
+          for (const todo of updatedTodos) {
+            const originalTodo = todos.find(t => t.id === todo.id);
+            if (!originalTodo) continue;
+            if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date || todo.originalDate !== originalTodo.originalDate) {
+              await updateTodo(todo);
+            }
+          }
+        } catch (err) {
+          setTodos(previousTodos);
+          showError(err, 'Failed to update overdue tasks');
+        }
       }
     };
 
@@ -383,13 +347,6 @@ export default function TodoPage() {
       checkOverdueTasks();
     }
   }, [todos.length]); // Only run when todos are loaded or count changes
-
-  async function loadTodos() {
-    setIsLoading(true);
-    const data = await getTodos();
-    setTodos(data);
-    setIsLoading(false);
-  }
 
   const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
     const dateKey = formatDateKey(date);
@@ -693,14 +650,26 @@ export default function TodoPage() {
     };
 
     if (taskModal.data) {
-      await updateTodo(todoData);
+      const previousTodos = todos;
       setTodos(todos.map(t => t.id === taskModal.data!.id ? todoData : t));
+      taskModal.close();
+      try {
+        await updateTodo(todoData);
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to update task');
+      }
     } else {
-      await saveTodo(todoData);
+      const previousTodos = todos;
       setTodos([...todos, todoData]);
+      taskModal.close();
+      try {
+        await saveTodo(todoData);
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to add task');
+      }
     }
-
-    taskModal.close();
   };
 
   const toggleComplete = async (todo: TodoItem) => {
@@ -727,22 +696,40 @@ export default function TodoPage() {
       };
     }
 
-    await updateTodo(updatedTodoData);
+    const previousTodos = todos;
+    // Optimistic update
     setTodos(todos.map(t => t.id === todo.id ? updatedTodoData : t));
+    try {
+      await updateTodo(updatedTodoData);
+    } catch (err) {
+      setTodos(previousTodos);
+      showError(err, 'Failed to update task');
+    }
   };
 
   const handleDeleteTodo = async (todo: TodoItem, deleteAll: boolean = true) => {
+    const previousTodos = todos;
     if (todo.recurrence !== 'none' && !deleteAll) {
       const dateKey = formatDateKey(selectedDate);
       const updatedTodoData = {
         ...todo,
         excludedDates: [...(todo.excludedDates || []), dateKey],
       };
-      await updateTodo(updatedTodoData);
       setTodos(todos.map(t => t.id === todo.id ? updatedTodoData : t));
+      try {
+        await updateTodo(updatedTodoData);
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to skip task');
+      }
     } else {
-      await apiDeleteTodo(todo.id);
       setTodos(todos.filter(t => t.id !== todo.id));
+      try {
+        await apiDeleteTodo(todo.id);
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to delete task');
+      }
     }
   };
 
@@ -768,22 +755,27 @@ export default function TodoPage() {
       if (oldIndex === -1 || newIndex === -1) return;
 
       const reorderedTasks = arrayMove(incompleteTasks, oldIndex, newIndex);
-      
+
       // Assign sortOrder only to incomplete (non-overdue) tasks
       const updatedTasks = reorderedTasks.map((task, index) => ({
         ...task,
         sortOrder: index,
       }));
 
+      const previousTodos = todos;
       // Optimistically update UI
       setTodos(todos.map(t => {
         const updatedTask = updatedTasks.find(ut => ut.id === t.id);
         return updatedTask || t;
       }));
 
-      // Update all reordered tasks in backend
-      for (const task of updatedTasks) {
-        await updateTodo(task);
+      try {
+        for (const task of updatedTasks) {
+          await updateTodo(task);
+        }
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to reorder tasks');
       }
     }
   };
@@ -794,27 +786,32 @@ export default function TodoPage() {
     if (over && active.id !== over.id) {
       // Get tasks for this specific month
       const monthTasks = backlogTasksByMonth.find(g => g.monthKey === monthKey)?.tasks || [];
-      
+
       const oldIndex = monthTasks.findIndex((task) => task.id === active.id);
       const newIndex = monthTasks.findIndex((task) => task.id === over.id);
 
       const reorderedTasks = arrayMove(monthTasks, oldIndex, newIndex);
-      
+
       // Assign sortOrder to all tasks in this month
       const updatedTasks = reorderedTasks.map((task, index) => ({
         ...task,
         sortOrder: index,
       }));
 
+      const previousTodos = todos;
       // Optimistically update UI
       setTodos(todos.map(t => {
         const updatedTask = updatedTasks.find(ut => ut.id === t.id);
         return updatedTask || t;
       }));
 
-      // Update all reordered tasks in backend
-      for (const task of updatedTasks) {
-        await updateTodo(task);
+      try {
+        for (const task of updatedTasks) {
+          await updateTodo(task);
+        }
+      } catch (err) {
+        setTodos(previousTodos);
+        showError(err, 'Failed to reorder tasks');
       }
     }
   };
@@ -835,25 +832,46 @@ export default function TodoPage() {
   const handleSaveCategory = async () => {
     if (!categoryName.trim()) return;
 
+    const previousCategories = categories;
+
     if (editingCategory) {
       const sortOrder = categories.find(c => c.id === editingCategory.id)?.sortOrder || 0;
-      await updateTodoCategory({ ...editingCategory, name: categoryName, color: categoryColor, sortOrder });
+      const updated = { ...editingCategory, name: categoryName, color: categoryColor, sortOrder };
+      setCategories(categories.map(c => c.id === updated.id ? updated : c));
+      resetCategoryForm();
+      try {
+        await updateTodoCategory(updated);
+      } catch (err) {
+        setCategories(previousCategories);
+        showError(err, 'Failed to update category');
+      }
     } else {
-      await saveTodoCategory({
+      const newCategory = {
         id: `category_${Date.now()}`,
         name: categoryName,
         color: categoryColor,
         sortOrder: categories.length,
-      });
+      };
+      setCategories([...categories, newCategory]);
+      resetCategoryForm();
+      try {
+        await saveTodoCategory(newCategory);
+      } catch (err) {
+        setCategories(previousCategories);
+        showError(err, 'Failed to add category');
+      }
     }
-
-    await loadCategories();
-    resetCategoryForm();
   };
 
   const handleDeleteCategory = async (id: string) => {
-    await deleteTodoCategory(id);
-    await loadCategories();
+    const previousCategories = categories;
+    setCategories(categories.filter(c => c.id !== id));
+    try {
+      await deleteTodoCategory(id);
+    } catch (err) {
+      setCategories(previousCategories);
+      showError(err, 'Failed to delete category');
+    }
   };
 
   // Assignment functions

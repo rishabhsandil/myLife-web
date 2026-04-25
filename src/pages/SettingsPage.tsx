@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { IoCheckbox, IoCart, IoFitness, IoCheckmarkCircle, IoEllipseOutline, IoLogOutOutline, IoPersonAdd, IoClose, IoPeople, IoDocumentText, IoRestaurantOutline } from '../utils/icons';
 import { ModuleType } from '../types';
 import { saveUserSettings, getConnections, addConnection, removeConnection, UserConnection } from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { useToast } from '../components/Toast';
 import logo from '../assets/logo.png';
 import './SettingsPage.css';
 
@@ -59,6 +60,7 @@ interface SettingsPageProps {
 
 export default function SettingsPage({ enabledModules, onModulesChange }: SettingsPageProps) {
   const { user, logout } = useAuth();
+  const { showError } = useToast();
   const [saving, setSaving] = useState(false);
   const [localModules, setLocalModules] = useState<ModuleType[]>(enabledModules);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -74,12 +76,20 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   }, [enabledModules]);
 
   useEffect(() => {
-    loadConnections();
+    const ac = new AbortController();
+    void loadConnections(ac.signal);
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadConnections() {
-    const data = await getConnections();
-    setConnections(data);
+  async function loadConnections(signal?: AbortSignal) {
+    try {
+      const data = await getConnections(signal);
+      setConnections(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load connections');
+    }
   }
 
   const handleAddConnection = async () => {
@@ -101,8 +111,14 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   };
 
   const handleRemoveConnection = async (userId: string) => {
-    await removeConnection(userId);
+    const previous = connections;
     setConnections(prev => prev.filter(c => c.id !== userId));
+    try {
+      await removeConnection(userId);
+    } catch (err) {
+      setConnections(previous);
+      showError(err, 'Failed to remove connection');
+    }
   };
 
   const toggleModule = (moduleId: ModuleType) => {
@@ -123,6 +139,8 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
     try {
       await saveUserSettings({ enabledModules: localModules });
       onModulesChange(localModules);
+    } catch (err) {
+      showError(err, 'Failed to save settings');
     } finally {
       setSaving(false);
     }

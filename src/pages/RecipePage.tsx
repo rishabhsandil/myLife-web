@@ -6,7 +6,6 @@ import {
   IoShareSocialOutline, IoPersonOutline, IoSendOutline,
   IoDownloadOutline,
 } from '../utils/icons';
-import { useSwipeable } from 'react-swipeable';
 import { Recipe, RecipeIngredient, SharedRecipe } from '../types';
 import {
   getRecipes, saveRecipe, updateRecipe, deleteRecipe as apiDeleteRecipe,
@@ -15,7 +14,8 @@ import {
   getSharedRecipes, deleteSharedRecipe as apiDeleteSharedRecipe,
   saveSharedRecipeToOwn,
 } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
+import { Modal, ModalFooter, FormGroup, FAB, EmptyState, SortableSwipeItem } from '../components';
+import { useToast } from '../components/Toast';
 import { useRecipeModals } from './recipe/useRecipeModals';
 import logo from '../assets/logo.png';
 import './RecipePage.css';
@@ -42,122 +42,90 @@ interface RecipeCardProps {
 }
 
 function RecipeCard({ recipe, onView, onEdit, onDelete, onToggleFavorite }: RecipeCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-
-  const resetSwipe = () => { setSwipeOffset(0); setIsSwiping(false); };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (e) => {
-      if (e.dir === 'Left') {
-        setSwipeOffset(Math.min(0, Math.max(-100, e.deltaX)));
-        setIsSwiping(true);
-      }
-    },
-    onSwiped: (e) => {
-      if (e.dir === 'Left' && swipeOffset < -70) {
-        onDelete();
-        setTimeout(resetSwipe, 300);
-      } else {
-        resetSwipe();
-      }
-      setIsSwiping(false);
-    },
-    trackMouse: false,
-    preventScrollOnSwipe: false,
-  });
-
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
 
   return (
-    <div className="recipe-card-wrapper">
-      <div className="swipe-delete-bg">
-        <IoTrash size={20} />
-      </div>
+    <SortableSwipeItem
+      onSwipeDelete={onDelete}
+      wrapperClassName="recipe-card-wrapper"
+      contentClassName="recipe-card"
+    >
+      {/* Thumbnail */}
       <div
-        className="recipe-card"
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        }}
-        {...swipeHandlers}
+        className={recipe.thumbnail ? 'recipe-thumbnail' : 'recipe-thumbnail-placeholder'}
+        onClick={onView}
       >
-        {/* Thumbnail */}
-        <div
-          className={recipe.thumbnail ? 'recipe-thumbnail' : 'recipe-thumbnail-placeholder'}
-          onClick={onView}
-        >
-          {recipe.thumbnail
-            ? <img src={recipe.thumbnail} alt={recipe.title} loading="lazy" />
-            : <IoRestaurantOutline size={36} />
-          }
-          {recipe.sourcePlatform === 'youtube' && (
-            <div className="recipe-platform-badge">
-              <IoLogoYoutube size={13} />
-            </div>
-          )}
-        </div>
-
-        {/* Card body */}
-        <div className="recipe-card-body" onClick={onView}>
-          <h3 className="recipe-card-title">{recipe.title}</h3>
-          {recipe.channelName && (
-            <p className="recipe-card-channel">{recipe.channelName}</p>
-          )}
-          <div className="recipe-card-meta">
-            {totalTime > 0 && (
-              <span className="recipe-meta-item">
-                <IoTime size={12} /> {formatTime(totalTime)}
-              </span>
-            )}
-            {(recipe.servings ?? 0) > 0 && (
-              <span className="recipe-meta-item">
-                <IoPeople size={12} /> {recipe.servings}
-              </span>
-            )}
-            {recipe.ingredients?.length > 0 && (
-              <span className="recipe-meta-item">
-                {recipe.ingredients.length} ingr.
-              </span>
-            )}
+        {recipe.thumbnail
+          ? <img src={recipe.thumbnail} alt={recipe.title} loading="lazy" />
+          : <IoRestaurantOutline size={36} />
+        }
+        {recipe.sourcePlatform === 'youtube' && (
+          <div className="recipe-platform-badge">
+            <IoLogoYoutube size={13} />
           </div>
-          {recipe.tags && recipe.tags.length > 0 && (
-            <div className="recipe-tags">
-              {recipe.tags.slice(0, 3).map(tag => (
-                <span key={tag} className="recipe-tag">{tag}</span>
-              ))}
-            </div>
+        )}
+      </div>
+
+      {/* Card body */}
+      <div className="recipe-card-body" onClick={onView}>
+        <h3 className="recipe-card-title">{recipe.title}</h3>
+        {recipe.channelName && (
+          <p className="recipe-card-channel">{recipe.channelName}</p>
+        )}
+        <div className="recipe-card-meta">
+          {totalTime > 0 && (
+            <span className="recipe-meta-item">
+              <IoTime size={12} /> {formatTime(totalTime)}
+            </span>
+          )}
+          {(recipe.servings ?? 0) > 0 && (
+            <span className="recipe-meta-item">
+              <IoPeople size={12} /> {recipe.servings}
+            </span>
+          )}
+          {recipe.ingredients?.length > 0 && (
+            <span className="recipe-meta-item">
+              {recipe.ingredients.length} ingr.
+            </span>
           )}
         </div>
-
-        {/* Actions */}
-        <div className="recipe-card-actions">
-          <button
-            className="recipe-action-btn"
-            onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
-            title={recipe.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            {recipe.isFavorite
-              ? <IoHeart size={18} color="#EF4444" />
-              : <IoHeartOutline size={18} />
-            }
-          </button>
-          <button
-            className="recipe-action-btn"
-            onClick={e => { e.stopPropagation(); onEdit(); }}
-            title="Edit recipe"
-          >
-            <IoPencil size={16} />
-          </button>
-        </div>
+        {recipe.tags && recipe.tags.length > 0 && (
+          <div className="recipe-tags">
+            {recipe.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="recipe-tag">{tag}</span>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Actions */}
+      <div className="recipe-card-actions">
+        <button
+          className="recipe-action-btn"
+          onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+          title={recipe.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {recipe.isFavorite
+            ? <IoHeart size={18} color="#EF4444" />
+            : <IoHeartOutline size={18} />
+          }
+        </button>
+        <button
+          className="recipe-action-btn"
+          onClick={e => { e.stopPropagation(); onEdit(); }}
+          title="Edit recipe"
+        >
+          <IoPencil size={16} />
+        </button>
+      </div>
+    </SortableSwipeItem>
   );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RecipePage() {
+  const { showError } = useToast();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [sharedRecipes, setSharedRecipes] = useState<SharedRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -202,18 +170,33 @@ export default function RecipePage() {
   const [shareResult, setShareResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [connectionsLoaded, setConnectionsLoaded] = useState(false);
 
-  useEffect(() => { loadRecipes(); loadSharedRecipes(); }, []);
+  useEffect(() => {
+    const ac = new AbortController();
+    void loadAll(ac.signal);
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function loadRecipes() {
+  async function loadAll(signal?: AbortSignal) {
     setIsLoading(true);
-    const data = await getRecipes();
-    setRecipes(data);
-    setIsLoading(false);
+    try {
+      const [recipeData, sharedData] = await Promise.all([
+        getRecipes(signal),
+        getSharedRecipes(signal),
+      ]);
+      setRecipes(recipeData);
+      setSharedRecipes(sharedData);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load recipes');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  async function loadSharedRecipes() {
-    const data = await getSharedRecipes();
-    setSharedRecipes(data);
+  async function loadRecipes() {
+    const data = await getRecipes();
+    setRecipes(data);
   }
 
   const filteredRecipes = useMemo(() => {
@@ -352,40 +335,76 @@ export default function RecipePage() {
       updatedAt: new Date().toISOString(),
     };
     if (addModal.data) {
-      await updateRecipe(recipeData);
+      const previousRecipes = recipes;
       setRecipes(prev => prev.map(r => r.id === recipeData.id ? recipeData : r));
+      addModal.close();
+      try {
+        await updateRecipe(recipeData);
+      } catch (err) {
+        setRecipes(previousRecipes);
+        showError(err, 'Failed to update recipe');
+      }
     } else {
-      await saveRecipe(recipeData);
+      const previousRecipes = recipes;
       setRecipes(prev => [recipeData, ...prev]);
+      addModal.close();
+      try {
+        await saveRecipe(recipeData);
+      } catch (err) {
+        setRecipes(previousRecipes);
+        showError(err, 'Failed to add recipe');
+      }
     }
-    addModal.close();
   };
 
   const handleToggleFavorite = async (recipe: Recipe) => {
     const updated = { ...recipe, isFavorite: !recipe.isFavorite, updatedAt: new Date().toISOString() };
-    await updateRecipe(updated);
+    const previousRecipes = recipes;
     setRecipes(prev => prev.map(r => r.id === recipe.id ? updated : r));
     if (viewModal.data?.id === recipe.id) viewModal.open(updated);
+    try {
+      await updateRecipe(updated);
+    } catch (err) {
+      setRecipes(previousRecipes);
+      if (viewModal.data?.id === recipe.id) viewModal.open(recipe);
+      showError(err, 'Failed to update favorite');
+    }
   };
 
   const handleDelete = async (recipe: Recipe) => {
-    await apiDeleteRecipe(recipe.id);
+    const previousRecipes = recipes;
     setRecipes(prev => prev.filter(r => r.id !== recipe.id));
     deleteModal.close();
     if (viewModal.isOpen) viewModal.close();
+    try {
+      await apiDeleteRecipe(recipe.id);
+    } catch (err) {
+      setRecipes(previousRecipes);
+      showError(err, 'Failed to delete recipe');
+    }
   };
 
   const handleDeleteShared = async (recipe: SharedRecipe) => {
-    await apiDeleteSharedRecipe(recipe.id);
+    const previousShared = sharedRecipes;
     setSharedRecipes(prev => prev.filter(r => r.id !== recipe.id));
     deleteModal.close();
     if (viewModal.isOpen) viewModal.close();
+    try {
+      await apiDeleteSharedRecipe(recipe.id);
+    } catch (err) {
+      setSharedRecipes(previousShared);
+      showError(err, 'Failed to delete shared recipe');
+    }
   };
 
   const handleSaveToOwn = async (recipe: SharedRecipe) => {
-    await saveSharedRecipeToOwn(recipe);
-    await loadRecipes();
-    setActiveFilter('all');
+    try {
+      await saveSharedRecipeToOwn(recipe);
+      await loadRecipes();
+      setActiveFilter('all');
+    } catch (err) {
+      showError(err, 'Failed to save recipe');
+    }
   };
 
   const openShareModal = async (recipe: Recipe) => {
