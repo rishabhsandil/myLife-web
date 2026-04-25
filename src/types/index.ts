@@ -1,4 +1,17 @@
-export interface TodoItem {
+export type Priority = 'low' | 'medium' | 'high';
+export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
+
+/**
+ * Fields shared by every todo regardless of recurrence.
+ *
+ * Assignment fields (`assignedToUserId`, `assigneeName`, `assigneeEmail`) are
+ * orthogonal to recurrence — a recurring task can also be assigned — so
+ * assignment lives on the base rather than as its own union arm. The union
+ * discriminates only on `recurrence` because that's what controls whether the
+ * row's completion state lives in `completed` (one-shot) or in
+ * `completedDates`/`excludedDates` (per-occurrence).
+ */
+interface TodoBase {
   id: string;
   title: string;
   description?: string;
@@ -7,13 +20,8 @@ export interface TodoItem {
   time?: string;
   priority: Priority;
   category?: string;
-  recurrence: RecurrenceType;
-  completedDates?: string[];
-  excludedDates?: string[];
   isEvent?: boolean;
   createdAt: string;
-  originalDate?: string; // Original date before being moved forward
-  overdue?: boolean; // Whether this task is overdue
   sortOrder?: number; // For manual drag-drop reordering
   ownerId?: string; // User who created the task
   ownerName?: string;
@@ -22,11 +30,24 @@ export interface TodoItem {
   assigneeName?: string;
   assigneeEmail?: string;
   backlogMonth?: string; // YYYY-MM format for backlog organization
-  recurrenceDays?: number[]; // Days of week for custom recurrence (0=Sun, 1=Mon, ..., 6=Sat)
 }
 
-export type Priority = 'low' | 'medium' | 'high';
-export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
+/** A one-shot todo. `completed` toggles the whole task. */
+export interface BasicTodo extends TodoBase {
+  recurrence: 'none';
+  originalDate?: string; // Original date before being carried forward
+  overdue?: boolean;
+}
+
+/** A repeating todo. Completion is tracked per-date via `completedDates`. */
+export interface RecurringTodo extends TodoBase {
+  recurrence: Exclude<RecurrenceType, 'none'>;
+  completedDates: string[];
+  excludedDates: string[];
+  recurrenceDays?: number[]; // Days of week for custom recurrence (0=Sun..6=Sat)
+}
+
+export type TodoItem = BasicTodo | RecurringTodo;
 
 export interface ShoppingItem {
   id: string;

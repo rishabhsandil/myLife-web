@@ -94,13 +94,7 @@ export default function TodoPage() {
       let hasUpdates = false;
       const updatedTodos = todos.map(todo => {
         if (todo.completed || !todo.date || todo.date === 'backlog') return todo;
-        if (todo.recurrence !== 'none') {
-          if (todo.overdue) {
-            hasUpdates = true;
-            return { ...todo, overdue: false, originalDate: undefined };
-          }
-          return todo;
-        }
+        if (todo.recurrence !== 'none') return todo;
         if (todo.date < today) {
           hasUpdates = true;
           return {
@@ -129,8 +123,9 @@ export default function TodoPage() {
         setTodos(updatedTodos);
         try {
           for (const todo of updatedTodos) {
+            if (todo.recurrence !== 'none') continue;
             const originalTodo = todos.find(t => t.id === todo.id);
-            if (!originalTodo) continue;
+            if (!originalTodo || originalTodo.recurrence !== 'none') continue;
             if (todo.overdue !== originalTodo.overdue || todo.date !== originalTodo.date || todo.originalDate !== originalTodo.originalDate) {
               await updateTodo(todo);
             }
@@ -300,13 +295,12 @@ export default function TodoPage() {
         overdue: isCompleting ? false : (todo.originalDate ? true : todo.date < today),
       };
     } else {
-      const completedDates = todo.completedDates || [];
-      const isCompleted = completedDates.includes(dateKey);
+      const isCompleted = todo.completedDates.includes(dateKey);
       updatedTodoData = {
         ...todo,
         completedDates: isCompleted
-          ? completedDates.filter(d => d !== dateKey)
-          : [...completedDates, dateKey],
+          ? todo.completedDates.filter(d => d !== dateKey)
+          : [...todo.completedDates, dateKey],
       };
     }
 
@@ -324,9 +318,9 @@ export default function TodoPage() {
     const previousTodos = todos;
     if (todo.recurrence !== 'none' && !deleteAll) {
       const dateKey = formatDateKey(selectedDate);
-      const updatedTodoData = {
+      const updatedTodoData: TodoItem = {
         ...todo,
-        excludedDates: [...(todo.excludedDates || []), dateKey],
+        excludedDates: [...todo.excludedDates, dateKey],
       };
       setTodos(todos.map(t => t.id === todo.id ? updatedTodoData : t));
       try {

@@ -53,7 +53,7 @@ export function TaskFormModal({
       setPriority(editingTask.priority);
       setCategory(editingTask.category || '');
       setRecurrence(editingTask.recurrence);
-      setRecurrenceDays(editingTask.recurrenceDays || []);
+      setRecurrenceDays(editingTask.recurrence !== 'none' ? (editingTask.recurrenceDays || []) : []);
       if (editingTask.assignedToUserId && editingTask.assigneeName && editingTask.assigneeEmail) {
         setSelectedAssignee({
           id: editingTask.assignedToUserId,
@@ -88,7 +88,12 @@ export function TaskFormModal({
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    const todoData: TodoItem = {
+    const finalRecurrence: RecurrenceType = isBacklogTask ? 'none' : recurrence;
+    const editingRecurring = editingTask && editingTask.recurrence !== 'none' ? editingTask : null;
+    const editingBasic = editingTask && editingTask.recurrence === 'none' ? editingTask : null;
+    const dateChanged = !!(editingTask && taskDate !== editingTask.date);
+
+    const baseFields = {
       id: editingTask?.id || Date.now().toString(),
       title: title.trim(),
       completed: false,
@@ -96,22 +101,31 @@ export function TaskFormModal({
       time: time || undefined,
       priority,
       category: category || undefined,
-      recurrence: isBacklogTask ? 'none' : recurrence,
-      recurrenceDays: recurrence === 'custom' ? recurrenceDays : undefined,
-      completedDates: editingTask?.completedDates || [],
-      excludedDates: editingTask?.excludedDates || [],
       createdAt: editingTask?.createdAt || new Date().toISOString(),
       assignedToUserId: selectedAssignee?.id || undefined,
       assigneeName: selectedAssignee?.name || undefined,
       assigneeEmail: selectedAssignee?.email || undefined,
       backlogMonth: isBacklogTask ? backlogMonthSelection || undefined : undefined,
-      overdue: (editingTask && taskDate !== editingTask.date) ? false : editingTask?.overdue,
-      originalDate: (editingTask && taskDate !== editingTask.date) ? undefined : editingTask?.originalDate,
       sortOrder: editingTask?.sortOrder,
       ownerId: editingTask?.ownerId,
       ownerName: editingTask?.ownerName,
       ownerEmail: editingTask?.ownerEmail,
     };
+
+    const todoData: TodoItem = finalRecurrence === 'none'
+      ? {
+          ...baseFields,
+          recurrence: 'none',
+          overdue: dateChanged ? false : editingBasic?.overdue,
+          originalDate: dateChanged ? undefined : editingBasic?.originalDate,
+        }
+      : {
+          ...baseFields,
+          recurrence: finalRecurrence,
+          recurrenceDays: finalRecurrence === 'custom' ? recurrenceDays : undefined,
+          completedDates: editingRecurring?.completedDates || [],
+          excludedDates: editingRecurring?.excludedDates || [],
+        };
     onSubmit(todoData);
   };
 

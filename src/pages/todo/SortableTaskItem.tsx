@@ -20,12 +20,13 @@ interface SortableTaskItemProps {
 export function SortableTaskItem({
   todo, completed, currentUserId, onToggle, onEdit, onDelete,
 }: SortableTaskItemProps) {
+  const isOverdue = todo.recurrence === 'none' && !!todo.overdue;
   return (
     <SortableSwipeItem
       id={todo.id}
       onSwipeDelete={onDelete}
       wrapperClassName={(isDragging) =>
-        `task-item ${completed ? 'completed' : ''} ${todo.overdue && !completed ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`
+        `task-item ${completed ? 'completed' : ''} ${isOverdue && !completed ? 'overdue' : ''} ${isDragging ? 'dragging' : ''}`
       }
       contentClassName="task-item-content"
     >
@@ -44,8 +45,7 @@ export function SortableTaskItem({
           <div className="task-content" onClick={onEdit}>
             <span className="task-title">{todo.title}</span>
             <div className="task-info">
-              {(todo.time || todo.category || todo.recurrence !== 'none' || (todo.overdue && !completed)) && (
-                <div className="task-meta">
+              {(todo.time || todo.category || todo.recurrence !== 'none' || (isOverdue && !completed)) && (                <div className="task-meta">
                   {todo.time && <span><IoTime size={11} /> {todo.time}</span>}
                   {todo.category && <span className="task-category">{todo.category}</span>}
                   {todo.recurrence !== 'none' && (
@@ -61,7 +61,7 @@ export function SortableTaskItem({
                       )}
                     </span>
                   )}
-                  {todo.overdue && !completed && (
+                  {todo.recurrence === 'none' && todo.overdue && !completed && (
                     <span className="badge overdue" title={`Originally due: ${todo.originalDate}`}>
                       Overdue
                     </span>

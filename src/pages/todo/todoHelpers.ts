@@ -22,7 +22,9 @@ export const isToday = (date: Date): boolean =>
   formatDateKey(date) === formatDateKey(new Date());
 
 export function parseRecurrenceLabel(todo: TodoItem): string {
-  const { recurrence, recurrenceDays, date } = todo;
+  const { recurrence, date } = todo;
+  if (recurrence === 'none') return '';
+  const recurrenceDays = todo.recurrenceDays;
   if (recurrence === 'custom' && recurrenceDays) {
     return `Repeats: ${recurrenceDays.map(d => DAY_NAMES[d]).join(', ')}`;
   }
@@ -49,8 +51,8 @@ export const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
   const dateKey = formatDateKey(date);
   const todoDateKey = todo.date;
 
-  if (todo.excludedDates?.includes(dateKey)) return false;
   if (todo.recurrence === 'none') return todoDateKey === dateKey;
+  if (todo.excludedDates.includes(dateKey)) return false;
   if (dateKey < todoDateKey) return false;
 
   const todoDate = new Date(todo.date + 'T00:00:00');
@@ -85,5 +87,5 @@ export const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
 export const isCompletedOnDate = (todo: TodoItem, date: Date): boolean => {
   const dateKey = formatDateKey(date);
   if (todo.recurrence === 'none') return todo.completed;
-  return todo.completedDates?.includes(dateKey) || false;
+  return todo.completedDates.includes(dateKey);
 };
