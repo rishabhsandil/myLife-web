@@ -3,10 +3,10 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from './utils/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import TodoPage from './pages/TodoPage';
-import ShoppingPage from './pages/ShoppingPage';
-import WorkoutPage from './pages/WorkoutPage';
+import ShoppingPage from './pages/ShoppingPage.tsx';
+import WorkoutPage from './pages/WorkoutPage.tsx';
 // NotesPage is lazy-loaded: it pulls in Tiptap (~200 KB), which we don't want in the initial bundle.
-const NotesPage = lazy(() => import('./pages/NotesPage'));
+const NotesPage = lazy(() => import('./pages/NotesPage.tsx'));
 import RecipePage from './pages/RecipePage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';

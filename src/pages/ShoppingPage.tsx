@@ -1,84 +1,33 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  IoAdd, IoCheckmarkCircle, IoEllipseOutline, IoTrash,
-  IoCart, IoRemove, IoShareSocial, IoPersonAdd, IoClose, 
-  IoTime, IoPencil, IoSettings, IoReorderTwo, IoSearchOutline
+  IoAdd, IoCart, IoShareSocial, IoClose, IoTime, IoSettings, IoSearchOutline,
 } from '../utils/icons';
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
+  arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
-import { 
+import {
   getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
   getShoppingStores, saveShoppingStore, updateShoppingStore, deleteShoppingStore as apiDeleteStore,
-  getShoppingShareStatus, shareShoppingList, unshareShoppingList, getShoppingAudit
+  getShoppingShareStatus, shareShoppingList, unshareShoppingList, getShoppingAudit,
 } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, ColorPicker, FAB, EmptyState, SortableSwipeItem } from '../components';
+import { Modal, ModalFooter, FAB, EmptyState } from '../components';
 import { useToast } from '../components/Toast';
 import { useModal } from '../hooks';
 import { colors } from '../utils/theme';
-import './ShoppingPage.css';
+import { SortableShoppingItem } from './shopping/SortableShoppingItem';
+import { ItemFormModal } from './shopping/ItemFormModal';
+import { StoresSettingsModal } from './shopping/StoresSettingsModal';
+import { ShareShoppingModal } from './shopping/ShareShoppingModal';
+import { ShoppingHistoryModal } from './shopping/ShoppingHistoryModal';
+import './shopping/ShoppingPage.css';
 
-// Sortable Shopping Item Component
-interface SortableShoppingItemProps {
-  item: ShoppingItem;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-function SortableShoppingItem({ item, onToggle, onEdit, onDelete }: SortableShoppingItemProps) {
-  const isSharedItem = item.isOwn === false;
-
-  return (
-    <SortableSwipeItem
-      id={item.id}
-      onSwipeDelete={onDelete}
-      wrapperClassName={(isDragging) =>
-        `item-card ${item.completed ? 'completed' : ''} ${isSharedItem ? 'shared' : ''} ${isDragging ? 'dragging' : ''}`
-      }
-      contentClassName="item-card-content"
-    >
-      {({ dragHandleProps }) => (
-        <>
-          <button className="drag-handle" {...dragHandleProps}>
-            <IoReorderTwo size={20} color={colors.textMuted} />
-          </button>
-          <button className="item-checkbox" onClick={onToggle}>
-            {item.completed ? (
-              <IoCheckmarkCircle size={22} color={colors.success} />
-            ) : (
-              <IoEllipseOutline size={22} color={colors.textMuted} />
-            )}
-          </button>
-          <div className="item-content" onClick={onEdit}>
-            <div className="item-name">
-              {item.name}
-              {isSharedItem && (
-                <span className="item-owner">({item.ownerName})</span>
-              )}
-            </div>
-            <div className="item-meta">
-              <span className="item-qty">×{item.quantity}</span>
-            </div>
-          </div>
-        </>
-      )}
-    </SortableSwipeItem>
-  );
-}
+const getInitials = (name: string) =>
+  name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -90,37 +39,19 @@ export default function ShoppingPage() {
   const [shareEmail, setShareEmail] = useState('');
   const [shareError, setShareError] = useState('');
   const [auditHistory, setAuditHistory] = useState<ShoppingAuditEntry[]>([]);
-  
-  const modal = useModal();
+
+  const itemModal = useModal<ShoppingItem>();
   const shareModal = useModal();
   const historyModal = useModal();
   const settingsModal = useModal();
   const deleteModal = useModal<ShoppingItem>();
   const deleteStoreModal = useModal<ShoppingStore>();
 
-  // Form state
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
-
-  // Store form state
-  const [editingStore, setEditingStore] = useState<ShoppingStore | null>(null);
-  const [storeName, setStoreName] = useState('');
-  const [storeColor, setStoreColor] = useState('#22c55e');
-
   const { showError } = useToast();
 
-  // Drag and drop sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const isSharing = shareStatus.sharedWith.length > 0 || shareStatus.sharedBy.length > 0;
@@ -130,7 +61,7 @@ export default function ShoppingPage() {
     try {
       const [itemsData, storesData] = await Promise.all([
         getShoppingItems(signal),
-        getShoppingStores(signal)
+        getShoppingStores(signal),
       ]);
       setItems(itemsData);
       setStores(storesData);
@@ -156,37 +87,25 @@ export default function ShoppingPage() {
   // Auto-sync when list is shared — only while tab is visible, and refresh on re-focus
   useEffect(() => {
     if (!isSharing) return;
-
     let interval: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
       if (interval) return;
-      interval = setInterval(() => {
-        loadData(false);
-      }, 60000); // Poll every 60s while visible
+      interval = setInterval(() => loadData(false), 60000);
     };
-
     const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-      }
+      if (interval) { clearInterval(interval); interval = null; }
     };
-
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        loadData(false); // Refresh immediately on tab re-focus
+        loadData(false);
         startPolling();
       } else {
-        stopPolling(); // Stop polling when hidden so Neon can auto-suspend
+        stopPolling();
       }
     };
 
-    // Start polling only if tab is currently visible
-    if (document.visibilityState === 'visible') {
-      startPolling();
-    }
-
+    if (document.visibilityState === 'visible') startPolling();
     document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       stopPolling();
@@ -211,18 +130,11 @@ export default function ShoppingPage() {
     let result = items
       .filter(item => item.storeName === storeName)
       .sort((a, b) => {
-        // Completed items go to bottom
         if (a.completed && !b.completed) return 1;
         if (!a.completed && b.completed) return -1;
-        
-        // Sort by sortOrder if available
-        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
-          return a.sortOrder - b.sortOrder;
-        }
+        if (a.sortOrder !== undefined && b.sortOrder !== undefined) return a.sortOrder - b.sortOrder;
         if (a.sortOrder !== undefined) return -1;
         if (b.sortOrder !== undefined) return 1;
-        
-        // Default to creation order
         return 0;
       });
     if (itemSearch.trim()) {
@@ -230,29 +142,14 @@ export default function ShoppingPage() {
       result = result.filter(item => item.name.toLowerCase().includes(q));
     }
     return result;
-  }, [items, selectedStore, currentStore, itemSearch]);
+  }, [items, currentStore, itemSearch]);
 
   const completedCount = filteredItems.filter(i => i.completed).length;
   const totalCount = filteredItems.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const resetForm = () => {
-    setName('');
-    setQuantity(1);
-    setEditingItem(null);
-  };
-
-  const openModal = () => {
-    resetForm();
-    modal.open();
-  };
-
-  const openEditModal = (item: ShoppingItem) => {
-    setEditingItem(item);
-    setName(item.name);
-    setQuantity(item.quantity);
-    modal.open();
-  };
+  const openAddModal = () => itemModal.open();
+  const openEditModal = (item: ShoppingItem) => itemModal.open(item);
 
   const openShareModal = () => {
     setShareEmail('');
@@ -266,24 +163,20 @@ export default function ShoppingPage() {
     historyModal.open();
   };
 
-  const handleSave = async () => {
-    if (!name.trim() || !selectedStore) return;
-
+  const handleSaveItem = async (values: { name: string; quantity: number }) => {
+    if (!selectedStore) return;
     const previousItems = items;
-    const trimmedName = name.trim();
-    const isEdit = !!editingItem;
+    const isEdit = !!itemModal.data;
     let mutated: ShoppingItem;
 
-    if (editingItem) {
-      // Optimistic edit
-      mutated = { ...editingItem, name: trimmedName, quantity };
-      setItems(items.map(i => i.id === editingItem.id ? mutated : i));
+    if (itemModal.data) {
+      mutated = { ...itemModal.data, name: values.name, quantity: values.quantity };
+      setItems(items.map(i => i.id === itemModal.data!.id ? mutated : i));
     } else {
-      // Optimistic create
       mutated = {
         id: Date.now().toString(),
-        name: trimmedName,
-        quantity,
+        name: values.name,
+        quantity: values.quantity,
         storeId: selectedStore,
         completed: false,
         createdAt: new Date().toISOString(),
@@ -291,7 +184,7 @@ export default function ShoppingPage() {
       };
       setItems([...items, mutated]);
     }
-    modal.close();
+    itemModal.close();
 
     try {
       if (isEdit) {
@@ -308,9 +201,7 @@ export default function ShoppingPage() {
   const toggleComplete = async (item: ShoppingItem) => {
     const updatedItem = { ...item, completed: !item.completed };
     const previousItems = items;
-    // Optimistic update
     setItems(items.map(i => i.id === item.id ? updatedItem : i));
-
     try {
       await updateShoppingItem(updatedItem);
     } catch (err) {
@@ -321,9 +212,7 @@ export default function ShoppingPage() {
 
   const deleteItem = async (id: string) => {
     const previousItems = items;
-    // Optimistic update
     setItems(items.filter(i => i.id !== id));
-
     try {
       await deleteShoppingItem(id);
     } catch (err) {
@@ -336,9 +225,7 @@ export default function ShoppingPage() {
     if (!currentStore) return;
     const storeName = currentStore.name;
     const previousItems = items;
-    // Optimistic update - filter by store name
     setItems(items.filter(i => !i.completed || i.storeName !== storeName));
-
     try {
       await clearCompletedItems(storeName);
     } catch (err) {
@@ -349,27 +236,15 @@ export default function ShoppingPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = filteredItems.findIndex((item) => item.id === active.id);
       const newIndex = filteredItems.findIndex((item) => item.id === over.id);
-
-      const reorderedItems = arrayMove(filteredItems, oldIndex, newIndex);
-
-      // Assign sortOrder to all items in this store
-      const updatedItems = reorderedItems.map((item, index) => ({
-        ...item,
-        sortOrder: index,
-      }));
+      const reordered = arrayMove(filteredItems, oldIndex, newIndex);
+      const updatedItems = reordered.map((item, index) => ({ ...item, sortOrder: index }));
 
       const previousItems = items;
-      // Optimistically update UI
-      setItems(items.map(i => {
-        const updatedItem = updatedItems.find(ui => ui.id === i.id);
-        return updatedItem || i;
-      }));
+      setItems(items.map(i => updatedItems.find(ui => ui.id === i.id) || i));
 
-      // Update all reordered items in backend
       try {
         for (const item of updatedItems) {
           await updateShoppingItem(item);
@@ -383,7 +258,6 @@ export default function ShoppingPage() {
 
   const handleShare = async () => {
     if (!shareEmail.trim()) return;
-
     setShareError('');
     const result = await shareShoppingList(shareEmail.trim().toLowerCase());
     if (!result.success || !result.sharedWith) {
@@ -391,10 +265,7 @@ export default function ShoppingPage() {
       return;
     }
     const newShare = result.sharedWith;
-    setShareStatus(prev => ({
-      ...prev,
-      sharedWith: [...prev.sharedWith, newShare],
-    }));
+    setShareStatus(prev => ({ ...prev, sharedWith: [...prev.sharedWith, newShare] }));
     setShareEmail('');
   };
 
@@ -412,49 +283,25 @@ export default function ShoppingPage() {
     }
   };
 
-  // Store management
-  const openEditStore = (store: ShoppingStore) => {
-    setEditingStore(store);
-    setStoreName(store.name);
-    setStoreColor(store.color);
-  };
-
-  const resetStoreForm = () => {
-    setEditingStore(null);
-    setStoreName('');
-    setStoreColor('#22c55e');
-  };
-
-  const handleSaveStore = async () => {
-    if (!storeName.trim()) return;
-
+  const handleSaveStore = async (values: { editing: ShoppingStore | null; name: string; color: string }) => {
     const previousStores = stores;
     const previousSelected = selectedStore;
-
-    if (editingStore) {
-      const updated: ShoppingStore = { ...editingStore, name: storeName.trim(), color: storeColor };
+    if (values.editing) {
+      const updated: ShoppingStore = { ...values.editing, name: values.name, color: values.color };
       setStores(stores.map(s => s.id === updated.id ? updated : s));
-      resetStoreForm();
-      try {
-        await updateShoppingStore(updated);
-      } catch (err) {
-        setStores(previousStores);
-        showError(err, 'Failed to update store');
-      }
+      try { await updateShoppingStore(updated); }
+      catch (err) { setStores(previousStores); showError(err, 'Failed to update store'); }
     } else {
       const newStore: ShoppingStore = {
         id: `store_${Date.now()}`,
-        name: storeName.trim(),
-        color: storeColor,
+        name: values.name,
+        color: values.color,
       };
       setStores([...stores, newStore]);
       if (!selectedStore) setSelectedStore(newStore.id);
-      resetStoreForm();
-      try {
-        await saveShoppingStore(newStore);
-      } catch (err) {
-        setStores(previousStores);
-        setSelectedStore(previousSelected);
+      try { await saveShoppingStore(newStore); }
+      catch (err) {
+        setStores(previousStores); setSelectedStore(previousSelected);
         showError(err, 'Failed to add store');
       }
     }
@@ -464,35 +311,31 @@ export default function ShoppingPage() {
     const previousStores = stores;
     const previousItems = items;
     const previousSelected = selectedStore;
-
     setStores(stores.filter(s => s.id !== id));
     setItems(items.filter(i => i.storeId !== id));
     if (selectedStore === id) {
       const remaining = stores.filter(s => s.id !== id);
       setSelectedStore(remaining.length > 0 ? remaining[0].id : '');
     }
-
-    try {
-      await apiDeleteStore(id);
-    } catch (err) {
-      setStores(previousStores);
-      setItems(previousItems);
-      setSelectedStore(previousSelected);
+    try { await apiDeleteStore(id); }
+    catch (err) {
+      setStores(previousStores); setItems(previousItems); setSelectedStore(previousSelected);
       showError(err, 'Failed to delete store');
     }
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  // Get all share partners (people I share with + people who share with me)
   const sharePartners = [...shareStatus.sharedWith, ...shareStatus.sharedBy];
 
   return (
     <div className="shopping-page">
-      {/* Header */}
-      <header className="shopping-header" style={{ background: currentStore ? `linear-gradient(135deg, ${currentStore.color} 0%, ${currentStore.color}dd 100%)` : undefined }}>
+      <header
+        className="shopping-header"
+        style={{
+          background: currentStore
+            ? `linear-gradient(135deg, ${currentStore.color} 0%, ${currentStore.color}dd 100%)`
+            : undefined,
+        }}
+      >
         <div>
           <h1 className="header-title">{currentStore?.name || 'Shopping'}</h1>
           <p className="header-subtitle">
@@ -504,11 +347,7 @@ export default function ShoppingPage() {
           {sharePartners.length > 0 && (
             <div className="share-partners">
               {sharePartners.slice(0, 2).map(partner => (
-                <span 
-                  key={partner.id} 
-                  className="partner-badge" 
-                  title={`Shared with ${partner.name}`}
-                >
+                <span key={partner.id} className="partner-badge" title={`Shared with ${partner.name}`}>
                   {getInitials(partner.name)}
                 </span>
               ))}
@@ -529,16 +368,15 @@ export default function ShoppingPage() {
         </div>
       </header>
 
-      {/* Store Tabs */}
       <div className="store-tabs">
         {stores.map(store => (
           <button
             key={store.id}
             className={`store-tab ${selectedStore === store.id ? 'active' : ''}`}
             onClick={() => { setSelectedStore(store.id); setItemSearch(''); }}
-            style={{ 
+            style={{
               borderColor: selectedStore === store.id ? store.color : 'transparent',
-              color: selectedStore === store.id ? store.color : undefined
+              color: selectedStore === store.id ? store.color : undefined,
             }}
           >
             {store.name}
@@ -549,7 +387,6 @@ export default function ShoppingPage() {
         </button>
       </div>
 
-      {/* Per-store search bar */}
       <div className="shopping-search-bar">
         <IoSearchOutline size={16} className="shopping-search-icon" />
         <input
@@ -566,21 +403,19 @@ export default function ShoppingPage() {
         )}
       </div>
 
-      {/* Progress */}
       <div className="progress-container">
         <div className="progress-bar">
-          <div 
-            className="progress-fill" 
-            style={{ 
+          <div
+            className="progress-fill"
+            style={{
               width: `${progress}%`,
-              background: currentStore?.color || colors.primary 
-            }} 
+              background: currentStore?.color || colors.primary,
+            }}
           />
         </div>
         <span className="progress-text">{Math.round(progress)}%</span>
       </div>
 
-      {/* Items List */}
       <div className="items-container">
         {isLoading ? (
           <div className="items-list">
@@ -599,22 +434,14 @@ export default function ShoppingPage() {
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={IoCart}
-            message={stores.length === 0 ? "Add a store to get started" : "No items yet"}
-            action={stores.length === 0 
+            message={stores.length === 0 ? 'Add a store to get started' : 'No items yet'}
+            action={stores.length === 0
               ? { label: 'Add Store', icon: IoAdd, onClick: () => settingsModal.open() }
-              : { label: 'Add Item', icon: IoAdd, onClick: openModal }
-            }
+              : { label: 'Add Item', icon: IoAdd, onClick: openAddModal }}
           />
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={filteredItems.map(i => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={filteredItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
               <div className="items-list">
                 {filteredItems.map(item => (
                   <SortableShoppingItem
@@ -631,47 +458,15 @@ export default function ShoppingPage() {
         )}
       </div>
 
-      {/* FAB */}
-      <FAB onClick={openModal} disabled={stores.length === 0} />
+      <FAB onClick={openAddModal} disabled={stores.length === 0} />
 
-      {/* Add/Edit Modal */}
-      <Modal
-        isOpen={modal.isOpen}
-        onClose={modal.close}
-        title={editingItem ? "Edit Item" : "Add Item"}
-        footer={
-          <ModalFooter
-            onCancel={modal.close}
-            onSubmit={handleSave}
-            submitText={editingItem ? "Save Changes" : "Add Item"}
-            submitDisabled={!name.trim()}
-          />
-        }
-      >
-        <FormGroup label="Item Name">
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="What do you need?"
-            autoFocus
-          />
-        </FormGroup>
+      <ItemFormModal
+        isOpen={itemModal.isOpen}
+        editingItem={itemModal.data ?? null}
+        onClose={itemModal.close}
+        onSubmit={handleSaveItem}
+      />
 
-        <FormGroup label="Quantity">
-          <div className="quantity-control">
-            <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>
-              <IoRemove size={20} />
-            </button>
-            <span>{quantity}</span>
-            <button onClick={() => setQuantity(quantity + 1)}>
-              <IoAdd size={20} />
-            </button>
-          </div>
-        </FormGroup>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={deleteModal.close}
@@ -694,160 +489,31 @@ export default function ShoppingPage() {
         <p>Are you sure you want to delete "{deleteModal.data?.name}"?</p>
       </Modal>
 
-      {/* Settings Modal - Manage Stores */}
-      <Modal
+      <StoresSettingsModal
         isOpen={settingsModal.isOpen}
-        onClose={() => { settingsModal.close(); resetStoreForm(); }}
-        title="Manage Stores"
-      >
-        <div className="store-settings-list">
-          {stores.map(store => (
-            <div key={store.id} className="store-settings-item">
-              {editingStore?.id === store.id ? (
-                <div className="store-edit-form">
-                  <input
-                    type="text"
-                    value={storeName}
-                    onChange={e => setStoreName(e.target.value)}
-                    placeholder="Store name"
-                    autoFocus
-                  />
-                  <ColorPicker
-                    value={storeColor}
-                    onChange={setStoreColor}
-                  />
-                  <div className="store-edit-actions">
-                    <button className="btn secondary" onClick={resetStoreForm}>Cancel</button>
-                    <button className="btn primary" onClick={handleSaveStore} disabled={!storeName.trim()}>Save</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="store-info">
-                    <span className="store-color" style={{ background: store.color }} />
-                    <span className="store-name">{store.name}</span>
-                  </div>
-                  <div className="store-actions">
-                    <button className="edit-store-btn" onClick={() => openEditStore(store)}>
-                      <IoPencil size={16} />
-                    </button>
-                    <button className="delete-store-btn" onClick={() => deleteStoreModal.open(store)}>
-                      <IoTrash size={16} />
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+        onClose={settingsModal.close}
+        stores={stores}
+        onSaveStore={handleSaveStore}
+        onRequestDeleteStore={(s) => deleteStoreModal.open(s)}
+      />
 
-        {/* Add new store */}
-        {!editingStore && (
-          <div className="add-store-form">
-            <input
-              type="text"
-              value={storeName}
-              onChange={e => setStoreName(e.target.value)}
-              placeholder="New store name"
-            />
-            <ColorPicker
-              value={storeColor}
-              onChange={setStoreColor}
-            />
-            <button 
-              className="btn primary" 
-              onClick={handleSaveStore} 
-              disabled={!storeName.trim()}
-            >
-              <IoAdd size={18} /> Add Store
-            </button>
-          </div>
-        )}
-      </Modal>
-
-      {/* Share Modal */}
-      <Modal
+      <ShareShoppingModal
         isOpen={shareModal.isOpen}
         onClose={shareModal.close}
-        title="Shopping Connections"
-        footer={<button className="btn secondary" onClick={shareModal.close}>Done</button>}
-      >
-        <p className="share-info">
-          Connect with another user to share shopping lists. Connected users can also be assigned to reminders.
-        </p>
+        shareStatus={shareStatus}
+        shareEmail={shareEmail}
+        shareError={shareError}
+        onShareEmailChange={setShareEmail}
+        onShare={handleShare}
+        onUnshare={handleUnshare}
+      />
 
-        {/* Add new share */}
-        <div className="share-add">
-          <input
-            type="email"
-            value={shareEmail}
-            onChange={e => setShareEmail(e.target.value)}
-            placeholder="Enter email address"
-            onKeyDown={e => e.key === 'Enter' && handleShare()}
-          />
-          <button className="share-add-btn" onClick={handleShare} disabled={!shareEmail.trim()}>
-            <IoPersonAdd size={20} />
-          </button>
-        </div>
-        {shareError && <p className="share-error">{shareError}</p>}
+      <ShoppingHistoryModal
+        isOpen={historyModal.isOpen}
+        onClose={historyModal.close}
+        history={auditHistory}
+      />
 
-        {/* Connected users */}
-        {shareStatus.sharedWith.length > 0 && (
-          <div className="share-section">
-            <h4>Connected Users</h4>
-            <div className="share-list">
-              {shareStatus.sharedWith.map(user => (
-                <div key={user.id} className="share-item">
-                  <div className="share-user">
-                    <span className="share-name">{user.name}</span>
-                    <span className="share-email">{user.email}</span>
-                  </div>
-                  <button className="share-remove" onClick={() => handleUnshare(user.id)}>
-                    <IoClose size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* History Modal */}
-      <Modal isOpen={historyModal.isOpen} onClose={historyModal.close} title="Activity History">
-        <div className="history-list">
-          {auditHistory.length === 0 ? (
-            <p className="history-empty">No activity yet</p>
-          ) : (
-            auditHistory.map(entry => (
-              <div key={entry.id} className="history-item">
-                <div className="history-content">
-                  <span className={`history-action ${entry.action}`}>
-                    {entry.action === 'added' && '➕'}
-                    {entry.action === 'completed' && '✅'}
-                    {entry.action === 'uncompleted' && '⬜'}
-                    {entry.action === 'deleted' && '🗑️'}
-                    {entry.action === 'cleared' && '🧹'}
-                  </span>
-                  <div className="history-details">
-                    <span className="history-user">{entry.userName}</span>
-                    <span className="history-text">
-                      {entry.action} <strong>{entry.itemName}</strong>
-                    </span>
-                    {entry.details && <span className="history-meta">{entry.details}</span>}
-                  </div>
-                </div>
-                <span className="history-time">
-                  {new Date(entry.createdAt).toLocaleDateString(undefined, { 
-                    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' 
-                  })}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </Modal>
-
-      {/* Delete Store Confirmation Modal */}
       <Modal
         isOpen={deleteStoreModal.isOpen}
         onClose={deleteStoreModal.close}
