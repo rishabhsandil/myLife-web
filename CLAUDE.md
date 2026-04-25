@@ -90,25 +90,25 @@ public/             # Static assets, sw.js, manifest.json
 ### 4.4 Data Layer & API Calls
 
 - All server calls go through [src/utils/api.ts](src/utils/api.ts). Pages must not call `fetch` directly.
-- `api.ts` and [src/utils/storage.ts](src/utils/storage.ts) overlap — when adding new endpoints, put network logic in `api.ts` and only fall back to `storage.ts` for offline cache. Document the strategy in the function's JSDoc.
-- Always handle the failure path: pass the error to a user-visible surface (toast / inline message). `catch { /* ignore */ }` and bare `console.error` are not acceptable in new code.
-- Use `AbortController` and pass `signal` through to `fetch`. Add a sensible client-side timeout (10–15 s) for AI/long calls.
+- `api.ts` and [src/utils/storage.ts](src/utils/storage.ts) overlap by design today: `api.ts` is the network primary; `storage.ts` is the **offline cache fallback** that the CRUD factory falls back to when the network fails. New endpoints should put network logic in `api.ts` and only mirror to `storage.ts` if the page must work offline. Document the strategy in the function's JSDoc.
+- Every fetch path in `api.ts` is timeout-bounded via `AbortSignal.timeout` (default 15 s, AI calls 30 s). Pass an `AbortSignal` from the calling effect to also cancel on unmount.
+- Always handle the failure path: surface to a user-visible toast via `useToast()` (see [src/components/Toast.tsx](src/components/Toast.tsx)). `catch { /* ignore */ }` and bare `console.error` are not acceptable in new code.
 
 ### 4.5 Backend (`api/`)
 
 - Vercel Hobby caps the function count, so the single-handler pattern is intentional — but new endpoints should be added as **separate handler functions** in dedicated files (e.g., `api/handlers/todos.ts`) and dispatched from `api/index.ts` by route. Do not keep growing `api/index.ts` inline.
-- Validate every input (`email`, `password`, IDs, body shape). Centralize reusable validators (e.g., `validateEmail`, `validatePassword`) — keep client and server policies in sync.
+- Validate every input. Reuse [api/validators.ts](api/validators.ts) (`validateEmail`, `validatePassword`, `validateName`); the policies are mirrored on the client in [src/utils/validation.ts](src/utils/validation.ts). Keep the two in sync.
 - Use parameterized SQL via the `sql` tag. **Never** interpolate user input into SQL strings.
-- Don't seed defaults on every GET. Seed once on signup or via an explicit init endpoint.
-- Wrap multi-statement writes (update + audit log) in a transaction; do not fire-and-forget audit inserts.
-- Always return JSON with a stable shape: `{ data }` on success, `{ error: string }` on failure, with appropriate HTTP status codes.
+- Default rows are seeded in `seedDefaultsForUser` at signup. Don't add new seed-on-GET handlers.
+- Sequence multi-statement writes carefully (read-old → write → audit). Don't fire-and-forget audit inserts (`.catch(() => {})`).
+- Always return JSON with a stable shape: `{ data }` or `{ success: true, ... }` on success, `{ error: string }` on failure, with appropriate HTTP status codes.
 
 ### 4.6 Authentication & Security
 
-- JWT lives in `localStorage` today; treat it as a known limitation. When touching auth, prefer moving toward **short-lived access token in memory + refresh token in httpOnly cookie**.
+- JWT lives in `localStorage` today; treat it as a known limitation. **Migration plan:** short-lived access token in memory + refresh token in httpOnly cookie. When you next touch auth, take a step in that direction (do not deepen the localStorage usage).
 - Hash passwords with bcrypt at ≥10 rounds (current setting). Never log passwords or tokens.
 - Verify the JWT on every protected endpoint and re-derive `userId` from the token, not from the request body.
-- Sanitize HTML before rendering anything sourced from the user (notes/recipes via Tiptap). Limit/disable base64 images inline; prefer hosted URLs.
+- Sanitize HTML before rendering anything sourced from the user (notes/recipes via Tiptap). Inline base64 images are capped at `MAX_INLINE_IMAGE_BYTES`; prefer hosted URLs.
 - Follow OWASP Top 10: input validation, parameterized queries, auth checks on every endpoint, rate limit auth routes when possible.
 
 ### 4.7 Styling & Mobile UX
@@ -116,7 +116,7 @@ public/             # Static assets, sw.js, manifest.json
 - Mobile-first. Maintain iOS/Android safe-area handling already in `App.css`.
 - Touch targets ≥44×44 px. Use existing CSS variables in [src/styles/global.css](src/styles/global.css) and [src/utils/theme.ts](src/utils/theme.ts) — do not introduce new color literals.
 - Co-locate component CSS (`Foo.tsx` + `Foo.css`). Use BEM-ish class names; avoid inline styles except for dynamic values.
-- Magic numbers (swipe thresholds, timeouts, breakpoints) belong in a shared constants file, not inline.
+- Magic numbers (swipe thresholds, timeouts, breakpoints) live in [src/utils/constants.ts](src/utils/constants.ts). Add new ones there — do not hardcode them inline.
 
 ### 4.8 Accessibility
 
@@ -132,8 +132,9 @@ public/             # Static assets, sw.js, manifest.json
 
 ### 4.10 Error Handling
 
-- Wrap the routed app in an error boundary; never let a render error blank the screen.
-- Surface API errors to the user via a single toast/notification mechanism. Add this once and reuse — don't roll per page.
+- The routed app is wrapped in [`<ErrorBoundary>`](src/components/ErrorBoundary.tsx) at [src/main.tsx](src/main.tsx). Never let a render error blank the screen — if you add another root, wrap it.
+- Surface API errors to the user via `useToast()` from [src/components/Toast.tsx](src/components/Toast.tsx). It is mounted globally inside `<ToastProvider>` and accessible from any component.
+- Reserve `console.error` for genuinely unexpected logic errors. User-recoverable failures must show a toast.
 
 ### 4.11 Git / PR Hygiene
 
@@ -157,14 +158,33 @@ public/             # Static assets, sw.js, manifest.json
 
 ## 6. Known Smells / Refactor Backlog
 
-The audit in [docs or PR description] tracks larger refactors. Highlights:
+The initial code-smell audit had 22 findings. The list below tracks what's done and what remains. When you touch one of these areas, prefer landing the refactor as a small, isolated step rather than expanding the smell.
 
-- `api/index.ts` (~1.4k LOC) → split by feature.
-- Page files (`TodoPage`, `ShoppingPage`, `RecipePage`, `WorkoutPage`) > 600 LOC each → extract sub-components and modals.
-- Duplicated swipeable + sortable item pattern across pages → extract `<SortableSwipeItem>`.
-- Inconsistent error handling → centralize via toast/error boundary.
-- `api.ts` vs `storage.ts` overlap → define an explicit offline-first contract.
-- Auth token in `localStorage` → migrate to refresh-token pattern.
-- `TodoItem` mega-interface → discriminated unions.
+### Done
 
-When you touch one of these areas, prefer landing the refactor as a small, isolated step rather than expanding the smell.
+- ✅ Magic numbers extracted → [src/utils/constants.ts](src/utils/constants.ts).
+- ✅ Backend validators centralized → [api/validators.ts](api/validators.ts); client mirror in [src/utils/validation.ts](src/utils/validation.ts). Login/signup now use them.
+- ✅ Client password policy now matches server (8+ chars, upper/lower/number).
+- ✅ AI extract calls have a 30 s `AbortSignal.timeout`; default API calls 15 s.
+- ✅ Tiptap inline base64 capped at `MAX_INLINE_IMAGE_BYTES` (≈2 MB); over-limit shows a toast.
+- ✅ `<ErrorBoundary>` wraps the app; `<ToastProvider>` + `useToast()` available globally.
+- ✅ `useAuthTransition` hook replaces fragile `useRef` user-id tracking in `App.tsx`.
+- ✅ Default rows now seeded once at signup (`seedDefaultsForUser`); GET handlers no longer re-seed.
+- ✅ Shopping audit insert is now properly awaited (no fire-and-forget `.catch(() => {})`).
+- ✅ `api.ts` `createCrudApi.getAll(signal)` accepts an `AbortSignal`; `NotesPage.loadData` is the canonical pattern — propagate to other pages when you next touch them.
+
+### Remaining (do as you go)
+
+- `api/index.ts` (~1.3k LOC) → split into `api/handlers/<feature>.ts` and dispatch from `index.ts` by route.
+- Page files (`TodoPage` 1.6k, `RecipePage` 1.2k, `ShoppingPage` 900, `WorkoutPage` 670, `NotesPage` 515) → extract sub-components per the `pages/workout/` pattern.
+- Duplicated swipeable + sortable item pattern across pages → extract `<SortableSwipeItem>` (render-prop children).
+- Pages other than Notes still call `loadData()` without `AbortController` → add it when editing (use Notes as the template).
+- Most mutations (toggle / reorder / delete) wait on the server response → move to optimistic updates with revert-on-error.
+- Auth token in `localStorage` → migrate to short-lived in-memory access token + httpOnly refresh cookie.
+- `TodoItem` mega-interface (~20 optional fields) → split into `BasicTodo | RecurringTodo | AssignedTodo` discriminated union.
+- WorkoutPage session lifecycle scattered across components → consolidate via `useReducer` state machine.
+- Per-page icon imports (15–20 each) → extract a shared `icons.ts` registry once a page exceeds ~10.
+- RecipePage has 4+ sibling `useModal` instances → bundle into a `useRecipeModals()` aggregator.
+- `ShoppingPage` `isMutating` ref pauses sync → replace with optimistic updates and remove the ref.
+- `TodoPage` recurrence label parsing inline → extract `parseRecurrenceLabel()` helper.
+- Heavy deps (Tiptap, OpenAI client) → `React.lazy` the routes that pull them in.

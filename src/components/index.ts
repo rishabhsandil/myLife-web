@@ -7,3 +7,7 @@ export { FormGroup, FormRow, NumberControl, OptionPills, ColorPicker } from './F
 // UI components
 export { EmptyState } from './EmptyState';
 export { FAB } from './FAB';
+
+// App-level surfaces
+export { ErrorBoundary } from './ErrorBoundary';
+export { ToastProvider, useToast, useGlobalRejectionToast } from './Toast';

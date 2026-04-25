@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
@@ -12,6 +12,8 @@ import AuthPage from './pages/AuthPage';
 import { colors } from './utils/theme';
 import { getUserSettings } from './utils/api';
 import { ModuleType } from './types';
+import { useAuthTransition } from './hooks';
+import { SPLASH_MIN_DURATION_MS } from './utils/constants';
 import logo from './assets/logo.png';
 // Global styles - shared components use these
 import './App.css';
@@ -97,7 +99,6 @@ function AppContent() {
   const [enabledModules, setEnabledModules] = useState<ModuleType[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [needsPostLoginRedirect, setNeedsPostLoginRedirect] = useState(false);
-  const previousUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Hide HTML splash screen when React loads
@@ -109,7 +110,7 @@ function AppContent() {
     // Show splash screen for minimum time
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 2000);
+    }, SPLASH_MIN_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
@@ -143,21 +144,14 @@ function AppContent() {
   }, [user]);
 
   // Track auth transitions to drive login/logout redirects
-  useEffect(() => {
-    const prevUserId = previousUserIdRef.current;
-    const currentUserId = user?.id ?? null;
-
-    if (!prevUserId && currentUserId) {
-      // Just logged in: redirect after settings load
-      setNeedsPostLoginRedirect(true);
-    } else if (prevUserId && !currentUserId) {
-      // Just logged out: clear the URL back to root
-      setNeedsPostLoginRedirect(false);
-      navigate('/', { replace: true });
-    }
-
-    previousUserIdRef.current = currentUserId;
-  }, [user, navigate]);
+  const handleLogin = useCallback(() => {
+    setNeedsPostLoginRedirect(true);
+  }, []);
+  const handleLogout = useCallback(() => {
+    setNeedsPostLoginRedirect(false);
+    navigate('/', { replace: true });
+  }, [navigate]);
+  useAuthTransition(user?.id ?? null, handleLogin, handleLogout);
 
   // Get default route based on first enabled module
   const getDefaultRoute = () => {

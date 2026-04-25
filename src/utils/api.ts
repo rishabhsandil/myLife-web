@@ -1,4 +1,5 @@
 import { TodoItem, ShoppingItem, ShoppingStore, Exercise, BodyPart, ShoppingShareStatus, ShoppingShareUser, ShoppingAuditEntry, UserSettings, ModuleType, Note, WorkoutSession, Recipe } from '../types';
+import { AI_API_TIMEOUT_MS, DEFAULT_API_TIMEOUT_MS } from './constants';
 
 // API base URL - empty for same origin (Vercel), or set for local dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -8,15 +9,41 @@ function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
 }
 
+interface ApiOptions extends RequestInit {
+  /** Optional timeout in ms. Defaults to DEFAULT_API_TIMEOUT_MS. */
+  timeoutMs?: number;
+}
+
+/**
+ * Combine a caller-provided AbortSignal (for cancel-on-unmount) with a
+ * timeout signal so slow networks don't hang requests forever.
+ */
+function buildSignal(externalSignal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  // AbortSignal.any is widely supported in modern browsers; fall back gracefully.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyFn = (AbortSignal as any).any as ((s: AbortSignal[]) => AbortSignal) | undefined;
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  if (!externalSignal) return timeoutSignal;
+  if (typeof anyFn === 'function') return anyFn([externalSignal, timeoutSignal]);
+  // Manual fallback: forward whichever aborts first.
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  externalSignal.addEventListener('abort', onAbort, { once: true });
+  timeoutSignal.addEventListener('abort', onAbort, { once: true });
+  return ctrl.signal;
+}
+
 // Generic API helper
-async function api<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function api<T>(endpoint: string, options?: ApiOptions): Promise<T> {
   const token = getAuthToken();
+  const { timeoutMs = DEFAULT_API_TIMEOUT_MS, signal, ...rest } = options ?? {};
   const res = await fetch(`${API_BASE}/api/${endpoint}`, {
-    ...options,
+    ...rest,
+    signal: buildSignal(signal ?? undefined, timeoutMs),
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      ...options?.headers,
+      ...rest.headers,
     },
   });
   if (!res.ok) {
@@ -35,10 +62,11 @@ function createCrudApi<T extends Entity>(
   localStorageKey: string
 ) {
   return {
-    async getAll(): Promise<T[]> {
+    async getAll(signal?: AbortSignal): Promise<T[]> {
       try {
-        return await api<T[]>(endpoint);
+        return await api<T[]>(endpoint, { signal });
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
         console.error(`Failed to fetch ${endpoint}:`, error);
         const data = localStorage.getItem(localStorageKey);
         return data ? JSON.parse(data) : [];
@@ -374,6 +402,7 @@ export async function extractRecipeFromUrl(url: string): Promise<RecipeExtractRe
   const result = await api<RecipeExtractResult>('recipes/extract', {
     method: 'POST',
     body: JSON.stringify({ url }),
+    timeoutMs: AI_API_TIMEOUT_MS,
   });
   return result;
 }
@@ -382,6 +411,7 @@ export async function parseRecipeFromText(text: string): Promise<RecipeExtractRe
   const result = await api<RecipeExtractResult>('recipes/extract', {
     method: 'POST',
     body: JSON.stringify({ text }),
+    timeoutMs: AI_API_TIMEOUT_MS,
   });
   return result;
 }

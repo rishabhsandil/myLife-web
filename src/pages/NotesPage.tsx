@@ -9,15 +9,17 @@ import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import { Note } from '../types';
 import { getNotes as apiGetNotes, saveNote, updateNote, deleteNote as apiDeleteNote } from '../utils/api';
-import { Modal, ModalFooter, FormGroup, FAB, EmptyState } from '../components';
+import { Modal, ModalFooter, FormGroup, FAB, EmptyState, useToast } from '../components';
 import { useModal } from '../hooks';
+import { MAX_INLINE_IMAGE_BYTES } from '../utils/constants';
 import './NotesPage.css';
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const { show, showError } = useToast();
+
   const noteModal = useModal<Note>();
   const deleteModal = useModal<Note>();
 
@@ -76,18 +78,27 @@ export default function NotesPage() {
   }, [noteContent, editor]);
 
   useEffect(() => {
-    loadData();
+    const ac = new AbortController();
+    void loadData(ac.signal);
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadData() {
+  async function loadData(signal?: AbortSignal) {
     setIsLoading(true);
-    const noteData = await apiGetNotes();
-    // Sort by most recently updated first
-    const sorted = noteData.sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-    setNotes(sorted);
-    setIsLoading(false);
+    try {
+      const noteData = await apiGetNotes(signal);
+      // Sort by most recently updated first (copy first — don't mutate response)
+      const sorted = [...noteData].sort((a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+      setNotes(sorted);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showError(err, 'Failed to load notes');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const resetNoteForm = () => {
@@ -115,14 +126,17 @@ export default function NotesPage() {
     input.accept = 'image/*';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64 = e.target?.result as string;
-          editor?.chain().focus().setImage({ src: base64 }).run();
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+      if (file.size > MAX_INLINE_IMAGE_BYTES) {
+        show(`Image must be smaller than ${(MAX_INLINE_IMAGE_BYTES / (1024 * 1024)).toFixed(0)} MB. Use "URL" to link a hosted image instead.`, 'error');
+        return;
       }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        editor?.chain().focus().setImage({ src: base64 }).run();
+      };
+      reader.readAsDataURL(file);
     };
     input.click();
   };

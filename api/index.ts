@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import OpenAI from 'openai';
 import { sql, getUserIdFromRequest, generateToken, initDb } from './db.js';
+import { validateEmail, validatePassword, validateName } from './validators.js';
 
 // Default body parts for new users
 const DEFAULT_BODY_PARTS = [
@@ -143,13 +144,15 @@ async function handleLogin(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+  const { email, password } = req.body ?? {};
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: emailErr });
+  if (typeof password !== 'string' || password.length === 0) {
+    return res.status(400).json({ error: 'Password is required' });
   }
 
   const users = await sql`
-    SELECT id, email, name, password_hash FROM users WHERE email = ${email.toLowerCase()}
+    SELECT id, email, name, password_hash FROM users WHERE email = ${(email as string).toLowerCase()}
   `;
 
   if (users.length === 0) {
@@ -174,32 +177,16 @@ async function handleSignup(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, password } = req.body;
-  if (!email || !name || !password) {
-    return res.status(400).json({ error: 'Email, name, and password are required' });
-  }
+  const { email, name, password } = req.body ?? {};
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: emailErr });
+  const nameErr = validateName(name);
+  if (nameErr) return res.status(400).json({ error: nameErr });
+  const pwErr = validatePassword(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
 
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'Invalid email format' });
-  }
-
-  // Strong password policy: 8+ chars, uppercase, lowercase, number
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
-  if (!/[A-Z]/.test(password)) {
-    return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
-  }
-  if (!/[a-z]/.test(password)) {
-    return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
-  }
-  if (!/[0-9]/.test(password)) {
-    return res.status(400).json({ error: 'Password must contain at least one number' });
-  }
-
-  const existingUsers = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`;
+  const lowered = (email as string).toLowerCase();
+  const existingUsers = await sql`SELECT id FROM users WHERE email = ${lowered}`;
   if (existingUsers.length > 0) {
     return res.status(400).json({ error: 'Email already registered' });
   }
@@ -209,14 +196,48 @@ async function handleSignup(req: VercelRequest, res: VercelResponse) {
 
   await sql`
     INSERT INTO users (id, email, name, password_hash)
-    VALUES (${userId}, ${email.toLowerCase()}, ${name}, ${passwordHash})
+    VALUES (${userId}, ${lowered}, ${(name as string).trim()}, ${passwordHash})
   `;
+
+  // Seed defaults once on signup so GET handlers don't need to re-seed every call.
+  await seedDefaultsForUser(userId);
 
   const token = generateToken(userId);
   return res.status(201).json({
-    user: { id: userId, email: email.toLowerCase(), name },
+    user: { id: userId, email: lowered, name: (name as string).trim() },
     token
   });
+}
+
+async function seedDefaultsForUser(userId: string) {
+  const ts = Date.now();
+  // Body parts
+  for (let i = 0; i < DEFAULT_BODY_PARTS.length; i++) {
+    const bp = DEFAULT_BODY_PARTS[i];
+    await sql`
+      INSERT INTO body_parts (id, user_id, name, color, sort_order)
+      VALUES (${`bp_${ts}_${i}`}, ${userId}, ${bp.name}, ${bp.color}, ${i})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+  // Shopping stores
+  for (let i = 0; i < DEFAULT_SHOPPING_STORES.length; i++) {
+    const s = DEFAULT_SHOPPING_STORES[i];
+    await sql`
+      INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
+      VALUES (${`store_${ts}_${i}`}, ${userId}, ${s.name}, ${s.color}, ${i})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+  // Todo categories
+  for (let i = 0; i < DEFAULT_TODO_CATEGORIES.length; i++) {
+    const c = DEFAULT_TODO_CATEGORIES[i];
+    await sql`
+      INSERT INTO todo_categories (id, user_id, name, color, sort_order)
+      VALUES (${`cat_${ts}_${i}`}, ${userId}, ${c.name}, ${c.color}, ${i})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
 }
 
 async function handleMe(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -439,23 +460,26 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
     }
     case 'PUT': {
       const { id, name, quantity, storeId, completed, sortOrder } = req.body;
-      // Fetch current state and update in sequence, but combine audit in one flow
-      const [currentItem] = await sql`
+      // Read previous state, then update, then audit. We don't have multi-statement
+      // transactions on the serverless `sql` tag, but the SELECT → UPDATE → INSERT
+      // ordering is enough for our audit semantics (idempotent + user-scoped).
+      const [prev] = await sql`
+        SELECT completed FROM shopping_items
+        WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
+          SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
+        ))
+      `;
+      await sql`
         UPDATE shopping_items SET name = ${name}, quantity = ${quantity}, store_id = ${storeId}, completed = ${completed}, sort_order = ${sortOrder !== undefined ? sortOrder : null}
         WHERE id = ${id} AND (user_id = ${userId} OR user_id IN (
           SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
         ))
-        RETURNING (SELECT completed FROM shopping_items WHERE id = ${id}) as prev_completed,
-                  (SELECT user_id FROM shopping_items WHERE id = ${id}) as owner_id
       `;
-      
-      if (currentItem && currentItem.prev_completed !== completed) {
-        // Fire audit + notification without awaiting (fire-and-forget for non-critical)
-        sql`
+      if (prev && prev.completed !== completed) {
+        await sql`
           INSERT INTO shopping_audit (id, user_id, action, item_name, details)
           VALUES (${Date.now().toString()}, ${userId}, ${completed ? 'completed' : 'uncompleted'}, ${name}, NULL)
-        `.catch(() => {});
-        
+        `;
       }
       return res.status(200).json({ success: true });
     }
@@ -527,19 +551,7 @@ async function handleShopping(req: VercelRequest, res: VercelResponse, userId: s
 async function handleShoppingStores(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      // Seed defaults if user has no stores (single query with INSERT...SELECT)
-      await sql`
-        INSERT INTO shopping_stores (id, user_id, name, color, sort_order)
-        SELECT id, ${userId}, name, color, sort_order FROM (
-          VALUES 
-            ('store_def_' || ${userId} || '_0', 'FreshCo', '#22C55E', 0),
-            ('store_def_' || ${userId} || '_1', 'Costco', '#6366F1', 1),
-            ('store_def_' || ${userId} || '_2', 'Amazon', '#F59E0B', 2),
-            ('store_def_' || ${userId} || '_3', 'Other', '#64748B', 3)
-        ) AS defaults(id, name, color, sort_order)
-        WHERE NOT EXISTS (SELECT 1 FROM shopping_stores WHERE user_id = ${userId} LIMIT 1)
-        ON CONFLICT (id) DO NOTHING
-      `;
+      // Defaults are seeded once at signup (see seedDefaultsForUser).
       // Get stores from user + shared users, deduplicated by name
       const rows = await sql`
         SELECT DISTINCT ON (ss.name) ss.id, ss.name, ss.color, ss.sort_order as "sortOrder"
@@ -582,21 +594,7 @@ async function handleShoppingStores(req: VercelRequest, res: VercelResponse, use
 async function handleTodoCategories(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      // Seed defaults if user has no categories (single query)
-      await sql`
-        INSERT INTO todo_categories (id, user_id, name, color, sort_order)
-        SELECT id, ${userId}, name, color, sort_order FROM (
-          VALUES 
-            ('cat_def_' || ${userId} || '_0', '🎂 Birthday', '#EC4899', 0),
-            ('cat_def_' || ${userId} || '_1', '💊 Medicine', '#EF4444', 1),
-            ('cat_def_' || ${userId} || '_2', '💪 Workout', '#6366F1', 2),
-            ('cat_def_' || ${userId} || '_3', '📞 Call', '#22C55E', 3),
-            ('cat_def_' || ${userId} || '_4', '💼 Work', '#F59E0B', 4),
-            ('cat_def_' || ${userId} || '_5', '🏠 Home', '#8B5CF6', 5)
-        ) AS defaults(id, name, color, sort_order)
-        WHERE NOT EXISTS (SELECT 1 FROM todo_categories WHERE user_id = ${userId} LIMIT 1)
-        ON CONFLICT (id) DO NOTHING
-      `;
+      // Defaults are seeded once at signup (see seedDefaultsForUser).
       const ownCategories = await sql`
         SELECT id, name, color, sort_order as "sortOrder"
         FROM todo_categories WHERE user_id = ${userId} ORDER BY sort_order, created_at
@@ -741,19 +739,7 @@ async function handleExercises(req: VercelRequest, res: VercelResponse, userId: 
 async function handleBodyParts(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
-      // Seed defaults if user has no body parts (single query)
-      await sql`
-        INSERT INTO body_parts (id, user_id, name, color, sort_order)
-        SELECT id, ${userId}, name, color, sort_order FROM (
-          VALUES 
-            ('bp_def_' || ${userId} || '_0', 'Chest/Tri', '#EF4444', 0),
-            ('bp_def_' || ${userId} || '_1', 'Back/Bi', '#6366F1', 1),
-            ('bp_def_' || ${userId} || '_2', 'Shoulders', '#F59E0B', 2),
-            ('bp_def_' || ${userId} || '_3', 'Legs/Core', '#EC4899', 3)
-        ) AS defaults(id, name, color, sort_order)
-        WHERE NOT EXISTS (SELECT 1 FROM body_parts WHERE user_id = ${userId} LIMIT 1)
-        ON CONFLICT (id) DO NOTHING
-      `;
+      // Defaults are seeded once at signup (see seedDefaultsForUser).
       const rows = await sql`
         SELECT id, name, color, sort_order as "sortOrder"
         FROM body_parts WHERE user_id = ${userId} ORDER BY sort_order, created_at

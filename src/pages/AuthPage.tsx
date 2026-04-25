@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { validateEmail, validatePassword } from '../utils/validation';
+import { PASSWORD_RULES_MESSAGE } from '../utils/constants';
 import './AuthPage.css';
 
 export default function AuthPage() {
@@ -19,6 +21,12 @@ export default function AuthPage() {
     setIsLoading(true);
 
     try {
+      const emailErr = validateEmail(email);
+      if (emailErr) {
+        setError(emailErr);
+        setIsLoading(false);
+        return;
+      }
       if (isLogin) {
         await login(email, password);
       } else {
@@ -27,8 +35,9 @@ export default function AuthPage() {
           setIsLoading(false);
           return;
         }
-        if (password.length < 6) {
-          setError('Password must be at least 6 characters');
+        const pwErr = validatePassword(password);
+        if (pwErr) {
+          setError(pwErr);
           setIsLoading(false);
           return;
         }
@@ -99,6 +108,9 @@ export default function AuthPage() {
               placeholder="Enter your password"
               required
             />
+            {!isLogin && (
+              <p className="auth-hint">{PASSWORD_RULES_MESSAGE}</p>
+            )}
           </div>
 
           {!isLogin && (
