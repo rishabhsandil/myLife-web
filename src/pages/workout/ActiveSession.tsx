@@ -16,6 +16,7 @@ interface ActiveSessionProps {
   onFinish: (session: WorkoutSession, durationSeconds: number) => void;
   onDiscard: () => void;
   onViewPlan: () => void;
+  onSessionUpdate: (session: WorkoutSession) => void;
 }
 
 export function ActiveSession({
@@ -27,6 +28,7 @@ export function ActiveSession({
   onFinish,
   onDiscard,
   onViewPlan,
+  onSessionUpdate,
 }: ActiveSessionProps) {
   const [session, setSession] = useState<WorkoutSession>(initialSession);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -56,9 +58,10 @@ export function ActiveSession({
     setSession(prev => {
       const updated = updater(prev);
       saveActiveWorkoutSession(updated);
+      onSessionUpdate(updated);
       return updated;
     });
-  }, []);
+  }, [onSessionUpdate]);
 
   const toggleSetCompleted = (exerciseId: string, setNumber: number) => {
     updateSession(s => ({

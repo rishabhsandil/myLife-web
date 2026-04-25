@@ -70,6 +70,10 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
   const [addingConnection, setAddingConnection] = useState(false);
 
   useEffect(() => {
+    setLocalModules(enabledModules);
+  }, [enabledModules]);
+
+  useEffect(() => {
     loadConnections();
   }, []);
 
@@ -124,7 +128,8 @@ export default function SettingsPage({ enabledModules, onModulesChange }: Settin
     }
   };
 
-  const hasChanges = JSON.stringify(localModules.sort()) !== JSON.stringify(enabledModules.sort());
+  const hasChanges =
+    JSON.stringify([...localModules].sort()) !== JSON.stringify([...enabledModules].sort());
 
   const handleLogout = () => {
     setShowLogoutConfirm(false);

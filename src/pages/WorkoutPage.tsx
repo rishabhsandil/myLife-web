@@ -322,6 +322,7 @@ export default function WorkoutPage() {
           onFinish={handleFinishWorkout}
           onDiscard={handleDiscardWorkout}
           onViewPlan={() => setShowingPlanDuringSession(true)}
+          onSessionUpdate={setActiveSession}
         />
         <SessionSummaryModal
           isOpen={summaryModal.isOpen}

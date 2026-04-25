@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from 'react-icons/io5';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TodoPage from './pages/TodoPage';
@@ -92,8 +92,12 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
 
 function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [showSplash, setShowSplash] = useState(true);
   const [enabledModules, setEnabledModules] = useState<ModuleType[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [needsPostLoginRedirect, setNeedsPostLoginRedirect] = useState(false);
+  const previousUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Hide HTML splash screen when React loads
@@ -112,19 +116,48 @@ function AppContent() {
   useEffect(() => {
     // Load user settings when user is available
     if (user) {
-      getUserSettings().then(settings => {
-        setEnabledModules(settings.enabledModules);
-      });
+      let cancelled = false;
+      setSettingsLoaded(false);
+      (async () => {
+        let modules: ModuleType[] = ['todos', 'shopping', 'workout', 'notes'];
+        try {
+          const settings = await getUserSettings();
+          if (Array.isArray(settings?.enabledModules) && settings.enabledModules.length > 0) {
+            modules = settings.enabledModules;
+          }
+        } catch {
+          // fall back to defaults
+        }
+        if (cancelled) return;
+        // Set both together so the route tree never sees settingsLoaded=true with empty modules
+        setEnabledModules(modules);
+        setSettingsLoaded(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setEnabledModules([]);
+      setSettingsLoaded(false);
     }
   }, [user]);
 
-  if (authLoading || showSplash) {
-    return <LoadingScreen />;
-  }
+  // Track auth transitions to drive login/logout redirects
+  useEffect(() => {
+    const prevUserId = previousUserIdRef.current;
+    const currentUserId = user?.id ?? null;
 
-  if (!user) {
-    return <AuthPage />;
-  }
+    if (!prevUserId && currentUserId) {
+      // Just logged in: redirect after settings load
+      setNeedsPostLoginRedirect(true);
+    } else if (prevUserId && !currentUserId) {
+      // Just logged out: clear the URL back to root
+      setNeedsPostLoginRedirect(false);
+      navigate('/', { replace: true });
+    }
+
+    previousUserIdRef.current = currentUserId;
+  }, [user, navigate]);
 
   // Get default route based on first enabled module
   const getDefaultRoute = () => {
@@ -135,6 +168,23 @@ function AppContent() {
     if (enabledModules.includes('recipes')) return '/recipes';
     return '/settings';
   };
+
+  // After login + settings loaded, force navigation to the default landing route
+  // before rendering routes, so stale URLs (e.g. /settings) don't carry over.
+  useEffect(() => {
+    if (!user || !settingsLoaded || !needsPostLoginRedirect) return;
+    navigate(getDefaultRoute(), { replace: true });
+    setNeedsPostLoginRedirect(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, settingsLoaded, needsPostLoginRedirect, enabledModules, navigate]);
+
+  if (authLoading || showSplash || (user && !settingsLoaded) || (user && needsPostLoginRedirect)) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
 
   return (
     <div className="app-container">
