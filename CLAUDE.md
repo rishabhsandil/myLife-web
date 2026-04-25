@@ -189,4 +189,30 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 
 ### Remaining (do as you go)
 
-- _(none — refactor backlog cleared)_
+Second-pass audit (April 2026). Items below are kept because they advance an architectural pattern (DRY at a module boundary, single source of truth, encapsulation of side-effects, or correctness/security parity) — not just to shave lines. Pure LOC-reduction wins were dropped.
+
+**High ROI**
+
+1. **Generic CRUD handler factory** for simple "user owns" tables — collapse the GET/POST/PUT/DELETE switches in `todo_categories` ([api/handlers/todos.ts](api/handlers/todos.ts)), `notes` ([api/handlers/notes.ts](api/handlers/notes.ts)), `body_parts` ([api/handlers/workout.ts](api/handlers/workout.ts)), and `shopping_stores` ([api/handlers/shopping.ts](api/handlers/shopping.ts)) into a `createSimpleCrudHandler(table, fields)` helper in [api/db.ts](api/db.ts). Establishes one place where ownership checks, method dispatch, and error envelope live. Keep custom handlers (todos/recipes/shopping items/workouts/auth) as-is. Low risk.
+2. **`getConnectedUserIds(userId)` SQL helper** — the `(user_id = ${userId} OR user_id IN (SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}))` fragment appears 11× across [api/handlers/shopping.ts](api/handlers/shopping.ts) and [api/handlers/social.ts](api/handlers/social.ts). Centralizing the visibility rule prevents accidental drift if the connection model changes (e.g., adding directional sharing). Extract to [api/db.ts](api/db.ts). Low risk.
+3. **Move default seed data** out of [api/handlers/auth.ts](api/handlers/auth.ts) into a new `api/handlers/defaults.ts` and replace the three hand-rolled `for` loops in `seedDefaultsForUser` with a generic `seedDefaults(userId, table, items)` helper. Separates "what defaults exist" (data) from "how a new user is provisioned" (auth flow). Low risk.
+4. **`useTodoModals` / `useShoppingModals` / `useWorkoutModals`** — replicate the [src/pages/recipe/useRecipeModals.ts](src/pages/recipe/useRecipeModals.ts) pattern; bundle the 4–7 inline `useModal()` calls per page in [src/pages/TodoPage.tsx](src/pages/TodoPage.tsx), [src/pages/ShoppingPage.tsx](src/pages/ShoppingPage.tsx), [src/pages/WorkoutPage.tsx](src/pages/WorkoutPage.tsx). Locks in the established hook-per-page convention so new modals have one obvious home. Low risk.
+5. **`usePageLoad<T>(loaderFn)` hook** — wraps the `AbortController` + `isLoading` + `useToast()` + `AbortError`-silencing pattern repeated in all five page-level `loadData` effects ([src/pages/TodoPage.tsx](src/pages/TodoPage.tsx), [ShoppingPage.tsx](src/pages/ShoppingPage.tsx), [RecipePage.tsx](src/pages/RecipePage.tsx), [NotesPage.tsx](src/pages/NotesPage.tsx), [WorkoutPage.tsx](src/pages/WorkoutPage.tsx)). The value here is **enforcing** the cancellation/error-toast contract — a future page can't forget to abort or silently swallow errors. Land in [src/hooks/](src/hooks/). Medium risk (state-name and error-message variations per page).
+6. **Mirror server validators on the client** — server [api/validators.ts](api/validators.ts) is stricter than [src/utils/validation.ts](src/utils/validation.ts) (email length cap, full password range). This is a correctness/UX gap, not a style concern: the server will reject inputs the client thinks are valid. Share constants via [src/utils/constants.ts](src/utils/constants.ts). Low risk.
+7. **`createSimpleGetApi<T>(endpoint, fallback)` factory** in [src/utils/api.ts](src/utils/api.ts) for one-off GETs (`getShoppingAudit`, `getConnections`, `getWorkoutSessions`, `getUserSettings`, `getShoppingShareStatus`, `getSharedRecipes`). Each currently re-implements try/catch/AbortError/console.error/fallback — and they aren't quite identical, which is the architectural smell: fetch behaviour should be uniform across the data layer. Low risk.
+8. **`auditAction(userId, action, itemName, details)` helper** in [api/handlers/shopping.ts](api/handlers/shopping.ts) — three inline `INSERT INTO shopping_audit` blocks across POST/PUT/DELETE. Audit logging is a cross-cutting concern; one helper guarantees every mutation writes the same shape with the same timestamp source. Medium risk (preserve SELECT → mutate → audit ordering).
+
+**Medium ROI**
+
+9. **Centralize page-local types** (e.g., the local `Category` interface in [src/pages/TodoPage.tsx](src/pages/TodoPage.tsx)) into [src/types/index.ts](src/types/index.ts). Single source of truth for shapes that cross the network boundary. Low risk.
+
+**Dropped from this pass** — `useOptimisticUpdate` hook, `parseRecipeRow` helper, and component-import standardization. Each was mostly cosmetic LOC-shaving with no clear architectural payoff (or, in the case of `useOptimisticUpdate`, a generalization risk that exceeded the benefit).
+
+**Out of scope** — shopping items, recipes CRUD, todos, workout sessions, and auth handlers stay custom (audit logging, JOINs, JSON serialization, sharing logic, hashing).
+
+**Suggested PR sequencing**
+
+- PR-A: items 1 + 2 + 3 (single backend cleanup, mostly mechanical).
+- PR-B: item 4 (one commit per page is fine).
+- PR-C: items 6, 7, 9 (cheap, isolated, correctness-leaning).
+- PR-D: items 5, 8 (each its own PR — review semantics carefully).
