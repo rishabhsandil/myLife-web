@@ -35,9 +35,11 @@ There is **no test runner, linter, or formatter configured**. Treat `tsc` (run v
 ## 3. Repository Layout
 
 ```
-api/                # Vercel serverless functions (single-handler pattern)
-  index.ts          # Currently a monolith — see audit; route by req.url
+api/                # Vercel serverless function (single entry, route-dispatched)
+  index.ts          # Thin router — dispatches by routePath to handlers/
   db.ts             # sql tag from @neondatabase/serverless
+  validators.ts     # Shared input validators (mirrored client-side)
+  handlers/         # Per-feature handler modules (auth, todos, shopping, …)
 src/
   App.tsx           # Routing, splash, post-login redirect logic
   components/       # Shared UI: Modal, FAB, FormControls, EmptyState
@@ -183,7 +185,8 @@ The initial code-smell audit had 22 findings. The list below tracks what's done 
 - ✅ Initial-mount `loadData` in `TodoPage`, `RecipePage`, `ShoppingPage`, `WorkoutPage`, and `SettingsPage` now use the Notes `AbortController` pattern — effects abort on unmount, errors surface via `useToast()`, and `AbortError` is silently ignored. Non-CRUD getters in [src/utils/api.ts](src/utils/api.ts) (`getShoppingShareStatus`, `getShoppingAudit`, `getWorkoutSessions`, `getUserSettings`, `getConnections`, `getSharedRecipes`) accept an optional `AbortSignal` and propagate `AbortError`.
 - ✅ Duplicated swipeable + sortable item pattern extracted into [`<SortableSwipeItem>`](src/components/SortableSwipeItem.tsx) (render-prop `children` exposes `dragHandleProps` + `isDragging`); `TodoPage`, `ShoppingPage`, `NotesPage`, `RecipePage`, `WorkoutHistory`, and `workout/SortableExerciseItem` now use it. Pass `id` to enable `@dnd-kit` sorting; omit it for swipe-only rows.
 - ✅ `TodoItem` mega-interface split into a `BasicTodo | RecurringTodo` discriminated union in [src/types/index.ts](src/types/index.ts), keyed on `recurrence`. `completedDates`/`excludedDates`/`recurrenceDays` live only on `RecurringTodo`; `overdue`/`originalDate` live only on `BasicTodo`. Assignment fields (`assignedToUserId`, `assigneeName`, `assigneeEmail`) stayed on the shared base because assignment is orthogonal to recurrence — a recurring task can also be assigned, so a third `AssignedTodo` arm would have been incorrect. No DB migration was needed (the `recurrence` column already discriminates on the wire).
+- ✅ `api/index.ts` split into per-feature handler modules under [api/handlers/](api/handlers/) (`auth.ts`, `todos.ts`, `social.ts`, `shopping.ts`, `workout.ts`, `notes.ts`, `settings.ts`, `recipes.ts`). `api/index.ts` is now a thin ~135-LOC router that dispatches by `routePath`. Vercel still sees a single serverless function — handler files are plain TS modules, not separate function entry points, so the Hobby function-count cap is unaffected. New endpoints should add a handler in the appropriate feature file (or a new `api/handlers/<feature>.ts`) and a `case` in `api/index.ts`; do **not** create a new top-level `api/<route>.ts` file (that would create a new serverless function).
 
 ### Remaining (do as you go)
 
-- `api/index.ts` (~1.3k LOC) → split into `api/handlers/<feature>.ts` and dispatch from `index.ts` by route.
+- _(none — refactor backlog cleared)_
