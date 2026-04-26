@@ -168,6 +168,7 @@ export default function ShoppingPage() {
     const previousItems = items;
     const isEdit = !!itemModal.data;
     let mutated: ShoppingItem;
+    const selectedStoreName = currentStore?.name;
 
     if (itemModal.data) {
       mutated = { ...itemModal.data, name: values.name, quantity: values.quantity };
@@ -178,6 +179,7 @@ export default function ShoppingPage() {
         name: values.name,
         quantity: values.quantity,
         storeId: selectedStore,
+        storeName: selectedStoreName,
         completed: false,
         createdAt: new Date().toISOString(),
         isOwn: true,
