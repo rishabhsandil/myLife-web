@@ -28,6 +28,15 @@ import './todo/TodoPage.css';
 
 interface Category { id: string; name: string; color: string; sortOrder: number }
 
+const toDateStamp = (dateValue: string): number => {
+  const [year, month, day] = dateValue.split('T')[0].split('-').map(Number);
+  if (!year || !month || !day) return Number.NaN;
+  return new Date(year, month - 1, day).getTime();
+};
+
+const isDateBefore = (left: string, right: string): boolean => toDateStamp(left) < toDateStamp(right);
+const isDateAfter = (left: string, right: string): boolean => toDateStamp(left) > toDateStamp(right);
+
 export default function TodoPage() {
   const { user } = useAuth();
   const { showError } = useToast();
@@ -41,6 +50,7 @@ export default function TodoPage() {
   const [activeView, setActiveView] = useState<'schedule' | 'backlog' | 'categories'>('schedule');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [connections, setConnections] = useState<UserConnection[]>([]);
+  const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   const [forceBacklog, setForceBacklog] = useState(false);
   const [initialBacklogMonth, setInitialBacklogMonth] = useState('');
 
@@ -68,6 +78,23 @@ export default function TodoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const refreshTodayKey = () => {
+      const current = formatDateKey(new Date());
+      setTodayKey(prev => (prev === current ? prev : current));
+    };
+
+    const interval = setInterval(refreshTodayKey, 60000);
+    document.addEventListener('visibilitychange', refreshTodayKey);
+    window.addEventListener('focus', refreshTodayKey);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshTodayKey);
+      window.removeEventListener('focus', refreshTodayKey);
+    };
+  }, []);
+
   async function loadAll(signal?: AbortSignal) {
     setIsLoading(true);
     try {
@@ -90,12 +117,12 @@ export default function TodoPage() {
   // Carry forward overdue tasks
   useEffect(() => {
     const checkOverdueTasks = async () => {
-      const today = formatDateKey(new Date());
+      const today = todayKey;
       let hasUpdates = false;
       const updatedTodos = todos.map(todo => {
         if (todo.completed || !todo.date || todo.date === 'backlog') return todo;
         if (todo.recurrence !== 'none') return todo;
-        if (todo.date < today) {
+        if (isDateBefore(todo.date, today)) {
           hasUpdates = true;
           return {
             ...todo,
@@ -105,13 +132,13 @@ export default function TodoPage() {
           };
         }
         if (todo.date === today) {
-          if (todo.originalDate && todo.originalDate < today && !todo.overdue) {
+          if (todo.originalDate && isDateBefore(todo.originalDate, today) && !todo.overdue) {
             hasUpdates = true;
             return { ...todo, overdue: true };
           }
           return todo;
         }
-        if (todo.date > today && (todo.overdue || todo.originalDate)) {
+        if (isDateAfter(todo.date, today) && (todo.overdue || todo.originalDate)) {
           hasUpdates = true;
           return { ...todo, overdue: false, originalDate: undefined };
         }
@@ -139,7 +166,7 @@ export default function TodoPage() {
 
     if (todos.length > 0) checkOverdueTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todos.length]);
+  }, [todos.length, todayKey]);
 
   const todaysTasks = useMemo(() => {
     return todos
@@ -150,8 +177,8 @@ export default function TodoPage() {
         if (aCompleted && !bCompleted) return 1;
         if (!aCompleted && bCompleted) return -1;
         const selectedStr = formatDateKey(selectedDate);
-        const aOverdue = !aCompleted && a.recurrence === 'none' && (a.overdue || a.date.split('T')[0] < selectedStr);
-        const bOverdue = !bCompleted && b.recurrence === 'none' && (b.overdue || b.date.split('T')[0] < selectedStr);
+        const aOverdue = !aCompleted && a.recurrence === 'none' && (a.overdue || isDateBefore(a.date, selectedStr));
+        const bOverdue = !bCompleted && b.recurrence === 'none' && (b.overdue || isDateBefore(b.date, selectedStr));
         if (aOverdue && !bOverdue) return -1;
         if (!aOverdue && bOverdue) return 1;
         if (a.sortOrder !== undefined && b.sortOrder !== undefined) return a.sortOrder - b.sortOrder;
@@ -170,8 +197,7 @@ export default function TodoPage() {
       if (isCompletedOnDate(todo, selectedDate)) return false;
       if (todo.recurrence !== 'none') return false;
       if (todo.overdue) return true;
-      const todoDateStr = todo.date.split('T')[0];
-      if (todoDateStr < selectedStr) return true;
+      if (isDateBefore(todo.date, selectedStr)) return true;
       return false;
     });
   }, [todaysTasks, selectedDate]);
@@ -182,8 +208,7 @@ export default function TodoPage() {
       if (isCompletedOnDate(todo, selectedDate)) return false;
       if (todo.recurrence !== 'none') return true;
       if (todo.overdue) return false;
-      const todoDateStr = todo.date.split('T')[0];
-      if (todoDateStr < selectedStr) return false;
+      if (isDateBefore(todo.date, selectedStr)) return false;
       return true;
     });
   }, [todaysTasks, selectedDate]);
@@ -237,7 +262,7 @@ export default function TodoPage() {
     return todos
       .filter(todo => todo.category === selectedCategoryName && !todo.completed)
       .filter(todo => {
-        if (todo.date && todo.date !== 'backlog') return todo.date >= today;
+        if (todo.date && todo.date !== 'backlog') return !isDateBefore(todo.date, today);
         return true;
       })
       .sort((a, b) => {
@@ -292,7 +317,7 @@ export default function TodoPage() {
       updatedTodoData = {
         ...todo,
         completed: isCompleting,
-        overdue: isCompleting ? false : (todo.originalDate ? true : todo.date < today),
+        overdue: isCompleting ? false : (todo.originalDate ? true : isDateBefore(todo.date, today)),
       };
     } else {
       const isCompleted = todo.completedDates.includes(dateKey);
