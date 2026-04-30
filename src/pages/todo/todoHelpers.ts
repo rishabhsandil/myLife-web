@@ -51,6 +51,9 @@ export const shouldShowOnDate = (todo: TodoItem, date: Date): boolean => {
   const dateKey = formatDateKey(date);
   const todoDateKey = todo.date;
 
+  // Backlog items never appear in the scheduled view, regardless of recurrence.
+  if (!todoDateKey || todoDateKey === 'backlog') return false;
+
   if (todo.recurrence === 'none') return todoDateKey === dateKey;
   if (todo.excludedDates.includes(dateKey)) return false;
   if (dateKey < todoDateKey) return false;

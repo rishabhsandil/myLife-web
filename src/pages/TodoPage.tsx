@@ -227,26 +227,36 @@ export default function TodoPage() {
       monthKeys.push({ display, key });
     }
     const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const unscheduledTasks = todos
-      .filter(todo => !todo.date || todo.date === 'backlog')
-      .filter(todo => !todo.completed);
-    const grouped: { [key: string]: TodoItem[] } = {};
-    monthKeys.forEach(({ key }) => { grouped[key] = []; });
+    const unscheduledTasks = todos.filter(todo => !todo.date || todo.date === 'backlog');
+    const groupedActive: { [key: string]: TodoItem[] } = {};
+    const groupedCompleted: { [key: string]: TodoItem[] } = {};
+    monthKeys.forEach(({ key }) => { groupedActive[key] = []; groupedCompleted[key] = []; });
     unscheduledTasks.forEach(task => {
       const monthKey = task.backlogMonth || currentMonthKey;
-      if (grouped[monthKey]) grouped[monthKey].push(task);
+      const bucket = task.completed ? groupedCompleted : groupedActive;
+      if (bucket[monthKey]) bucket[monthKey].push(task);
     });
+    const sortActive = (a: TodoItem, b: TodoItem) => {
+      if (a.sortOrder !== undefined && b.sortOrder !== undefined) return a.sortOrder - b.sortOrder;
+      if (a.sortOrder !== undefined) return -1;
+      if (b.sortOrder !== undefined) return 1;
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      if (a.priority !== b.priority) return priorityOrder[a.priority] - priorityOrder[b.priority];
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    };
     monthKeys.forEach(({ key }) => {
-      grouped[key].sort((a, b) => {
-        if (a.sortOrder !== undefined && b.sortOrder !== undefined) return a.sortOrder - b.sortOrder;
-        if (a.sortOrder !== undefined) return -1;
-        if (b.sortOrder !== undefined) return 1;
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        if (a.priority !== b.priority) return priorityOrder[a.priority] - priorityOrder[b.priority];
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+      groupedActive[key].sort(sortActive);
+      // Most recently completed first.
+      groupedCompleted[key].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
     });
-    return monthKeys.map(({ display, key }) => ({ month: display, monthKey: key, tasks: grouped[key] }));
+    return monthKeys.map(({ display, key }) => ({
+      month: display,
+      monthKey: key,
+      tasks: groupedActive[key],
+      completedTasks: groupedCompleted[key],
+    }));
   }, [todos]);
 
   const backlogTasks = useMemo(
@@ -329,6 +339,20 @@ export default function TodoPage() {
       };
     }
 
+    const previousTodos = todos;
+    setTodos(todos.map(t => t.id === todo.id ? updatedTodoData : t));
+    try {
+      await updateTodo(updatedTodoData);
+    } catch (err) {
+      setTodos(previousTodos);
+      showError(err, 'Failed to update task');
+    }
+  };
+
+  // Backlog tasks are not tied to a calendar day, so toggling just flips
+  // the boolean `completed` flag regardless of recurrence type.
+  const toggleBacklogComplete = async (todo: TodoItem) => {
+    const updatedTodoData: TodoItem = { ...todo, completed: !todo.completed };
     const previousTodos = todos;
     setTodos(todos.map(t => t.id === todo.id ? updatedTodoData : t));
     try {
@@ -557,7 +581,7 @@ export default function TodoPage() {
             currentUserId={user?.id}
             onToggleCollapsed={toggleMonthCollapsed}
             onAddForMonth={openAddModalForMonth}
-            onToggleTask={toggleComplete}
+            onToggleTask={toggleBacklogComplete}
             onEditTask={openEditModal}
             onDeleteTask={(t) => deleteModal.open(t)}
             onDragEnd={handleBacklogDragEnd}

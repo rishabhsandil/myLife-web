@@ -88,7 +88,11 @@ export function TaskFormModal({
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    const finalRecurrence: RecurrenceType = isBacklogTask ? 'none' : recurrence;
+    // Backlog items can be recurring, but only the 'custom' (day-of-week)
+    // option makes sense without a base date. Coerce anything else to 'none'.
+    const finalRecurrence: RecurrenceType = isBacklogTask
+      ? (recurrence === 'custom' ? 'custom' : 'none')
+      : recurrence;
     const editingRecurring = editingTask && editingTask.recurrence !== 'none' ? editingTask : null;
     const editingBasic = editingTask && editingTask.recurrence === 'none' ? editingTask : null;
     const dateChanged = !!(editingTask && taskDate !== editingTask.date);
@@ -195,7 +199,10 @@ export function TaskFormModal({
             setIsBacklogTask(e.target.checked);
             if (e.target.checked) {
               setTaskDate('');
-              setRecurrence('none');
+              // Keep 'none' or 'custom' on backlog; collapse other recurrences.
+              if (recurrence !== 'none' && recurrence !== 'custom') {
+                setRecurrence('none');
+              }
             } else {
               setTaskDate(formatDateInput(selectedDate));
               setBacklogMonthSelection('');
@@ -239,10 +246,11 @@ export function TaskFormModal({
         <OptionPills options={PRIORITY_OPTIONS} value={priority} onChange={setPriority} />
       </FormGroup>
 
-      {!isBacklogTask && (
-        <FormGroup label="Repeat">
+      <FormGroup label="Repeat">
           <OptionPills
-            options={RECURRENCE_OPTIONS}
+            options={isBacklogTask
+              ? RECURRENCE_OPTIONS.filter(o => o.key === 'none' || o.key === 'custom')
+              : RECURRENCE_OPTIONS}
             value={recurrence}
             onChange={(val) => {
               setRecurrence(val);
@@ -276,7 +284,6 @@ export function TaskFormModal({
             </div>
           )}
         </FormGroup>
-      )}
 
       <FormGroup label="Assign to (optional)">
         <select
