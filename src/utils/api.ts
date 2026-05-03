@@ -54,15 +54,20 @@ function buildRequestInit(
 async function api<T>(endpoint: string, options?: ApiOptions): Promise<T> {
   const { timeoutMs = DEFAULT_API_TIMEOUT_MS, signal, ...rest } = options ?? {};
   const url = `${API_BASE}/api/${endpoint}`;
-  const reqSignal = buildSignal(signal ?? undefined, timeoutMs);
 
-  let res = await fetch(url, buildRequestInit(rest, reqSignal, getAccessToken()));
+  // Each fetch attempt gets its own timeout signal. Reusing one signal across
+  // the original request, the refresh round-trip, and the retry meant the
+  // retry could inherit an already-elapsed budget and abort as a "timeout"
+  // even when the network was healthy.
+  const firstSignal = buildSignal(signal ?? undefined, timeoutMs);
+  let res = await fetch(url, buildRequestInit(rest, firstSignal, getAccessToken()));
 
   if (res.status === 401) {
     // Access token may have expired — try once to mint a new one.
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      res = await fetch(url, buildRequestInit(rest, reqSignal, refreshed.accessToken));
+      const retrySignal = buildSignal(signal ?? undefined, timeoutMs);
+      res = await fetch(url, buildRequestInit(rest, retrySignal, refreshed.accessToken));
     }
   }
 
