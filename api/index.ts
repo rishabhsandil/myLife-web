@@ -9,6 +9,8 @@ import {
   handleDeleteAccount,
   handleForgotPassword,
   handleResetPassword,
+  handleVerifyEmail,
+  handleResendVerification,
 } from './handlers/auth.js';
 import { handleTodos, handleTodoCategories } from './handlers/todos.js';
 import { handleUserSearch, handleConnections } from './handlers/social.js';
@@ -94,6 +96,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (routePath === 'auth/me') {
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       return handleMe(req, res, userId);
+    }
+    if (routePath === 'auth/verify-email') {
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      return handleVerifyEmail(req, res, userId);
+    }
+    if (routePath === 'auth/resend-verification') {
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      return handleResendVerification(req, res, userId);
     }
     if (routePath === 'auth/account') {
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });

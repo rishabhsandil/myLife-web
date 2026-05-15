@@ -64,7 +64,7 @@ export default function AuthPage() {
       <div className="auth-container">
         <div className="auth-header">
           <h1>Almost Adult</h1>
-          <p className="auth-subtitle">Because adulting is hard, but you're getting there! 🎯</p>
+          <p className="auth-subtitle">Because adulting is hard, but you're getting there!</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

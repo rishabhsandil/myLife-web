@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { Resend } from 'resend';
 import {
   sql,
@@ -22,6 +22,11 @@ function getResend(): Resend {
 
 const APP_FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS ?? 'Almost Adult <noreply@almostadult.app>';
 const APP_NAME = 'Almost Adult';
+
+// Generates a cryptographically random 6-digit numeric code.
+function generateVerificationCode(): string {
+  return randomInt(100000, 1000000).toString();
+}
 
 // Default body parts for new users
 const DEFAULT_BODY_PARTS = [
@@ -102,7 +107,7 @@ export async function handleLogin(req: VercelRequest, res: VercelResponse) {
   }
 
   const users = await sql`
-    SELECT id, email, name, password_hash FROM users WHERE email = ${(email as string).toLowerCase()}
+    SELECT id, email, name, password_hash, email_verified FROM users WHERE email = ${(email as string).toLowerCase()}
   `;
 
   if (users.length === 0) {
@@ -119,10 +124,8 @@ export async function handleLogin(req: VercelRequest, res: VercelResponse) {
   const refreshToken = generateRefreshToken(userId);
   setRefreshCookie(res, refreshToken);
   return res.status(200).json({
-    user: { id: userId, email: user.email, name: user.name },
+    user: { id: userId, email: user.email, name: user.name, emailVerified: user.email_verified as boolean },
     accessToken: generateAccessToken(userId),
-    // Also returned in body so native clients can store it in secure storage.
-    // Web clients ignore this field and rely on the httpOnly cookie.
     refreshToken,
   });
 }
@@ -157,10 +160,32 @@ export async function handleSignup(req: VercelRequest, res: VercelResponse) {
   // Seed defaults once on signup so GET handlers don't need to re-seed every call.
   await seedDefaultsForUser(userId);
 
+  // Generate a 6-digit verification code and send the welcome/verification email.
+  // We do this after seeding so the user lands in a working state even if the
+  // email send fails.
+  const verificationCode = generateVerificationCode();
+  const codeExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await sql`
+    INSERT INTO email_verification_tokens (token, user_id, expires_at)
+    VALUES (${verificationCode}, ${userId}, ${codeExpiresAt})
+  `;
+  try {
+    const resend = getResend();
+    await resend.emails.send({
+      from: APP_FROM_ADDRESS,
+      to: lowered,
+      subject: `Verify your ${APP_NAME} email`,
+      html: buildVerificationEmailHtml(verificationCode, (name as string).trim()),
+      text: buildVerificationEmailText(verificationCode),
+    });
+  } catch (emailErr) {
+    console.error('[signup] Failed to send verification email:', emailErr);
+  }
+
   const refreshToken = generateRefreshToken(userId);
   setRefreshCookie(res, refreshToken);
   return res.status(201).json({
-    user: { id: userId, email: lowered, name: (name as string).trim() },
+    user: { id: userId, email: lowered, name: (name as string).trim(), emailVerified: false },
     accessToken: generateAccessToken(userId),
     refreshToken,
   });
@@ -187,17 +212,17 @@ export async function handleRefresh(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid refresh token' });
   }
   // Confirm the user still exists.
-  const users = await sql`SELECT id, email, name FROM users WHERE id = ${userId}`;
+  const users = await sql`SELECT id, email, name, email_verified FROM users WHERE id = ${userId}`;
   if (users.length === 0) {
     clearRefreshCookie(res);
     return res.status(401).json({ error: 'User not found' });
   }
+  const u = users[0];
   const newRefreshToken = generateRefreshToken(userId);
   setRefreshCookie(res, newRefreshToken);
   return res.status(200).json({
-    user: users[0],
+    user: { id: u.id, email: u.email, name: u.name, emailVerified: u.email_verified as boolean },
     accessToken: generateAccessToken(userId),
-    // Return rotated token in body so native clients can update secure storage.
     refreshToken: newRefreshToken,
   });
 }
@@ -243,12 +268,13 @@ export async function handleMe(req: VercelRequest, res: VercelResponse, userId: 
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const users = await sql`SELECT id, email, name FROM users WHERE id = ${userId}`;
+  const users = await sql`SELECT id, email, name, email_verified FROM users WHERE id = ${userId}`;
   if (users.length === 0) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  return res.status(200).json({ user: users[0] });
+  const u = users[0];
+  return res.status(200).json({ user: { id: u.id, email: u.email, name: u.name, emailVerified: u.email_verified as boolean } });
 }
 
 /**
@@ -356,6 +382,134 @@ function buildResetEmailHtml(token: string): string {
   </table>
 </body>
 </html>`;
+}
+
+function buildVerificationEmailText(code: string): string {
+  return [
+    `Your ${APP_NAME} verification code`,
+    '',
+    code,
+    '',
+    'Enter this code in the app to verify your email address.',
+    'It expires in 24 hours. If you did not create an account, you can ignore this email.',
+  ].join('\n');
+}
+
+function buildVerificationEmailHtml(code: string, name: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Verify your ${APP_NAME} email</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#18181b;padding:28px 40px;">
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px;">
+              <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;">Hi ${name}, verify your email</p>
+              <p style="margin:0 0 32px;font-size:15px;color:#71717a;">Enter the code below in the app to confirm your email address. It expires in <strong>24 hours</strong>.</p>
+              <div style="background:#f4f4f5;border-radius:8px;padding:20px 24px;text-align:center;letter-spacing:6px;font-size:36px;font-weight:700;font-family:monospace;color:#18181b;">${code}</div>
+              <p style="margin:32px 0 0;font-size:13px;color:#a1a1aa;">If you didn't create a ${APP_NAME} account, you can safely ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 40px;border-top:1px solid #f4f4f5;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">&copy; ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * POST /api/auth/verify-email
+ * Verifies the user's email using a 6-digit code. Requires a valid access token.
+ */
+export async function handleVerifyEmail(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { code } = req.body ?? {};
+  if (!code || typeof code !== 'string') return res.status(400).json({ error: 'Verification code is required' });
+
+  const trimmed = code.trim();
+
+  // Guard: already verified?
+  const userRows = await sql`SELECT email_verified FROM users WHERE id = ${userId}`;
+  if (userRows.length === 0) return res.status(404).json({ error: 'User not found' });
+  if (userRows[0].email_verified) return res.status(400).json({ error: 'Email is already verified' });
+
+  // Look up a valid, unused, unexpired token that belongs to this user.
+  const tokenRows = await sql`
+    SELECT token FROM email_verification_tokens
+    WHERE token = ${trimmed} AND user_id = ${userId} AND used = FALSE AND expires_at > NOW()
+  `;
+  if (tokenRows.length === 0) {
+    return res.status(400).json({ error: 'Invalid or expired verification code. Request a new one.' });
+  }
+
+  // Mark the user verified and consume the token in parallel.
+  await Promise.all([
+    sql`UPDATE users SET email_verified = TRUE WHERE id = ${userId}`,
+    sql`UPDATE email_verification_tokens SET used = TRUE WHERE token = ${trimmed}`,
+  ]);
+
+  return res.status(200).json({ success: true });
+}
+
+/**
+ * POST /api/auth/resend-verification
+ * Generates a new verification code and sends it. Rate-limited to once per 60 s.
+ */
+export async function handleResendVerification(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const userRows = await sql`SELECT email, name, email_verified FROM users WHERE id = ${userId}`;
+  if (userRows.length === 0) return res.status(404).json({ error: 'User not found' });
+  if (userRows[0].email_verified) return res.status(400).json({ error: 'Email is already verified' });
+
+  // Rate-limit: refuse if a token was created within the last 60 seconds.
+  const recentRows = await sql`
+    SELECT created_at FROM email_verification_tokens
+    WHERE user_id = ${userId} AND used = FALSE
+      AND created_at > NOW() - INTERVAL '60 seconds'
+  `;
+  if (recentRows.length > 0) {
+    return res.status(429).json({ error: 'Please wait 60 seconds before requesting a new code.' });
+  }
+
+  // Delete all old tokens for this user, then insert a fresh one.
+  await sql`DELETE FROM email_verification_tokens WHERE user_id = ${userId}`;
+  const code = generateVerificationCode();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await sql`INSERT INTO email_verification_tokens (token, user_id, expires_at) VALUES (${code}, ${userId}, ${expiresAt})`;
+
+  try {
+    const resend = getResend();
+    await resend.emails.send({
+      from: APP_FROM_ADDRESS,
+      to: userRows[0].email as string,
+      subject: `Verify your ${APP_NAME} email`,
+      html: buildVerificationEmailHtml(code, userRows[0].name as string),
+      text: buildVerificationEmailText(code),
+    });
+  } catch (emailErr) {
+    console.error('[resend-verification] Failed to send email:', emailErr);
+  }
+
+  return res.status(200).json({ success: true });
 }
 
 /**

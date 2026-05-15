@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { IoCheckboxOutline, IoCheckbox, IoCartOutline, IoCart, IoFitnessOutline, IoFitness, IoSettingsOutline, IoSettings, IoDocumentTextOutline, IoDocumentText, IoRestaurantOutline, IoRestaurant } from './utils/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import TodoPage from './pages/TodoPage';
@@ -22,6 +22,142 @@ import './components/Modal.css';
 import './components/FormControls.css';
 import './components/EmptyState.css';
 import './components/FAB.css';
+
+// ---------------------------------------------------------------------------
+// Verification banner
+// Shown at the top of every page until the user verifies their email.
+// The user can dismiss it for the current session (sessionStorage) — it will
+// reappear on the next login.
+// ---------------------------------------------------------------------------
+
+const VERIFICATION_DISMISSED_KEY = 'verification_banner_dismissed';
+
+function VerificationBanner() {
+  const { user, verifyEmail, resendVerification } = useAuth();
+  const [dismissed, setDismissed] = useState(
+    () => sessionStorage.getItem(VERIFICATION_DISMISSED_KEY) === '1',
+  );
+  const [expanded, setExpanded] = useState(false);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  if (!user || user.emailVerified || dismissed) return null;
+
+  function dismiss() {
+    sessionStorage.setItem(VERIFICATION_DISMISSED_KEY, '1');
+    setDismissed(true);
+  }
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim() || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await verifyEmail(code.trim());
+      // user.emailVerified will flip to true → banner unmounts automatically
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0) return;
+    setError('');
+    try {
+      await resendVerification();
+      setResendCooldown(60);
+      cooldownRef.current = setInterval(() => {
+        setResendCooldown(s => {
+          if (s <= 1) {
+            if (cooldownRef.current) clearInterval(cooldownRef.current);
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend code');
+    }
+  }
+
+  return (
+    <div style={{
+      background: 'var(--color-warning, #d97706)',
+      color: '#fff',
+      padding: '10px 16px',
+      fontSize: 14,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      position: 'sticky',
+      top: 0,
+      zIndex: 200,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>
+          <strong>Verify your email</strong> — we sent a code to&nbsp;
+          <em>{user.email}</em>.
+        </span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}
+            aria-label="Enter verification code"
+          >
+            {expanded ? 'Hide' : 'Enter code'}
+          </button>
+          <button
+            onClick={dismiss}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 2px' }}
+            aria-label="Dismiss verification banner"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <form onSubmit={handleVerify} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+            placeholder="6-digit code"
+            style={{
+              border: 'none', borderRadius: 6, padding: '6px 10px',
+              fontSize: 16, letterSpacing: 4, width: 120, fontFamily: 'monospace',
+              color: '#18181b',
+            }}
+            aria-label="Email verification code"
+          />
+          <button
+            type="submit"
+            disabled={submitting || code.length < 6}
+            style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: '#fff', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontWeight: 600 }}
+          >
+            {submitting ? 'Verifying…' : 'Verify'}
+          </button>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendCooldown > 0}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: resendCooldown > 0 ? 'default' : 'pointer', textDecoration: resendCooldown > 0 ? 'none' : 'underline', padding: 0 }}
+          >
+            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+          </button>
+          {error && <span style={{ color: '#fff', background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '2px 6px', fontSize: 13 }}>{error}</span>}
+        </form>
+      )}
+    </div>
+  );
+}
 
 
 function LoadingScreen() {
@@ -183,6 +319,7 @@ function AppContent() {
 
   return (
     <div className="app-container">
+      <VerificationBanner />
       <main className="main-content">
         <Suspense fallback={<LoadingScreen />}>
           <Routes>

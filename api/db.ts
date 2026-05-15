@@ -20,6 +20,7 @@ export async function initDb() {
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      email_verified BOOLEAN DEFAULT FALSE NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
 
@@ -187,7 +188,22 @@ export async function initDb() {
       used BOOLEAN DEFAULT FALSE
     );
     CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id);
+
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_evt_user ON email_verification_tokens(user_id);
   `;
+
+  // Migration: add email_verified to users for databases created before this column existed.
+  // DEFAULT TRUE so existing accounts are treated as verified — they've already been using
+  // the app and proved email ownership implicitly. Only new signups go through verification.
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT TRUE NOT NULL`;
+
   // NOTE: All column migrations (todos.category, sort_order, assigned_to_user_id, etc.)
   // have already been applied and are baked into the CREATE TABLE definitions above.
   // Removed the DO $$ migration block to save a query on every initDb() call.
