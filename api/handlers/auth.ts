@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { Resend } from 'resend';
 import {
   sql,
   generateAccessToken,
@@ -10,6 +11,17 @@ import {
   REFRESH_COOKIE_NAME,
 } from '../db.js';
 import { validateEmail, validatePassword, validateName } from '../validators.js';
+
+// Lazily initialised so the module still loads if RESEND_API_KEY is absent
+// (dev / CI environments). Always present in production via Vercel env vars.
+function getResend(): Resend {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error('RESEND_API_KEY environment variable is not set');
+  return new Resend(key);
+}
+
+const APP_FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS ?? 'Almost Adult <noreply@almostadult.app>';
+const APP_NAME = 'Almost Adult';
 
 // Default body parts for new users
 const DEFAULT_BODY_PARTS = [
@@ -241,12 +253,13 @@ export async function handleMe(req: VercelRequest, res: VercelResponse, userId: 
 
 /**
  * POST /api/auth/forgot-password
- * Generates a password-reset token. In production, send it via email.
- * For now the token is returned in the response body so the mobile app
- * can deep-link directly (useful during development / TestFlight).
+ * Generates a password-reset token and emails it to the user.
  *
- * IMPORTANT: before shipping to the App Store, replace the inline token
- * response with an email send (e.g., Resend, SendGrid).
+ * Security notes:
+ * - Always returns 200 regardless of whether the email exists (prevents user enumeration).
+ * - Token is a 32-byte cryptographically random hex string, expires in 1 hour.
+ * - Only one active token per user at a time (old tokens are deleted on request).
+ * - Token is NEVER returned in the response body in production.
  */
 export async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -256,8 +269,11 @@ export async function handleForgotPassword(req: VercelRequest, res: VercelRespon
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: emailErr });
 
-  // Look up user — always return the same response to prevent user enumeration.
-  const users = await sql`SELECT id FROM users WHERE email = ${email.trim().toLowerCase()}`;
+  const normalizedEmail = (email as string).trim().toLowerCase();
+
+  // Look up user — return the same success response regardless to prevent
+  // user enumeration. Do the DB + email work only if the user actually exists.
+  const users = await sql`SELECT id FROM users WHERE email = ${normalizedEmail}`;
   if (users.length === 0) {
     return res.status(200).json({ success: true });
   }
@@ -266,16 +282,80 @@ export async function handleForgotPassword(req: VercelRequest, res: VercelRespon
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-  // Invalidate any existing tokens for this user, then insert new one.
+  // Invalidate any existing tokens for this user, then insert the new one.
   await sql`DELETE FROM password_reset_tokens WHERE user_id = ${userId}`;
   await sql`
     INSERT INTO password_reset_tokens (token, user_id, expires_at)
     VALUES (${token}, ${userId}, ${expiresAt})
   `;
 
-  // TODO: send email with reset link in production.
-  // For now, return the token so the app can open the reset screen directly.
-  return res.status(200).json({ success: true, resetToken: token });
+  // Send the reset code via email. Any error here is logged server-side but
+  // we still return 200 to the client — the user can request a new code if
+  // the email doesn't arrive.
+  try {
+    const resend = getResend();
+    await resend.emails.send({
+      from: APP_FROM_ADDRESS,
+      to: normalizedEmail,
+      subject: `Your ${APP_NAME} password reset code`,
+      html: buildResetEmailHtml(token),
+      text: buildResetEmailText(token),
+    });
+  } catch (emailErr) {
+    console.error('[forgot-password] Failed to send reset email:', emailErr);
+  }
+
+  return res.status(200).json({ success: true });
+}
+
+function buildResetEmailText(token: string): string {
+  return [
+    `Your ${APP_NAME} password reset code is:`,
+    '',
+    token,
+    '',
+    'Enter this code in the app to set a new password.',
+    'It expires in 1 hour. If you did not request a reset, ignore this email.',
+  ].join('\n');
+}
+
+function buildResetEmailHtml(token: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reset your ${APP_NAME} password</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#18181b;padding:28px 40px;">
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px;">
+              <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#18181b;">Reset your password</p>
+              <p style="margin:0 0 32px;font-size:15px;color:#71717a;">Enter the code below in the app to set a new password. It expires in <strong>1 hour</strong>.</p>
+              <div style="background:#f4f4f5;border-radius:8px;padding:20px 24px;text-align:center;letter-spacing:3px;font-size:28px;font-weight:700;font-family:monospace;color:#18181b;">${token}</div>
+              <p style="margin:32px 0 0;font-size:13px;color:#a1a1aa;">If you didn't request a password reset, you can safely ignore this email. Your password will not change.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 40px;border-top:1px solid #f4f4f5;">
+              <p style="margin:0;font-size:12px;color:#a1a1aa;">&copy; ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 /**
