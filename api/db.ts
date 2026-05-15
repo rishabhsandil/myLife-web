@@ -179,6 +179,14 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id);
     CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id);
   `;
   // NOTE: All column migrations (todos.category, sort_order, assigned_to_user_id, etc.)
   // have already been applied and are baked into the CREATE TABLE definitions above.

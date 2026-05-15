@@ -6,6 +6,9 @@ import {
   handleRefresh,
   handleLogout,
   handleMe,
+  handleDeleteAccount,
+  handleForgotPassword,
+  handleResetPassword,
 } from './handlers/auth.js';
 import { handleTodos, handleTodoCategories } from './handlers/todos.js';
 import { handleUserSearch, handleConnections } from './handlers/social.js';
@@ -78,6 +81,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (routePath === 'auth/logout') {
       return handleLogout(req, res);
     }
+    if (routePath === 'auth/forgot-password') {
+      return handleForgotPassword(req, res);
+    }
+    if (routePath === 'auth/reset-password') {
+      return handleResetPassword(req, res);
+    }
 
     // ============ AUTH REQUIRED ROUTES ============
     const userId = getUserIdFromRequest(req);
@@ -85,6 +94,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (routePath === 'auth/me') {
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       return handleMe(req, res, userId);
+    }
+    if (routePath === 'auth/account') {
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      return handleDeleteAccount(req, res, userId);
     }
 
     // All other routes require auth

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import {
   sql,
   generateAccessToken,
@@ -236,4 +237,92 @@ export async function handleMe(req: VercelRequest, res: VercelResponse, userId: 
   }
 
   return res.status(200).json({ user: users[0] });
+}
+
+/**
+ * POST /api/auth/forgot-password
+ * Generates a password-reset token. In production, send it via email.
+ * For now the token is returned in the response body so the mobile app
+ * can deep-link directly (useful during development / TestFlight).
+ *
+ * IMPORTANT: before shipping to the App Store, replace the inline token
+ * response with an email send (e.g., Resend, SendGrid).
+ */
+export async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  const { email } = req.body ?? {};
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: emailErr });
+
+  // Look up user — always return the same response to prevent user enumeration.
+  const users = await sql`SELECT id FROM users WHERE email = ${email.trim().toLowerCase()}`;
+  if (users.length === 0) {
+    return res.status(200).json({ success: true });
+  }
+
+  const userId = users[0].id as string;
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  // Invalidate any existing tokens for this user, then insert new one.
+  await sql`DELETE FROM password_reset_tokens WHERE user_id = ${userId}`;
+  await sql`
+    INSERT INTO password_reset_tokens (token, user_id, expires_at)
+    VALUES (${token}, ${userId}, ${expiresAt})
+  `;
+
+  // TODO: send email with reset link in production.
+  // For now, return the token so the app can open the reset screen directly.
+  return res.status(200).json({ success: true, resetToken: token });
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Verifies a reset token and updates the user's password.
+ */
+export async function handleResetPassword(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  const { token, password } = req.body ?? {};
+  if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Invalid token' });
+
+  const pwErr = validatePassword(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
+
+  const rows = await sql`
+    SELECT user_id FROM password_reset_tokens
+    WHERE token = ${token} AND used = FALSE AND expires_at > NOW()
+  `;
+  if (rows.length === 0) {
+    return res.status(400).json({ error: 'Reset link is invalid or has expired.' });
+  }
+
+  const userId = rows[0].user_id as string;
+  const hash = await bcrypt.hash(password, 10);
+
+  await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${userId}`;
+  await sql`UPDATE password_reset_tokens SET used = TRUE WHERE token = ${token}`;
+
+  return res.status(200).json({ success: true });
+}
+
+/**
+ * DELETE /api/auth/account
+ * Deletes the authenticated user's account and all associated data.
+ * Cascades via foreign-key ON DELETE CASCADE on all user-owned tables.
+ */
+export async function handleDeleteAccount(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'DELETE') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Delete the user row — ON DELETE CASCADE handles all child rows.
+  await sql`DELETE FROM users WHERE id = ${userId}`;
+
+  // Clear the refresh-token cookie.
+  res.setHeader('Set-Cookie', buildRefreshCookie('', 0));
+  return res.status(200).json({ success: true });
 }
