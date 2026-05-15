@@ -103,10 +103,14 @@ export async function handleLogin(req: VercelRequest, res: VercelResponse) {
   }
 
   const userId = user.id as string;
-  setRefreshCookie(res, generateRefreshToken(userId));
+  const refreshToken = generateRefreshToken(userId);
+  setRefreshCookie(res, refreshToken);
   return res.status(200).json({
     user: { id: userId, email: user.email, name: user.name },
     accessToken: generateAccessToken(userId),
+    // Also returned in body so native clients can store it in secure storage.
+    // Web clients ignore this field and rely on the httpOnly cookie.
+    refreshToken,
   });
 }
 
@@ -140,21 +144,27 @@ export async function handleSignup(req: VercelRequest, res: VercelResponse) {
   // Seed defaults once on signup so GET handlers don't need to re-seed every call.
   await seedDefaultsForUser(userId);
 
-  setRefreshCookie(res, generateRefreshToken(userId));
+  const refreshToken = generateRefreshToken(userId);
+  setRefreshCookie(res, refreshToken);
   return res.status(201).json({
     user: { id: userId, email: lowered, name: (name as string).trim() },
     accessToken: generateAccessToken(userId),
+    refreshToken,
   });
 }
 
-// Issue a new short-lived access token from a valid refresh cookie.
-// Rotates the refresh cookie on every call to extend the active session
-// without requiring the user to log in again.
+// Issue a new short-lived access token from a valid refresh cookie OR
+// a Bearer token (for native clients that can't use httpOnly cookies).
+// Rotates the refresh token on every call to extend the active session.
 export async function handleRefresh(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const refresh = readRefreshCookie(req);
+  // Native sends: Authorization: Bearer <refreshToken>
+  // Web sends: the httpOnly cookie (credentials: include)
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const refresh = bearerToken ?? readRefreshCookie(req);
   if (!refresh) {
     return res.status(401).json({ error: 'No refresh token' });
   }
@@ -169,14 +179,17 @@ export async function handleRefresh(req: VercelRequest, res: VercelResponse) {
     clearRefreshCookie(res);
     return res.status(401).json({ error: 'User not found' });
   }
-  setRefreshCookie(res, generateRefreshToken(userId));
+  const newRefreshToken = generateRefreshToken(userId);
+  setRefreshCookie(res, newRefreshToken);
   return res.status(200).json({
     user: users[0],
     accessToken: generateAccessToken(userId),
+    // Return rotated token in body so native clients can update secure storage.
+    refreshToken: newRefreshToken,
   });
 }
 
-export async function handleLogout(_req: VercelRequest, res: VercelResponse) {
+export async function handleLogout(req: VercelRequest, res: VercelResponse) {
   clearRefreshCookie(res);
   return res.status(200).json({ success: true });
 }
