@@ -66,6 +66,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ============ INIT ============
     if (routePath === 'init') {
+      // Require a secret key so this endpoint can't be triggered by anyone.
+      const secret = req.headers['x-init-secret'] ?? req.query['secret'];
+      const expected = process.env.INIT_SECRET;
+      if (!expected || secret !== expected) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       await initDb();
       return res.status(200).json({ message: 'Database initialized successfully' });
     }
