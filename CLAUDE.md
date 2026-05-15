@@ -6,7 +6,7 @@ Guidance for AI coding assistants (Claude Code, Copilot, etc.) working in this r
 
 ## 1. Project Snapshot
 
-**Almost Adult** — a mobile-first PWA for personal productivity (todos, shopping, workouts, notes, recipes, period tracking).
+**Almost Adult** — a mobile-first PWA for personal productivity (todos, shopping, workouts, notes, recipes).
 
 | Layer | Stack |
 |-------|-------|

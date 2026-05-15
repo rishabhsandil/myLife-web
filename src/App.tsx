@@ -10,6 +10,7 @@ const NotesPage = lazy(() => import('./pages/NotesPage.tsx'));
 import RecipePage from './pages/RecipePage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { colors } from './utils/theme';
 import { getUserSettings } from './utils/api';
 import { ModuleType } from './types';
@@ -308,6 +309,13 @@ function AppContent() {
     setNeedsPostLoginRedirect(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, settingsLoaded, needsPostLoginRedirect, enabledModules, navigate]);
+
+  const location = useLocation();
+
+  // Public routes — accessible without authentication.
+  if (location.pathname === '/privacy') {
+    return <PrivacyPage />;
+  }
 
   if (authLoading || showSplash || (user && !settingsLoaded) || (user && needsPostLoginRedirect)) {
     return <LoadingScreen />;

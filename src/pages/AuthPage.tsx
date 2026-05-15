@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { PASSWORD_RULES_MESSAGE } from '../utils/constants';
@@ -139,6 +140,9 @@ export default function AuthPage() {
               {isLogin ? 'Sign Up' : 'Sign In'}
             </button>
           </p>
+        </div>
+        <div className="auth-legal">
+          <Link to="/privacy">Privacy Policy</Link>
         </div>
       </div>
     </div>

@@ -34,14 +34,6 @@ Because adulting is hard, but you're getting there! 🎯
 - Easy exercise management with inline editing
 - Empty state with setup guidance
 
-### 🩸 Period Tracker
-- Track menstrual cycles with start/end dates
-- Automatic cycle predictions based on personal history
-- Visual calendar with period days highlighted
-- Customizable settings (cycle length, period length)
-- Smart notifications before predicted periods
-- Detailed cycle history with statistics
-
 ### ⚙️ Configurable Modules
 - Enable/disable modules based on your needs
 - Personalized app experience
@@ -153,7 +145,6 @@ mylife-web/
 │   │   ├── TodoPage.tsx
 │   │   ├── ShoppingPage.tsx
 │   │   ├── WorkoutPage.tsx
-│   │   ├── PeriodPage.tsx
 │   │   └── SettingsPage.tsx
 │   ├── styles/           # Global styles
 │   ├── types/            # TypeScript interfaces
@@ -180,8 +171,6 @@ The app uses PostgreSQL with the following main tables:
 - `shopping_audit` - Change history
 - `exercises` - Workout exercises
 - `body_parts` - Custom workout splits
-- `period_cycles` - Menstrual cycle records
-- `period_settings` - Period tracking preferences
 - `user_settings` - Module configuration
 
 ## 🌐 Deployment

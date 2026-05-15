@@ -127,6 +127,21 @@
   text-decoration: underline;
 }
 
+.auth-legal {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.auth-legal a {
+  color: #6B7C6D;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.auth-legal a:hover {
+  text-decoration: underline;
+}
+
 /* Mobile responsive */
 @media (max-width: 480px) {
   .auth-container {
