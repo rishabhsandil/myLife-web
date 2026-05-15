@@ -9,6 +9,7 @@ import {
   verifyRefreshToken,
   REFRESH_COOKIE_MAX_AGE_SECONDS,
   REFRESH_COOKIE_NAME,
+  checkRateLimit,
 } from '../db.js';
 import { validateEmail, validatePassword, validateName } from '../validators.js';
 
@@ -53,6 +54,21 @@ const DEFAULT_TODO_CATEGORIES = [
   { name: '💼 Work', color: '#F59E0B' },
   { name: '🏠 Home', color: '#8B5CF6' },
 ];
+
+// ── Rate limiting helpers ───────────────────────────────────────────────────
+
+// Prefer x-real-ip (set by Vercel's edge to the actual client IP).
+// Fall back to the last entry in x-forwarded-for, which is least spoofable.
+function getClientIp(req: VercelRequest): string {
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp) return realIp.trim();
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded) {
+    const parts = forwarded.split(',');
+    return parts[parts.length - 1].trim();
+  }
+  return 'unknown';
+}
 
 // In production we serve the API from the same origin as the SPA (Vercel),
 // so SameSite=Lax + Secure is correct. In development the Vite dev server
@@ -99,6 +115,11 @@ export async function handleLogin(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // 10 attempts per 15 minutes per IP
+  if (await checkRateLimit(getClientIp(req), 'login', 10, 15 * 60)) {
+    return res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+  }
+
   const { email, password } = req.body ?? {};
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: emailErr });
@@ -133,6 +154,11 @@ export async function handleLogin(req: VercelRequest, res: VercelResponse) {
 export async function handleSignup(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // 5 signups per hour per IP
+  if (await checkRateLimit(getClientIp(req), 'signup', 5, 60 * 60)) {
+    return res.status(429).json({ error: 'Too many signup attempts. Try again in an hour.' });
   }
 
   const { email, name, password } = req.body ?? {};
@@ -291,6 +317,12 @@ export async function handleForgotPassword(req: VercelRequest, res: VercelRespon
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // 5 requests per hour per IP
+  if (await checkRateLimit(getClientIp(req), 'forgot-password', 5, 60 * 60)) {
+    return res.status(429).json({ error: 'Too many requests. Try again in an hour.' });
+  }
+
   const { email } = req.body ?? {};
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: emailErr });

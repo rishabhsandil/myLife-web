@@ -207,6 +207,18 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_evt_user ON email_verification_tokens(user_id)`;
 
+  // ── Rate limiting ────────────────────────────────────────────────────────
+  // Keyed by (ip, endpoint, window_start). window_start is the Unix epoch
+  // second of the start of the current time bucket. The primary key gives us
+  // an atomic upsert via ON CONFLICT so there are no race conditions.
+  await sql`CREATE TABLE IF NOT EXISTS auth_rate_limits (
+    ip TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    window_start BIGINT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (ip, endpoint, window_start)
+  )`;
+
   // ── Column migrations ────────────────────────────────────────────────────
   // DEFAULT TRUE so existing accounts are treated as already verified.
   // Only new signups go through the verification flow.
@@ -262,6 +274,31 @@ export function generateAccessToken(userId: string): string {
 // Long-lived refresh token (httpOnly cookie).
 export function generateRefreshToken(userId: string): string {
   return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET!, { expiresIn: REFRESH_TOKEN_TTL });
+}
+
+/**
+ * Atomically increments the request count for (ip, endpoint) in the current
+ * time window and returns true if the caller should be rejected (over limit).
+ *
+ * Uses x-real-ip from Vercel's edge, which reflects the actual client IP and
+ * cannot be spoofed by a forged X-Forwarded-For header.
+ */
+export async function checkRateLimit(
+  ip: string,
+  endpoint: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<boolean> {
+  // Floor to the current window boundary.
+  const windowStart = Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds;
+  const result = await sql`
+    INSERT INTO auth_rate_limits (ip, endpoint, window_start, count)
+    VALUES (${ip}, ${endpoint}, ${windowStart}, 1)
+    ON CONFLICT (ip, endpoint, window_start)
+    DO UPDATE SET count = auth_rate_limits.count + 1
+    RETURNING count
+  `;
+  return (result[0].count as number) > limit;
 }
 
 export { sql, JWT_SECRET };
