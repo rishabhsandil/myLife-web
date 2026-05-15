@@ -233,6 +233,7 @@ function TabBar({ enabledModules }: { enabledModules: ModuleType[] }) {
 function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showSplash, setShowSplash] = useState(true);
   const [enabledModules, setEnabledModules] = useState<ModuleType[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -303,14 +304,15 @@ function AppContent() {
 
   // After login + settings loaded, force navigation to the default landing route
   // before rendering routes, so stale URLs (e.g. /settings) don't carry over.
+  // Skip redirect when already on a public route (e.g. /privacy) so an
+  // authenticated page-reload doesn't bounce the user away.
   useEffect(() => {
     if (!user || !settingsLoaded || !needsPostLoginRedirect) return;
-    navigate(getDefaultRoute(), { replace: true });
     setNeedsPostLoginRedirect(false);
+    if (location.pathname === '/privacy') return;
+    navigate(getDefaultRoute(), { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, settingsLoaded, needsPostLoginRedirect, enabledModules, navigate]);
-
-  const location = useLocation();
+  }, [user, settingsLoaded, needsPostLoginRedirect, enabledModules, navigate, location.pathname]);
 
   // Public routes — accessible without authentication.
   if (location.pathname === '/privacy') {
