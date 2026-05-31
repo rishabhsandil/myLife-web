@@ -4,7 +4,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { DragEndEvent } from '@dnd-kit/core';
 import { TodoItem } from '../types';
 import {
-  getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo,
+  getTodos, saveTodo, updateTodo, deleteTodo as apiDeleteTodo, reorderTodoItems,
   getTodoCategories, saveTodoCategory, updateTodoCategory, deleteTodoCategory,
   getConnections, UserConnection,
 } from '../utils/api.ts';
@@ -409,7 +409,7 @@ export default function TodoPage() {
       const previousTodos = todos;
       setTodos(todos.map(t => updatedTasks.find(ut => ut.id === t.id) || t));
       try {
-        for (const task of updatedTasks) await updateTodo(task);
+        await reorderTodoItems(updatedTasks);
       } catch (err) {
         setTodos(previousTodos);
         showError(err, 'Failed to reorder tasks');
@@ -428,7 +428,7 @@ export default function TodoPage() {
       const previousTodos = todos;
       setTodos(todos.map(t => updatedTasks.find(ut => ut.id === t.id) || t));
       try {
-        for (const task of updatedTasks) await updateTodo(task);
+        await reorderTodoItems(updatedTasks);
       } catch (err) {
         setTodos(previousTodos);
         showError(err, 'Failed to reorder tasks');

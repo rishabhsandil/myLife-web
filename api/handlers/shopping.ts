@@ -217,6 +217,25 @@ export async function handleShoppingShare(req: VercelRequest, res: VercelRespons
   }
 }
 
+export async function handleShoppingReorder(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'PUT') return res.status(405).json({ error: 'Method not allowed' });
+  const items = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Body must be a non-empty array of {id, sortOrder}' });
+  }
+  const ids: string[] = items.map((i: { id: string }) => i.id);
+  const orders: number[] = items.map((i: { sortOrder: number }) => Number(i.sortOrder));
+  await sql`
+    UPDATE shopping_items SET sort_order = u.sort_order
+    FROM unnest(${ids}::text[], ${orders}::int[]) AS u(id, sort_order)
+    WHERE shopping_items.id = u.id
+      AND (shopping_items.user_id = ${userId} OR shopping_items.user_id IN (
+        SELECT connected_user_id FROM user_connections WHERE user_id = ${userId}
+      ))
+  `;
+  return res.status(204).end();
+}
+
 export async function handleShoppingAudit(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 

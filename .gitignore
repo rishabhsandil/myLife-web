@@ -38,3 +38,4 @@ coverage
 .claude/settings.local.json
 .claude/.cache/
 .claude/logs/
+.env*.local

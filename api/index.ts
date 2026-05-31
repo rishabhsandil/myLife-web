@@ -12,10 +12,11 @@ import {
   handleVerifyEmail,
   handleResendVerification,
 } from './handlers/auth.js';
-import { handleTodos, handleTodoCategories } from './handlers/todos.js';
+import { handleTodos, handleTodoCategories, handleTodosReorder } from './handlers/todos.js';
 import { handleUserSearch, handleConnections } from './handlers/social.js';
 import {
   handleShopping,
+  handleShoppingReorder,
   handleShoppingStores,
   handleShoppingShare,
   handleShoppingAudit,
@@ -125,6 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (routePath) {
       case 'todos':
         return handleTodos(req, res, userId);
+      case 'todos/reorder':
+        return handleTodosReorder(req, res, userId);
       case 'todo-categories':
         return handleTodoCategories(req, res, userId);
       case 'users/search':
@@ -133,6 +136,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleConnections(req, res, userId);
       case 'shopping':
         return handleShopping(req, res, userId);
+      case 'shopping/reorder':
+        return handleShoppingReorder(req, res, userId);
       case 'shopping-stores':
         return handleShoppingStores(req, res, userId);
       case 'shopping-share':

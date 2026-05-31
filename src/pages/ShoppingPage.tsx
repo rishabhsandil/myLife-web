@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/sortable';
 import { ShoppingItem, ShoppingStore, ShoppingShareStatus, ShoppingAuditEntry } from '../types';
 import {
-  getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems,
+  getShoppingItems, saveShoppingItem, updateShoppingItem, deleteShoppingItem, clearCompletedItems, reorderShoppingItems,
   getShoppingStores, saveShoppingStore, updateShoppingStore, deleteShoppingStore as apiDeleteStore,
   getShoppingShareStatus, shareShoppingList, unshareShoppingList, getShoppingAudit,
 } from '../utils/api';
@@ -248,9 +248,7 @@ export default function ShoppingPage() {
       setItems(items.map(i => updatedItems.find(ui => ui.id === i.id) || i));
 
       try {
-        for (const item of updatedItems) {
-          await updateShoppingItem(item);
-        }
+        await reorderShoppingItems(updatedItems);
       } catch (err) {
         setItems(previousItems);
         showError(err, 'Failed to reorder items');

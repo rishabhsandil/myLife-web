@@ -138,12 +138,22 @@ export const updateTodo = todosApi.update;
 export const deleteTodo = todosApi.delete;
 export const saveTodos = todosApi.saveToLocalStorage;
 
+export async function reorderTodoItems(items: TodoItem[]): Promise<void> {
+  const body = items.map(item => ({ id: item.id, sortOrder: item.sortOrder }));
+  await api('todos/reorder', { method: 'PUT', body: JSON.stringify(body) });
+}
+
 // ============ SHOPPING ============
 export const getShoppingItems = shoppingApi.getAll;
 export const saveShoppingItem = shoppingApi.create;
 export const updateShoppingItem = shoppingApi.update;
 export const deleteShoppingItem = shoppingApi.delete;
 export const saveShoppingItems = shoppingApi.saveToLocalStorage;
+
+export async function reorderShoppingItems(items: ShoppingItem[]): Promise<void> {
+  const body = items.map(item => ({ id: item.id, sortOrder: item.sortOrder }));
+  await api('shopping/reorder', { method: 'PUT', body: JSON.stringify(body) });
+}
 
 // ============ SHOPPING STORES ============
 export const getShoppingStores = shoppingStoresApi.getAll;

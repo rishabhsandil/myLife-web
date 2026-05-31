@@ -55,6 +55,22 @@ export async function handleTodos(req: VercelRequest, res: VercelResponse, userI
   }
 }
 
+export async function handleTodosReorder(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'PUT') return res.status(405).json({ error: 'Method not allowed' });
+  const items = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Body must be a non-empty array of {id, sortOrder}' });
+  }
+  const ids: string[] = items.map((i: { id: string }) => i.id);
+  const orders: number[] = items.map((i: { sortOrder: number }) => Number(i.sortOrder));
+  await sql`
+    UPDATE todos SET sort_order = u.sort_order
+    FROM unnest(${ids}::text[], ${orders}::int[]) AS u(id, sort_order)
+    WHERE todos.id = u.id AND todos.user_id = ${userId}
+  `;
+  return res.status(204).end();
+}
+
 export async function handleTodoCategories(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
