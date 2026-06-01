@@ -76,6 +76,9 @@ async function api<T>(endpoint: string, options?: ApiOptions): Promise<T> {
     const errorMsg = errorData.error || errorData.details || `API error: ${res.status}`;
     throw new Error(errorMsg);
   }
+  // 204 No Content (e.g. reorder endpoints) has an empty body — calling
+  // res.json() on it throws "Unexpected end of JSON input".
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
