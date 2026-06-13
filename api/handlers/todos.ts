@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '../db.js';
-import { sendPushToUsers } from '../push.js';
+import { sql, sendPushToUsers } from '../db.js';
 
 /** Notify a user that `actorId` assigned them a task. No-op for self-assign. */
 async function notifyAssignment(actorId: string, assigneeId: string, title: string, todoId: string) {

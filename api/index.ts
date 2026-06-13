@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUserIdFromRequest, initDb } from './db.js';
+import { getUserIdFromRequest, initDb, savePushToken, removePushToken } from './db.js';
 import {
   handleLogin,
   handleSignup,
@@ -30,7 +30,6 @@ import {
   handleSharedRecipes,
   handleRecipeExtract,
 } from './handlers/recipes.js';
-import { handlePushToken } from './handlers/push.js';
 
 // Allowed origins for CORS (configure via environment variable)
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
@@ -163,8 +162,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleSharedRecipes(req, res, userId);
       case 'recipes/extract':
         return handleRecipeExtract(req, res, userId);
-      case 'push/token':
-        return handlePushToken(req, res, userId);
+      case 'push/token': {
+        // Inlined (no dedicated handler file) to stay under the Hobby
+        // 12-serverless-function cap. Registers/unregisters this device's token.
+        if (req.method === 'POST') {
+          const { token, platform } = req.body ?? {};
+          if (typeof token !== 'string' || !token.startsWith('ExponentPushToken')) {
+            return res.status(400).json({ error: 'Valid Expo push token required' });
+          }
+          await savePushToken(userId, token, typeof platform === 'string' ? platform : null);
+          return res.status(200).json({ success: true });
+        }
+        if (req.method === 'DELETE') {
+          const { token } = req.query;
+          if (!token || typeof token !== 'string') {
+            return res.status(400).json({ error: 'token query parameter required' });
+          }
+          await removePushToken(token);
+          return res.status(200).json({ success: true });
+        }
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
       default:
         return res.status(404).json({ error: 'Not found' });
     }

@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
-import { sql } from '../db.js';
-import { sendPushToUsers } from '../push.js';
+import { sql, sendPushToUsers } from '../db.js';
 
 export async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {

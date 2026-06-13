@@ -253,7 +253,7 @@ export async function handleRefresh(req: VercelRequest, res: VercelResponse) {
   });
 }
 
-export async function handleLogout(req: VercelRequest, res: VercelResponse) {
+export async function handleLogout(_req: VercelRequest, res: VercelResponse) {
   clearRefreshCookie(res);
   return res.status(200).json({ success: true });
 }

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '../db.js';
-import { notifyConnectionChange } from '../push.js';
+import { sql, notifyConnectionChange } from '../db.js';
 
 export async function handleUserSearch(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') {

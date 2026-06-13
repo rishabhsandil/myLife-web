@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '../db.js';
-import { sendPushToUsers, getConnectedUserIds, notifyConnectionChange } from '../push.js';
+import { sql, sendPushToUsers, getConnectedUserIds, notifyConnectionChange } from '../db.js';
 
 /**
  * Notify everyone connected to the actor that the shared list changed.
