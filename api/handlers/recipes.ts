@@ -5,6 +5,36 @@ import { sql } from '../db.js';
 export async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
+      const skipRaw = req.query.skip;
+      const takeRaw = req.query.take;
+      const paginated = skipRaw !== undefined || takeRaw !== undefined;
+      const skip = Math.max(0, parseInt(skipRaw as string) || 0);
+      const take = Math.min(100, Math.max(1, parseInt(takeRaw as string) || 50));
+
+      const transform = (r: Record<string, unknown>) => ({
+        ...r,
+        ingredients: typeof r.ingredients === 'string' ? JSON.parse(r.ingredients as string) : (r.ingredients || []),
+        instructions: typeof r.instructions === 'string' ? JSON.parse(r.instructions as string) : (r.instructions || []),
+      });
+
+      if (paginated) {
+        const [rows, countRows] = await Promise.all([
+          sql`
+            SELECT id, title, description,
+              ingredients, instructions,
+              prep_time as "prepTime", cook_time as "cookTime", servings, tags,
+              source_url as "sourceUrl", source_platform as "sourcePlatform",
+              thumbnail, channel_name as "channelName",
+              is_favorite as "isFavorite", sort_order as "sortOrder",
+              created_at as "createdAt", updated_at as "updatedAt"
+            FROM recipes WHERE user_id = ${userId} AND shared_with_id IS NULL
+            ORDER BY updated_at DESC LIMIT ${take} OFFSET ${skip}
+          `,
+          sql`SELECT COUNT(*)::int AS total FROM recipes WHERE user_id = ${userId} AND shared_with_id IS NULL`,
+        ]);
+        return res.status(200).json({ items: rows.map(transform), total: (countRows[0] as { total: number }).total });
+      }
+
       const rows = await sql`
         SELECT id, title, description,
           ingredients, instructions,
@@ -15,11 +45,7 @@ export async function handleRecipes(req: VercelRequest, res: VercelResponse, use
           created_at as "createdAt", updated_at as "updatedAt"
         FROM recipes WHERE user_id = ${userId} AND shared_with_id IS NULL ORDER BY updated_at DESC
       `;
-      return res.status(200).json(rows.map((r: Record<string, unknown>) => ({
-        ...r,
-        ingredients: typeof r.ingredients === 'string' ? JSON.parse(r.ingredients as string) : (r.ingredients || []),
-        instructions: typeof r.instructions === 'string' ? JSON.parse(r.instructions as string) : (r.instructions || []),
-      })));
+      return res.status(200).json(rows.map(transform));
     }
     case 'POST': {
       const { id, title, description, ingredients, instructions, prepTime, cookTime, servings, tags, sourceUrl, sourcePlatform, thumbnail, channelName, isFavorite, sortOrder, createdAt, updatedAt } = req.body;
