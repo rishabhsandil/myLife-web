@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import { sql } from '../db.js';
+import { sendPushToUsers } from '../push.js';
 
 export async function handleRecipes(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
@@ -171,6 +172,12 @@ export async function handleRecipeShare(req: VercelRequest, res: VercelResponse,
       ${now}, ${now}
     )
   `;
+
+  await sendPushToUsers([targetUser.id as string], {
+    title: 'Recipe shared with you',
+    body: `${senderName} shared "${recipe.title as string}"`,
+    data: { type: 'recipe-shared' },
+  });
 
   return res.status(201).json({
     success: true,

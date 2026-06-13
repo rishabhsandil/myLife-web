@@ -175,6 +175,16 @@ export async function initDb() {
     updated_at TIMESTAMP DEFAULT NOW()
   )`;
 
+  // ── Push notifications ─────────────────────────────────────────────────────
+  // One row per device token. Keyed by token so a device that re-logs-in as a
+  // different user re-points its token via the upsert in savePushToken.
+  await sql`CREATE TABLE IF NOT EXISTS push_tokens (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    platform TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
+
   // ── Auth tokens ──────────────────────────────────────────────────────────
   await sql`CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token TEXT PRIMARY KEY,
@@ -204,6 +214,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_shopping_audit_user ON shopping_audit(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_evt_user ON email_verification_tokens(user_id)`;
 

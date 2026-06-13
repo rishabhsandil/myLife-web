@@ -1,5 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '../db.js';
+import { sendPushToUsers, getConnectedUserIds, notifyConnectionChange } from '../push.js';
+
+/**
+ * Notify everyone connected to the actor that the shared list changed.
+ * Fired on structural changes (add / delete / clear) — not on per-item
+ * complete/uncomplete toggles, which would be far too noisy.
+ */
+async function notifyShoppingChange(actorId: string, body: string) {
+  const connectionIds = await getConnectedUserIds(actorId);
+  if (connectionIds.length === 0) return;
+  await sendPushToUsers(connectionIds, {
+    title: 'Shopping list updated',
+    body,
+    data: { type: 'shopping-changed' },
+  });
+}
+
+/** Resolve the actor's display name for notification bodies. */
+async function actorName(userId: string): Promise<string> {
+  const [actor] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+  return (actor?.name as string) ?? 'Someone';
+}
 
 export async function handleShopping(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
@@ -31,6 +53,7 @@ export async function handleShopping(req: VercelRequest, res: VercelResponse, us
         INSERT INTO shopping_audit (id, user_id, action, item_name, details)
         VALUES (${Date.now().toString()}, ${userId}, 'added', ${name}, ${`Qty: ${quantity || 1}`})
       `;
+      await notifyShoppingChange(userId, `${await actorName(userId)} added "${name}"`);
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
@@ -99,6 +122,7 @@ export async function handleShopping(req: VercelRequest, res: VercelResponse, us
             INSERT INTO shopping_audit (id, user_id, action, item_name, details)
             VALUES (${Date.now().toString()}, ${userId}, 'cleared', ${`${itemsToDelete.length} items`}, 'Cleared completed items')
           `;
+          await notifyShoppingChange(userId, `${await actorName(userId)} cleared ${itemsToDelete.length} completed item${itemsToDelete.length === 1 ? '' : 's'}`);
         }
       } else if (id) {
         const [item] = await sql`SELECT name FROM shopping_items WHERE id = ${id as string}`;
@@ -113,6 +137,7 @@ export async function handleShopping(req: VercelRequest, res: VercelResponse, us
             INSERT INTO shopping_audit (id, user_id, action, item_name, details)
             VALUES (${Date.now().toString()}, ${userId}, 'deleted', ${item.name}, NULL)
           `;
+          await notifyShoppingChange(userId, `${await actorName(userId)} removed "${item.name as string}"`);
         }
       }
       return res.status(200).json({ success: true });
@@ -202,6 +227,7 @@ export async function handleShoppingShare(req: VercelRequest, res: VercelRespons
         INSERT INTO user_connections (id, user_id, connected_user_id)
         VALUES (${`conn_${Date.now()}_2`}, ${targetUser.id}, ${userId})
       `;
+      await notifyConnectionChange(userId, targetUser.id as string, true);
       return res.status(201).json({ success: true, sharedWith: { id: targetUser.id, email: targetUser.email, name: targetUser.name } });
     }
     case 'DELETE': {
@@ -210,6 +236,7 @@ export async function handleShoppingShare(req: VercelRequest, res: VercelRespons
       // Remove both directions of the connection
       await sql`DELETE FROM user_connections WHERE user_id = ${userId} AND connected_user_id = ${targetUserId as string}`;
       await sql`DELETE FROM user_connections WHERE user_id = ${targetUserId as string} AND connected_user_id = ${userId}`;
+      await notifyConnectionChange(userId, targetUserId as string, false);
       return res.status(200).json({ success: true });
     }
     default:

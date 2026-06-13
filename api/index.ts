@@ -30,6 +30,7 @@ import {
   handleSharedRecipes,
   handleRecipeExtract,
 } from './handlers/recipes.js';
+import { handlePushToken } from './handlers/push.js';
 
 // Allowed origins for CORS (configure via environment variable)
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
@@ -162,6 +163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleSharedRecipes(req, res, userId);
       case 'recipes/extract':
         return handleRecipeExtract(req, res, userId);
+      case 'push/token':
+        return handlePushToken(req, res, userId);
       default:
         return res.status(404).json({ error: 'Not found' });
     }

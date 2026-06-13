@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '../db.js';
+import { notifyConnectionChange } from '../push.js';
 
 export async function handleUserSearch(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') {
@@ -91,8 +92,9 @@ export async function handleConnections(req: VercelRequest, res: VercelResponse,
         VALUES (${`conn_${Date.now()}_2`}, ${targetUser.id}, ${userId})
       `;
 
-      return res.status(201).json({ 
-        success: true, 
+      await notifyConnectionChange(userId, targetUser.id as string, true);
+      return res.status(201).json({
+        success: true,
         user: { id: targetUser.id, name: targetUser.name, email: targetUser.email }
       });
     }
@@ -104,11 +106,12 @@ export async function handleConnections(req: VercelRequest, res: VercelResponse,
 
       // Delete both directions
       await sql`
-        DELETE FROM user_connections 
+        DELETE FROM user_connections
         WHERE (user_id = ${userId} AND connected_user_id = ${id})
            OR (user_id = ${id} AND connected_user_id = ${userId})
       `;
 
+      await notifyConnectionChange(userId, id, false);
       return res.status(200).json({ success: true });
     }
     default:

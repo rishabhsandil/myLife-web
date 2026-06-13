@@ -1,5 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '../db.js';
+import { sendPushToUsers } from '../push.js';
+
+/** Notify a user that `actorId` assigned them a task. No-op for self-assign. */
+async function notifyAssignment(actorId: string, assigneeId: string, title: string, todoId: string) {
+  if (!assigneeId || assigneeId === actorId) return;
+  const [actor] = await sql`SELECT name FROM users WHERE id = ${actorId}`;
+  await sendPushToUsers([assigneeId], {
+    title: 'New task assigned',
+    body: `${actor?.name ?? 'Someone'} assigned you "${title}"`,
+    data: { type: 'task-assigned', todoId },
+  });
+}
 
 export async function handleTodos(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
@@ -26,13 +38,19 @@ export async function handleTodos(req: VercelRequest, res: VercelResponse, userI
         INSERT INTO todos (id, user_id, title, completed, date, time, priority, recurrence, completed_dates, excluded_dates, category, original_date, overdue, sort_order, assigned_to_user_id, backlog_month, recurrence_days)
         VALUES (${id}, ${userId}, ${title}, ${completed || false}, ${date}, ${time || null}, ${priority || 'medium'}, ${recurrence || 'none'}, ${completedDates || []}, ${excludedDates || []}, ${category || null}, ${originalDate || null}, ${overdue || false}, ${sortOrder !== undefined ? sortOrder : null}, ${assignedToUserId || null}, ${backlogMonth || null}, ${recurrenceDays || null})
       `;
-      
+
+      if (assignedToUserId) await notifyAssignment(userId, assignedToUserId, title, id);
       return res.status(201).json({ success: true });
     }
     case 'PUT': {
       const { id, title, completed, date, time, priority, recurrence, completedDates, excludedDates, category, originalDate, overdue, sortOrder, assignedToUserId, backlogMonth, recurrenceDays } = req.body;
+      // Read the prior assignee so we only notify when it actually changes.
+      const [prevAssign] = await sql`
+        SELECT assigned_to_user_id as "assignedToUserId" FROM todos
+        WHERE id = ${id} AND (user_id = ${userId} OR assigned_to_user_id = ${userId})
+      `;
       await sql`
-        UPDATE todos SET title = ${title}, completed = ${completed}, 
+        UPDATE todos SET title = ${title}, completed = ${completed},
           date = ${date}, time = ${time || null}, priority = ${priority}, recurrence = ${recurrence},
           completed_dates = ${completedDates || []}, excluded_dates = ${excludedDates || []}, category = ${category || null},
           original_date = ${originalDate || null}, overdue = ${overdue || false}, sort_order = ${sortOrder !== undefined ? sortOrder : null},
@@ -41,6 +59,9 @@ export async function handleTodos(req: VercelRequest, res: VercelResponse, userI
           recurrence_days = ${recurrenceDays || null}
         WHERE id = ${id} AND (user_id = ${userId} OR assigned_to_user_id = ${userId})
       `;
+      if (assignedToUserId && assignedToUserId !== prevAssign?.assignedToUserId) {
+        await notifyAssignment(userId, assignedToUserId, title, id);
+      }
       return res.status(200).json({ success: true });
     }
     case 'DELETE': {
